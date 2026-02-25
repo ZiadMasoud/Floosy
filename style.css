@@ -549,7 +549,8 @@ tr:last-child td { border-bottom: none; }
     }
 
     .btn-primary, .btn-secondary, .btn-outline {
-        width: 60%;
+        width: 100%;
+        margin: 0.2rem ;
     }
 
     .form-row .btn {
@@ -565,3 +566,7 @@ tr:last-child td { border-bottom: none; }
         width: 100%;
     }
 }
+
+/* .ss5 {
+    width: 0%;
+} */
