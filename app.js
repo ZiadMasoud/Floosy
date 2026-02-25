@@ -3,8 +3,10 @@ let currentTab = 'dashboard';
 let categoryChart = null;
 let trendChart = null;
 let monthlyTrendChart = null;
+let personChart = null;
 let records = [];
 let categories = [];
+let people = [];
 
 // DOM Elements
 const navLinks = document.querySelectorAll('.nav-links li');
@@ -15,14 +17,34 @@ const recordForm = document.getElementById('record-form');
 const cancelModalBtn = document.getElementById('cancel-modal');
 const addRecordBtn = document.getElementById('add-record-btn');
 const recordCategorySelect = document.getElementById('record-category');
+const recordPersonSelect = document.getElementById('record-person');
 const categoryList = document.getElementById('category-list');
+const personList = document.getElementById('person-list');
 const newCategoryBtn = document.getElementById('add-category-btn');
+const newPersonBtn = document.getElementById('add-person-btn');
 const exportBtn = document.getElementById('export-btn');
 const importFile = document.getElementById('import-file');
 const resetBtn = document.getElementById('reset-btn');
 const viewAllRecordsBtn = document.getElementById('view-all-records');
 const recordTypeSelect = document.getElementById('record-type');
 const itemFieldContainer = document.getElementById('item-field-container');
+
+// Record Details Modal Elements
+const recordDetailsModal = document.getElementById('record-details-modal');
+const recordDetailsContent = document.getElementById('record-details-content');
+const closeDetailsModalBtn = document.getElementById('close-details-modal');
+const editDetailsBtn = document.getElementById('edit-details-btn');
+let currentDetailRecordId = null;
+
+// Show More Buttons
+const showMoreCategoriesBtn = document.getElementById('show-more-categories');
+const showMorePeopleBtn = document.getElementById('show-more-people');
+
+// Pagination State
+let categoriesVisible = 5;
+let peopleVisible = 5;
+let categoriesExpanded = false;
+let peopleExpanded = false;
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
@@ -64,6 +86,19 @@ function initEventListeners() {
     // Categories
     newCategoryBtn.addEventListener('click', handleAddCategory);
 
+    // People
+    if (newPersonBtn) {
+        newPersonBtn.addEventListener('click', handleAddPerson);
+    }
+
+    // Show More Buttons
+    if (showMoreCategoriesBtn) {
+        showMoreCategoriesBtn.addEventListener('click', toggleCategoriesVisibility);
+    }
+    if (showMorePeopleBtn) {
+        showMorePeopleBtn.addEventListener('click', togglePeopleVisibility);
+    }
+
     // Data Management
     exportBtn.addEventListener('click', handleExport);
     importFile.addEventListener('change', handleImport);
@@ -78,7 +113,21 @@ function initEventListeners() {
     // Close modal on click outside
     window.addEventListener('click', (e) => {
         if (e.target === recordModal) closeModal();
+        if (e.target === recordDetailsModal) closeDetailsModal();
     });
+
+    // Record Details Modal
+    if (closeDetailsModalBtn) {
+        closeDetailsModalBtn.addEventListener('click', closeDetailsModal);
+    }
+    if (editDetailsBtn) {
+        editDetailsBtn.addEventListener('click', () => {
+            if (currentDetailRecordId) {
+                closeDetailsModal();
+                editRecord(currentDetailRecordId);
+            }
+        });
+    }
 }
 
 function toggleItemField() {
@@ -91,10 +140,16 @@ function toggleItemField() {
     }
 }
 
+function formatCurrency(amount) {
+    return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 async function refreshData() {
     records = await getAll(STORE_RECORDS);
     categories = await getAll(STORE_CATEGORIES);
+    people = await getAll(STORE_PEOPLE);
     updateCategoryDropdowns();
+    updatePersonDropdown();
     renderAll();
 }
 
@@ -142,9 +197,9 @@ function renderDashboard() {
     const spendingEl = document.getElementById('total-spending');
     const balanceEl = document.getElementById('total-balance');
 
-    if (incomeEl) incomeEl.textContent = `$${income.toFixed(2)}`;
-    if (spendingEl) spendingEl.textContent = `$${spending.toFixed(2)}`;
-    if (balanceEl) balanceEl.textContent = `$${balance.toFixed(2)}`;
+    if (incomeEl) incomeEl.textContent = `$${formatCurrency(income)}`;
+    if (spendingEl) spendingEl.textContent = `$${formatCurrency(spending)}`;
+    if (balanceEl) balanceEl.textContent = `$${formatCurrency(balance)}`;
 
     renderRecentRecords(monthlyRecords);
     renderCharts(monthlyRecords);
@@ -155,10 +210,10 @@ function renderRecentRecords(monthlyRecords) {
     if (!tbody) return;
     tbody.innerHTML = '';
     
-    const sorted = [...monthlyRecords].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+    const sorted = [...monthlyRecords].sort((a, b) => b.id - a.id).slice(0, 5);
     
     if (sorted.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 2rem; color: var(--text-muted);">No records for this month</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">No records for this month</td></tr>';
         return;
     }
 
@@ -168,10 +223,17 @@ function renderRecentRecords(monthlyRecords) {
             <td>${r.date}</td>
             <td>${r.type === 'income' ? r.category : r.item}</td>
             <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
+            <td>${r.person || '-'}</td>
             <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
-                ${r.type === 'income' ? '+' : '-'}$${parseFloat(r.amount).toFixed(2)}
+                ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
+            </td>
+            <td>
+                <div class="action-btns">
+                    <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
+                </div>
             </td>
         `;
+        tr.addEventListener('click', () => openDetailsModal(r));
         tbody.appendChild(tr);
     });
 }
@@ -207,7 +269,15 @@ function renderCharts(monthlyRecords) {
                     responsive: true, 
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { 
+                                usePointStyle: true, 
+                                padding: 20,
+                                boxWidth: 10,
+                                font: { size: 11 }
+                            } 
+                        }
                     }
                 }
             });
@@ -269,28 +339,30 @@ function renderRecords() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 3rem; color: var(--text-muted);">No transactions found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 3rem; color: var(--text-muted);">No transactions found</td></tr>';
         return;
     }
 
-    filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(r => {
+    filtered.sort((a, b) => b.id - a.id).forEach(r => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${r.date}</td>
             <td>${r.type === 'income' ? r.category : r.item}</td>
             <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
+            <td>${r.person || '-'}</td>
             <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
-                ${r.type === 'income' ? '+' : '-'}$${parseFloat(r.amount).toFixed(2)}
+                ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
             </td>
             <td>${r.quantity || '-'}</td>
             <td><div class="notes-cell">${r.notes || '-'}</div></td>
             <td>
                 <div class="action-btns">
-                    <button class="btn-icon edit-btn" onclick="editRecord(${r.id})"><i class="fas fa-edit"></i></button>
-                    <button class="btn-icon delete-btn" onclick="deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
+                    <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
                 </div>
             </td>
         `;
+        tr.addEventListener('click', () => openDetailsModal(r));
         tbody.appendChild(tr);
     });
 }
@@ -342,10 +414,10 @@ function renderAnalytics() {
         
         tr.innerHTML = `
             <td style="font-weight: 600;">${monthName}</td>
-            <td class="amount-income">$${stats.income.toFixed(2)}</td>
-            <td class="amount-spending">$${stats.spending.toFixed(2)}</td>
+            <td class="amount-income">$${formatCurrency(stats.income)}</td>
+            <td class="amount-spending">$${formatCurrency(stats.spending)}</td>
             <td style="font-weight: 700; color: ${savings >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                $${savings.toFixed(2)}
+                $${formatCurrency(savings)}
             </td>
             <td><span class="category-badge badge-spending">${topCategory}</span></td>
         `;
@@ -353,6 +425,7 @@ function renderAnalytics() {
     });
 
     renderMonthlyTrendChart(monthlyStats);
+    renderPersonChart();
 }
 
 function renderMonthlyTrendChart(monthlyStats) {
@@ -406,6 +479,63 @@ function renderMonthlyTrendChart(monthlyStats) {
     });
 }
 
+function renderPersonChart() {
+    const canvas = document.getElementById('personChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (personChart) personChart.destroy();
+
+    // Calculate spending by person
+    const spendingByPerson = {};
+    const spendingRecords = records.filter(r => r.type === 'spending' && r.person);
+
+    spendingRecords.forEach(r => {
+        spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
+    });
+
+    const labels = Object.keys(spendingByPerson);
+    const data = Object.values(spendingByPerson);
+
+    if (labels.length === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No spending data by person available', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+
+    personChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Spending',
+                data: data,
+                backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'],
+                borderRadius: 8,
+                barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { borderDash: [5, 5] }
+                },
+                x: {
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
 // Modal Management
 function openModal(record = null) {
     const modalTitle = document.getElementById('modal-title');
@@ -453,6 +583,7 @@ async function handleRecordSubmit(e) {
         date: document.getElementById('record-date').value,
         item: type === 'income' ? '' : document.getElementById('record-item').value,
         category: document.getElementById('record-category').value,
+        person: document.getElementById('record-person').value || '',
         amount: parseFloat(document.getElementById('record-amount').value),
         quantity: document.getElementById('record-quantity').value,
         notes: document.getElementById('record-notes').value
@@ -481,30 +612,133 @@ async function deleteRecord(id) {
     }
 }
 
+// Record Details Modal Functions
+function openDetailsModal(record) {
+    if (!recordDetailsModal || !recordDetailsContent) return;
+    
+    currentDetailRecordId = record.id;
+    
+    const itemLabel = record.type === 'income' ? 'Source' : 'Item';
+    const itemValue = record.type === 'income' ? record.category : (record.item || '-');
+    
+    recordDetailsContent.innerHTML = `
+        <div class="detail-row">
+            <span class="detail-label">Type</span>
+            <span class="detail-value ${record.type}">${record.type === 'income' ? 'Income' : 'Spending'}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Date</span>
+            <span class="detail-value">${record.date}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">${itemLabel}</span>
+            <span class="detail-value">${itemValue}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Category</span>
+            <span class="detail-value">${record.category}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}</span>
+        </div>
+        ${record.person ? `
+        <div class="detail-row">
+            <span class="detail-label">Person</span>
+            <span class="detail-value">${record.person}</span>
+        </div>
+        ` : ''}
+        ${record.quantity ? `
+        <div class="detail-row">
+            <span class="detail-label">Quantity</span>
+            <span class="detail-value">${record.quantity}</span>
+        </div>
+        ` : ''}
+        ${record.notes ? `
+        <div class="detail-row">
+            <span class="detail-label">Notes</span>
+            <span class="detail-value notes">${record.notes}</span>
+        </div>
+        ` : ''}
+    `;
+    
+    recordDetailsModal.classList.add('active');
+}
+
+function closeDetailsModal() {
+    if (recordDetailsModal) {
+        recordDetailsModal.classList.remove('active');
+        currentDetailRecordId = null;
+    }
+}
+
 // Settings Functions
 function renderSettings() {
     if (!categoryList) return;
     categoryList.innerHTML = '';
-    
+
     if (categories.length === 0) {
         categoryList.innerHTML = '<p style="text-align:center; padding: 1rem; color: var(--text-muted);">No categories defined</p>';
-        return;
+    } else {
+        const visibleCategories = categoriesExpanded ? categories : categories.slice(0, categoriesVisible);
+        visibleCategories.forEach(cat => {
+            const div = document.createElement('div');
+            div.className = 'category-item';
+            div.innerHTML = `
+                <div>
+                    <strong>${cat.name}</strong>
+                    <span class="category-badge badge-${cat.type}">${cat.type}</span>
+                </div>
+                <div>
+                    <button class="btn-icon delete-btn" onclick="deleteCategory(${cat.id})"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+            categoryList.appendChild(div);
+        });
     }
 
-    categories.forEach(cat => {
-        const div = document.createElement('div');
-        div.className = 'category-item';
-        div.innerHTML = `
-            <div>
-                <strong>${cat.name}</strong>
-                <span class="category-badge badge-${cat.type}">${cat.type}</span>
-            </div>
-            <div>
-                <button class="btn-icon delete-btn" onclick="deleteCategory(${cat.id})"><i class="fas fa-trash"></i></button>
-            </div>
-        `;
-        categoryList.appendChild(div);
-    });
+    // Update Show More button for categories
+    if (showMoreCategoriesBtn) {
+        if (categories.length > 5) {
+            showMoreCategoriesBtn.style.display = 'block';
+            showMoreCategoriesBtn.textContent = categoriesExpanded ? 'Show Less' : 'Show More';
+        } else {
+            showMoreCategoriesBtn.style.display = 'none';
+        }
+    }
+
+    // Render People List
+    if (personList) {
+        personList.innerHTML = '';
+        if (people.length === 0) {
+            personList.innerHTML = '<p style="text-align:center; padding: 1rem; color: var(--text-muted);">No people defined</p>';
+        } else {
+            const visiblePeople = peopleExpanded ? people : people.slice(0, peopleVisible);
+            visiblePeople.forEach(person => {
+                const div = document.createElement('div');
+                div.className = 'category-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${person.name}</strong>
+                    </div>
+                    <div>
+                        <button class="btn-icon delete-btn" onclick="deletePerson(${person.id})"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+                personList.appendChild(div);
+            });
+        }
+
+        // Update Show More button for people
+        if (showMorePeopleBtn) {
+            if (people.length > 5) {
+                showMorePeopleBtn.style.display = 'block';
+                showMorePeopleBtn.textContent = peopleExpanded ? 'Show Less' : 'Show More';
+            } else {
+                showMorePeopleBtn.style.display = 'none';
+            }
+        }
+    }
 }
 
 async function handleAddCategory() {
@@ -534,11 +768,52 @@ function updateCategoryDropdowns() {
     recordCategorySelect.innerHTML = filtered.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
 }
 
+function updatePersonDropdown() {
+    if (!recordPersonSelect) return;
+    const selectedValue = recordPersonSelect.value;
+    recordPersonSelect.innerHTML = '<option value="">Select Person (Optional)</option>' +
+        people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    recordPersonSelect.value = selectedValue;
+}
+
+// Show More Toggle Functions
+function toggleCategoriesVisibility() {
+    categoriesExpanded = !categoriesExpanded;
+    categoriesVisible = categoriesExpanded ? categories.length : 5;
+    renderSettings();
+}
+
+function togglePeopleVisibility() {
+    peopleExpanded = !peopleExpanded;
+    peopleVisible = peopleExpanded ? people.length : 5;
+    renderSettings();
+}
+
+// People Management Functions
+async function handleAddPerson() {
+    const nameInput = document.getElementById('new-person-name');
+    const name = nameInput.value.trim();
+
+    if (name) {
+        await add(STORE_PEOPLE, { name });
+        nameInput.value = '';
+        await refreshData();
+    }
+}
+
+async function deletePerson(id) {
+    if (confirm('Delete this person? Records with this person will remain but the person option will be removed.')) {
+        await remove(STORE_PEOPLE, id);
+        await refreshData();
+    }
+}
+
 // Data Operations
 async function handleExport() {
     const data = {
         records: await getAll(STORE_RECORDS),
         categories: await getAll(STORE_CATEGORIES),
+        people: await getAll(STORE_PEOPLE),
         exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -561,6 +836,7 @@ async function handleImport(e) {
                 if (confirm('Importing will overwrite your current data. Continue?')) {
                     await clearStore(STORE_RECORDS);
                     await clearStore(STORE_CATEGORIES);
+                    await clearStore(STORE_PEOPLE);
                     for (const r of data.records) {
                         delete r.id;
                         await add(STORE_RECORDS, r);
@@ -568,6 +844,12 @@ async function handleImport(e) {
                     for (const c of data.categories) {
                         delete c.id;
                         await add(STORE_CATEGORIES, c);
+                    }
+                    if (data.people) {
+                        for (const p of data.people) {
+                            delete p.id;
+                            await add(STORE_PEOPLE, p);
+                        }
                     }
                     alert('Import successful!');
                     await refreshData();
@@ -595,4 +877,5 @@ async function handleReset() {
 window.editRecord = editRecord;
 window.deleteRecord = deleteRecord;
 window.deleteCategory = deleteCategory;
+window.deletePerson = deletePerson;
 window.switchTab = switchTab;

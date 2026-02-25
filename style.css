@@ -200,14 +200,15 @@ h1 {
 /* Charts */
 .charts-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
 .chart-container {
-    height: 350px;
+    height: 300px;
     position: relative;
+    width: 100%;
 }
 
 /* Tables */
@@ -347,13 +348,72 @@ tr:last-child td { border-bottom: none; }
 .modal-content {
     width: 100%;
     max-width: 550px;
+    max-height: 90vh;
     background: white;
     padding: 2rem;
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
+    overflow-y: auto;
 }
 
 .modal-content h2 { margin-bottom: 1.5rem; font-weight: 800; }
+
+/* Record Details Modal */
+.details-content {
+    margin-bottom: 1.5rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-row:last-child { border-bottom: none; }
+
+.detail-label {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.detail-value {
+    font-weight: 600;
+    color: var(--text-main);
+    font-size: 1rem;
+    word-break: break-word;
+    max-width: 60%;
+    text-align: right;
+}
+
+.detail-value.notes {
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
+}
+
+.detail-value.income { color: var(--success); }
+.detail-value.spending { color: var(--danger); }
+
+/* Table Row Clickable */
+#records-body tr {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#records-body tr:hover {
+    background-color: #f8fafc;
+}
+
+#records-body tr td:last-child {
+    cursor: default;
+}
+
+#records-body tr td:last-child:hover {
+    background-color: transparent;
+}
 
 .form-group { margin-bottom: 1.25rem; }
 .form-group label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main); }
@@ -480,4 +540,28 @@ tr:last-child td { border-bottom: none; }
     .category-list { grid-template-columns: 1fr; }
     
     .card { padding: 1.25rem; }
+
+    /* Mobile button sizing fixes */
+    .btn {
+        padding: 0.875rem 1.25rem;
+        min-height: 48px;
+        font-size: 0.875rem;
+    }
+
+    .btn-primary, .btn-secondary, .btn-outline {
+        width: 60%;
+    }
+
+    .form-row .btn {
+        width: 80%;
+    }
+
+    .add-category-form-container .form-row {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .add-category-form-container .btn {
+        width: 100%;
+    }
 }

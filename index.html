@@ -98,7 +98,9 @@
                                     <th>Date</th>
                                     <th>Item</th>
                                     <th>Category</th>
+                                    <th>Person</th>
                                     <th>Amount</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="recent-records-body">
@@ -134,6 +136,7 @@
                                     <th>Date</th>
                                     <th>Item</th>
                                     <th>Category</th>
+                                    <th>Person</th>
                                     <th>Amount</th>
                                     <th>Qty</th>
                                     <th>Notes</th>
@@ -152,8 +155,15 @@
             <section id="analytics" class="tab-content">
                 <div class="card">
                     <h3>Monthly History</h3>
-                    <div class="chart-container" style="height: 400px;">
+                    <div class="chart-container" style="height: 300px;">
                         <canvas id="monthlyTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Spending by Person</h3>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="personChart"></canvas>
                     </div>
                 </div>
                 
@@ -204,6 +214,24 @@
                         <div class="category-list" id="category-list">
                             <!-- Categories will be listed here -->
                         </div>
+                        <button class="btn btn-outline" id="show-more-categories" style="display: none; margin-top: 1rem; width: 100%;">Show More</button>
+                    </div>
+
+                    <div class="card">
+                        <h3>People Management</h3>
+                        <div class="add-category-form-container">
+                            <div class="form-group">
+                                <label>New Person Name</label>
+                                <input type="text" id="new-person-name" placeholder="e.g. John, Sarah...">
+                            </div>
+                            <div class="form-group" style="display: flex; align-items: flex-end;">
+                                <button class="btn btn-primary" id="add-person-btn" style="width: 100%;">Add Person</button>
+                            </div>
+                        </div>
+                        <div class="category-list" id="person-list">
+                            <!-- People will be listed here -->
+                        </div>
+                        <button class="btn btn-outline" id="show-more-people" style="display: none; margin-top: 1rem; width: 100%;">Show More</button>
                     </div>
 
                     <div class="card">
@@ -252,6 +280,13 @@
                                 <!-- Options will be loaded dynamically -->
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label>Person</label>
+                            <select id="record-person">
+                                <option value="">Select Person (Optional)</option>
+                                <!-- Options will be loaded dynamically -->
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group" id="item-field-container">
                         <label>Item/Description</label>
@@ -276,6 +311,19 @@
                         <button type="submit" class="btn btn-primary">Save Transaction</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Modal for Viewing Record Details -->
+        <div id="record-details-modal" class="modal">
+            <div class="modal-content">
+                <h2>Transaction Details</h2>
+                <div id="record-details-content" class="details-content">
+                    <!-- Details will be injected here -->
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="close-details-modal">Close</button>
+                </div>
             </div>
         </div>
     </div>

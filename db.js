@@ -1,7 +1,8 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
+const STORE_PEOPLE = 'people';
 
 let db;
 
@@ -18,6 +19,10 @@ function initDB() {
             
             if (!db.objectStoreNames.contains(STORE_CATEGORIES)) {
                 db.createObjectStore(STORE_CATEGORIES, { keyPath: 'id', autoIncrement: true });
+            }
+
+            if (!db.objectStoreNames.contains(STORE_PEOPLE)) {
+                db.createObjectStore(STORE_PEOPLE, { keyPath: 'id', autoIncrement: true });
             }
         };
 
@@ -86,6 +91,7 @@ async function clearStore(storeName) {
 async function resetDB() {
     await clearStore(STORE_RECORDS);
     await clearStore(STORE_CATEGORIES);
+    await clearStore(STORE_PEOPLE);
     await seedDefaultCategories();
 }
 
