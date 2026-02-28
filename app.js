@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await seedDefaultCategories();
         initEventListeners();
         await refreshData();
-        
+
         // Set default date in modal
         document.getElementById('record-date').valueAsDate = new Date();
     } catch (error) {
@@ -92,7 +92,7 @@ function initEventListeners() {
     addRecordBtn.addEventListener('click', () => openModal());
     cancelModalBtn.addEventListener('click', closeModal);
     recordForm.addEventListener('submit', handleRecordSubmit);
-    
+
     const filterType = document.getElementById('filter-type');
     if (filterType) {
         filterType.addEventListener('change', renderRecords);
@@ -324,7 +324,7 @@ function renderDashboard() {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     const monthDisplay = document.getElementById('current-month-display');
     if (monthDisplay) {
         monthDisplay.textContent = now.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -355,9 +355,9 @@ function renderRecentRecords(monthlyRecords) {
     const tbody = document.getElementById('recent-records-body');
     if (!tbody) return;
     tbody.innerHTML = '';
-    
+
     const sorted = [...monthlyRecords].sort((a, b) => b.id - a.id).slice(0, 5);
-    
+
     if (sorted.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">No records for this month</td></tr>';
         return;
@@ -387,7 +387,7 @@ function renderRecentRecords(monthlyRecords) {
 function renderCharts(monthlyRecords) {
     const spendingByCategory = {};
     const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
-    
+
     spendingRecords.forEach(r => {
         spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
     });
@@ -396,7 +396,7 @@ function renderCharts(monthlyRecords) {
     if (canvasCat) {
         const ctxCat = canvasCat.getContext('2d');
         if (categoryChart) categoryChart.destroy();
-        
+
         const labels = Object.keys(spendingByCategory);
         const data = Object.values(spendingByCategory);
 
@@ -411,18 +411,18 @@ function renderCharts(monthlyRecords) {
                         borderWidth: 0
                     }]
                 },
-                options: { 
-                    responsive: true, 
+                options: {
+                    responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { 
-                            position: 'bottom', 
-                            labels: { 
-                                usePointStyle: true, 
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
                                 padding: 20,
                                 boxWidth: 10,
                                 font: { size: 11 }
-                            } 
+                            }
                         }
                     }
                 }
@@ -450,14 +450,14 @@ function renderCharts(monthlyRecords) {
                     barThickness: 40
                 }]
             },
-            options: { 
-                responsive: true, 
+            options: {
+                responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { display: false }
                 },
-                scales: { 
-                    y: { 
+                scales: {
+                    y: {
                         beginAtZero: true,
                         grid: { display: false }
                     },
@@ -474,7 +474,7 @@ function renderCharts(monthlyRecords) {
 function renderRecords() {
     const tbody = document.getElementById('records-body');
     if (!tbody) return;
-    
+
     const filterTypeEl = document.getElementById('filter-type');
     const filterType = filterTypeEl ? filterTypeEl.value : 'all';
     tbody.innerHTML = '';
@@ -536,7 +536,7 @@ function renderAnalytics() {
     });
 
     const sortedMonths = Object.keys(monthlyStats).sort().reverse();
-    
+
     if (sortedMonths.length === 0) {
         statsBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 3rem; color: var(--text-muted);">No historical data available</td></tr>';
     }
@@ -544,7 +544,7 @@ function renderAnalytics() {
     sortedMonths.forEach(monthKey => {
         const stats = monthlyStats[monthKey];
         const savings = stats.income - stats.spending;
-        
+
         let topCategory = 'N/A';
         let maxAmount = 0;
         for (const [cat, amt] of Object.entries(stats.categories)) {
@@ -557,7 +557,7 @@ function renderAnalytics() {
         const tr = document.createElement('tr');
         const [year, month] = monthKey.split('-');
         const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'short', year: 'numeric' });
-        
+
         tr.innerHTML = `
             <td style="font-weight: 600;">${monthName}</td>
             <td class="amount-income">$${formatCurrency(stats.income)}</td>
@@ -745,7 +745,7 @@ function openTransactionModal(accountId, type, tx = null) {
     transactionForm.elements['tx-type'].value = type;
     // show readable type in header and set select value
     const label = type === 'deposit' ? 'Income' : 'Withdrawal';
-    transactionForm.querySelector('h2').textContent = label;
+    transactionModal.querySelector('h2').textContent = label;
     const typeDisplay = transactionForm.querySelector('#tx-type-display');
     if (typeDisplay) {
         typeDisplay.value = type;
@@ -795,6 +795,7 @@ async function handleTransactionSubmit(e) {
         savingsTransactions.push(newTx);
     }
     closeTransactionModal();
+    savingsPage[accountId] = 0; // reset to first page so newest shows
     await refreshData();
 }
 
@@ -820,7 +821,7 @@ function renderSavings() {
     savingsAccounts.forEach(acc => {
         const txs = savingsTransactions
             .filter(t => t.accountId === acc.id)
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
+            .sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
         const totalDeposit = txs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
         const totalWithdraw = txs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
         const balance = totalDeposit - totalWithdraw;
@@ -833,9 +834,9 @@ function renderSavings() {
             return t.type === 'withdrawal' && d.getMonth() === curMonth && d.getFullYear() === curYear;
         }).reduce((s, t) => s + t.amount, 0);
 
-        let page = savingsPage[acc.id] || 0;
         const perPage = 3;
-        const totalPages = Math.ceil(txs.length / perPage);
+        const totalPages = Math.ceil(txs.length / perPage) || 1;
+        let page = savingsPage[acc.id] || 0;
         // ensure current page is within bounds
         if (page >= totalPages) page = totalPages - 1;
         if (page < 0) page = 0;
@@ -894,8 +895,8 @@ function renderSavings() {
                             <tr>
                                 <td>${t.date}</td>
                                 <td>${t.type === 'deposit' ? 'Income' : 'Withdrawal'}</td>
-                                <td class="${t.type==='deposit'?'amount-income':'amount-spending'}">$${formatCurrency(t.amount)}</td>
-                                <td>${t.notes||'-'}</td>
+                                <td class="${t.type === 'deposit' ? 'amount-income' : 'amount-spending'}">$${formatCurrency(t.amount)}</td>
+                                <td>${t.notes || '-'}</td>
                                 <td>
                                     <button class="btn-icon edit-btn" data-acc-id="${acc.id}" data-tx-id="${t.id}"><i class="fas fa-edit"></i></button>
                                     <button class="btn-icon delete-btn" data-acc-id="${acc.id}" data-tx-id="${t.id}"><i class="fas fa-trash"></i></button>
@@ -906,8 +907,8 @@ function renderSavings() {
                 </table>
             </div>
             <div class="pagination" style="margin-top:8px; text-align:right;">
-                <button class="btn btn-outline prev-page" ${page<=0?'disabled':''}>Prev</button>
-                <button class="btn btn-outline next-page" ${page>=totalPages-1?'disabled':''}>Next</button>
+                <button class="btn btn-outline prev-page" ${page <= 0 ? 'disabled' : ''}>Prev</button>
+                <button class="btn btn-outline next-page" ${page >= totalPages - 1 ? 'disabled' : ''}>Next</button>
             </div>
         `;
         savingsListEl.appendChild(card);
@@ -981,7 +982,7 @@ function openModal(record = null) {
         recordAmount.value = record.amount;
         recordQuantity.value = record.quantity || '';
         recordNotes.value = record.notes || '';
-        
+
         updateCategoryDropdowns();
         recordCategory.value = record.category;
     } else {
@@ -1040,12 +1041,12 @@ async function deleteRecord(id) {
 // Record Details Modal Functions
 function openDetailsModal(record) {
     if (!recordDetailsModal || !recordDetailsContent) return;
-    
+
     currentDetailRecordId = record.id;
-    
+
     const itemLabel = record.type === 'income' ? 'Source' : 'Item';
     const itemValue = record.type === 'income' ? record.category : (record.item || '-');
-    
+
     recordDetailsContent.innerHTML = `
         <div class="detail-row">
             <span class="detail-label">Type</span>
@@ -1086,7 +1087,7 @@ function openDetailsModal(record) {
         </div>
         ` : ''}
     `;
-    
+
     recordDetailsModal.classList.add('active');
 }
 
@@ -1171,7 +1172,7 @@ async function handleAddCategory() {
     const typeSelect = document.getElementById('new-category-type');
     const name = nameInput.value.trim();
     const type = typeSelect.value;
-    
+
     if (name) {
         await add(STORE_CATEGORIES, { name, type });
         nameInput.value = '';

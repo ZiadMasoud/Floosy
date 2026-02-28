@@ -142,9 +142,19 @@ h1 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+    /* allow title or actions to wrap when space is tight */
 }
 
-.card-header h3 { margin-bottom: 0; }
+.card-header h3 {
+    margin-bottom: 0;
+    flex: 1 1 auto;
+    /* let title take remaining space */
+    min-width: 0;
+    /* enable shrinking below content width */
+    word-break: break-word;
+    /* break long names */
+}
 
 /* KPI Cards */
 .kpi-container {
@@ -166,7 +176,9 @@ h1 {
     transition: transform 0.2s;
 }
 
-.kpi-card:hover { transform: translateY(-2px); }
+.kpi-card:hover {
+    transform: translateY(-2px);
+}
 
 .kpi-icon {
     width: 54px;
@@ -178,12 +190,31 @@ h1 {
     font-size: 1.5rem;
 }
 
-.income .kpi-icon { background: #dcfce7; color: var(--success); }
-.spending .kpi-icon { background: #fee2e2; color: var(--danger); }
-.balance .kpi-icon { background: #e0e7ff; color: var(--primary-color); }
+.income .kpi-icon {
+    background: #dcfce7;
+    color: var(--success);
+}
+
+.spending .kpi-icon {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.balance .kpi-icon {
+    background: #e0e7ff;
+    color: var(--primary-color);
+}
+
 /* savings-specific KPI modifiers */
-.withdrawal .kpi-icon { background: #fee2e2; color: var(--danger); }
-.month .kpi-icon { background: #e0f2fe; color: #0ea5e9; }
+.withdrawal .kpi-icon {
+    background: #fee2e2;
+    color: var(--danger);
+}
+
+.month .kpi-icon {
+    background: #e0f2fe;
+    color: #0ea5e9;
+}
 
 .kpi-details h3 {
     font-size: 0.875rem;
@@ -245,10 +276,19 @@ td {
     color: var(--text-main);
 }
 
-tr:last-child td { border-bottom: none; }
+tr:last-child td {
+    border-bottom: none;
+}
 
-.amount-income { color: var(--success); font-weight: 700; }
-.amount-spending { color: var(--danger); font-weight: 700; }
+.amount-income {
+    color: var(--success);
+    font-weight: 700;
+}
+
+.amount-spending {
+    color: var(--danger);
+    font-weight: 700;
+}
 
 .category-badge {
     padding: 0.25rem 0.75rem;
@@ -258,8 +298,15 @@ tr:last-child td { border-bottom: none; }
     display: inline-block;
 }
 
-.badge-spending { background: #f1f5f9; color: var(--text-muted); }
-.badge-income { background: #dcfce7; color: var(--success); }
+.badge-spending {
+    background: #f1f5f9;
+    color: var(--text-muted);
+}
+
+.badge-income {
+    background: #dcfce7;
+    color: var(--success);
+}
 
 .notes-cell {
     max-width: 200px;
@@ -284,20 +331,58 @@ tr:last-child td { border-bottom: none; }
     font-size: 0.9375rem;
 }
 
-.btn-primary { background: var(--primary-color); color: white; }
-.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25); }
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
 
-.btn-secondary { background: #f1f5f9; color: var(--text-main); }
-.btn-secondary:hover { background: #e2e8f0; }
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
 
-.btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
-.btn-outline:hover { background: #f8fafc; border-color: var(--text-muted); }
+.btn-secondary {
+    background: #f1f5f9;
+    color: var(--text-main);
+}
 
-.btn-danger { background: #fff1f2; color: var(--danger); }
-.btn-danger:hover { background: #ffe4e6; }
+.btn-secondary:hover {
+    background: #e2e8f0;
+}
 
-.btn-text { background: transparent; color: var(--primary-color); padding: 0.25rem 0.5rem; cursor: pointer; border: none; font-weight: 600; }
-.btn-text:hover { color: var(--primary-hover); }
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+
+.btn-outline:hover {
+    background: #f8fafc;
+    border-color: var(--text-muted);
+}
+
+.btn-danger {
+    background: #fff1f2;
+    color: var(--danger);
+}
+
+.btn-danger:hover {
+    background: #ffe4e6;
+}
+
+.btn-text {
+    background: transparent;
+    color: var(--primary-color);
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    border: none;
+    font-weight: 600;
+}
+
+.btn-text:hover {
+    color: var(--primary-hover);
+}
 
 .btn-icon {
     width: 36px;
@@ -311,11 +396,28 @@ tr:last-child td { border-bottom: none; }
     transition: 0.2s;
 }
 
-.action-btns { display: flex; gap: 0.5rem; }
-.edit-btn { background: #eff6ff; color: #2563eb; }
-.edit-btn:hover { background: #dbeafe; }
-.delete-btn { background: #fff1f2; color: #dc2626; }
-.delete-btn:hover { background: #ffe4e6; }
+.action-btns {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.edit-btn {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.edit-btn:hover {
+    background: #dbeafe;
+}
+
+.delete-btn {
+    background: #fff1f2;
+    color: #dc2626;
+}
+
+.delete-btn:hover {
+    background: #ffe4e6;
+}
 
 /* Tabs Content */
 .tab-content {
@@ -323,11 +425,20 @@ tr:last-child td { border-bottom: none; }
     animation: fadeIn 0.3s ease-out;
 }
 
-.tab-content.active { display: block; }
+.tab-content.active {
+    display: block;
+}
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Modal */
@@ -346,7 +457,9 @@ tr:last-child td { border-bottom: none; }
     padding: 1rem;
 }
 
-.modal.active { display: flex; }
+.modal.active {
+    display: flex;
+}
 
 .modal-content {
     width: 100%;
@@ -359,7 +472,10 @@ tr:last-child td { border-bottom: none; }
     overflow-y: auto;
 }
 
-.modal-content h2 { margin-bottom: 1.5rem; font-weight: 800; }
+.modal-content h2 {
+    margin-bottom: 1.5rem;
+    font-weight: 800;
+}
 
 /* Record Details Modal */
 .details-content {
@@ -374,7 +490,9 @@ tr:last-child td { border-bottom: none; }
     border-bottom: 1px solid var(--border-color);
 }
 
-.detail-row:last-child { border-bottom: none; }
+.detail-row:last-child {
+    border-bottom: none;
+}
 
 .detail-label {
     font-weight: 600;
@@ -397,8 +515,13 @@ tr:last-child td { border-bottom: none; }
     line-height: 1.5;
 }
 
-.detail-value.income { color: var(--success); }
-.detail-value.spending { color: var(--danger); }
+.detail-value.income {
+    color: var(--success);
+}
+
+.detail-value.spending {
+    color: var(--danger);
+}
 
 /* Table Row Clickable */
 #records-body tr {
@@ -418,9 +541,21 @@ tr:last-child td { border-bottom: none; }
     background-color: transparent;
 }
 
-.form-group { margin-bottom: 1.25rem; }
-.form-group label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-main); }
-.form-group input, .form-group select, .form-group textarea {
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 0.75rem 1rem;
     border: 1px solid var(--border-color);
@@ -429,15 +564,26 @@ tr:last-child td { border-bottom: none; }
     transition: border-color 0.2s;
 }
 
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+}
 
-.modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+}
 
 /* Savings Styles */
 .savings-list {
@@ -445,6 +591,8 @@ tr:last-child td { border-bottom: none; }
     /* always one card per row */
     grid-template-columns: 1fr;
     gap: 1.5rem;
+    overflow-x: hidden;
+    /* prevent any card from causing horizontal scroll */
 }
 
 .savings-card .account-actions {
@@ -452,6 +600,8 @@ tr:last-child td { border-bottom: none; }
     flex-direction: row;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
+    /* prevent action buttons from shrinking, keep them accessible */
 }
 
 /* mobile: row layout with smaller icons */
@@ -460,6 +610,7 @@ tr:last-child td { border-bottom: none; }
         flex-direction: row;
         gap: 0.25rem;
     }
+
     .savings-card .account-actions .btn-icon {
         width: 28px;
         height: 28px;
@@ -467,8 +618,15 @@ tr:last-child td { border-bottom: none; }
 }
 
 /* row type coloring */
-.savings-records-table td.type-income { color: var(--success); font-weight: 600; }
-.savings-records-table td.type-withdrawal { color: var(--danger); font-weight: 600; }
+.savings-records-table td.type-income {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.savings-records-table td.type-withdrawal {
+    color: var(--danger);
+    font-weight: 600;
+}
 
 .savings-kpis .kpi-card {
     padding: 1rem;
@@ -506,9 +664,13 @@ tr:last-child td { border-bottom: none; }
     transition: border-color 0.2s;
 }
 
-.category-item:hover { border-color: var(--primary-color); }
+.category-item:hover {
+    border-color: var(--primary-color);
+}
 
-.category-item strong { font-size: 0.9375rem; }
+.category-item strong {
+    font-size: 0.9375rem;
+}
 
 .data-actions {
     display: flex;
@@ -533,7 +695,9 @@ tr:last-child td { border-bottom: none; }
         backdrop-filter: blur(10px);
     }
 
-    .logo { display: none; }
+    .logo {
+        display: none;
+    }
 
     .nav-links {
         display: flex;
@@ -559,39 +723,61 @@ tr:last-child td { border-bottom: none; }
         box-shadow: none;
     }
 
-    .nav-links li i { font-size: 1.25rem; }
-
+    /* main content should fill width when nav moves to bottom */
     .main-content {
         margin-left: 0;
-        padding: 1.25rem;
+        padding: 1rem;
         padding-bottom: 90px;
     }
 
-    header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
-    
-    .charts-row, .settings-grid { grid-template-columns: 1fr; }
-    
-    .form-row { grid-template-columns: 1fr; }
-    
-    .kpi-container { grid-template-columns: 1fr; gap: 1rem; }
+    .nav-links li i {
+        font-size: 1.25rem;
+    }
 
-    .category-list { grid-template-columns: 1fr; }
-    
-    .card { padding: 1.25rem; }
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .charts-row,
+    .settings-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .kpi-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .category-list {
+        grid-template-columns: 1fr;
+    }
+
+    .card {
+        padding: 1.25rem;
+    }
 
     /* Mobile button sizing fixes */
-    .btn {
+    .btn:not(.btn-icon) {
         padding: 0.875rem 1.25rem;
         min-height: 48px;
         font-size: 0.875rem;
     }
 
-    .btn-primary, .btn-secondary, .btn-outline {
+    .btn-primary:not(.btn-icon),
+    .btn-secondary:not(.btn-icon),
+    .btn-outline:not(.btn-icon) {
         width: 100%;
-        margin: 0.2rem ;
+        margin: 0.2rem;
     }
 
-    .form-row .btn {
+    .form-row .btn:not(.btn-icon) {
         width: 80%;
     }
 
@@ -603,8 +789,117 @@ tr:last-child td { border-bottom: none; }
     .add-category-form-container .btn {
         width: 100%;
     }
-}
 
-/* .ss5 {
-    width: 0%;
-} */
+    /* Ensure btn-icon stays small everywhere on mobile */
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        min-height: unset;
+        padding: 0;
+    }
+
+    /* ---- Savings tab responsive fixes ---- */
+
+    /* Make savings KPIs more compact */
+    .savings-kpis {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+
+    .savings-kpis .kpi-card {
+        padding: 0.75rem 1rem;
+    }
+
+    .savings-kpis .kpi-details h4 {
+        font-size: 0.75rem;
+    }
+
+    .savings-kpis .kpi-details p {
+        font-size: 1.25rem;
+    }
+
+    .savings-kpis .kpi-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 1.15rem;
+    }
+
+    /* Savings table: smaller text + tighter padding so columns fit */
+    .savings-records-table th,
+    .savings-records-table td {
+        padding: 0.6rem 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    /* Constrain the Notes column so it doesn't eat up all the space */
+    .savings-records-table td:nth-child(4) {
+        max-width: 80px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .savings-records-table th:nth-child(4) {
+        max-width: 80px;
+    }
+
+    /* Smaller action buttons inside savings table */
+    .savings-records-table .btn-icon {
+        width: 28px;
+        height: 28px;
+        min-height: unset;
+        padding: 0;
+        font-size: 0.7rem;
+    }
+
+    /* Keep account-actions header buttons compact in a row */
+    .account-actions .btn-icon {
+        width: 32px;
+        height: 32px;
+        min-height: unset;
+        padding: 0;
+    }
+
+    /* Pagination buttons should auto-size, not full-width */
+    .pagination .btn {
+        width: auto;
+        min-height: 36px;
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    /* Card header inside savings cards: keep name + buttons on one row */
+    .savings-card .card-header {
+        flex-wrap: nowrap;
+        gap: 0.5rem;
+    }
+
+    .savings-card .card-header h3 {
+        font-size: 1rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ---- General table responsive fixes ---- */
+    table th,
+    table td {
+        padding: 0.65rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    /* Records table notes column */
+    .notes-cell {
+        max-width: 100px;
+    }
+
+    /* Prevent horizontal overflow globally */
+    .tab-content {
+        overflow-x: hidden;
+    }
+
+    .savings-card {
+        overflow: hidden;
+    }
+}
