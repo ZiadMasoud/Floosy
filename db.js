@@ -1,8 +1,12 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // bumped to support savings stores
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
+
+// new stores for savings feature
+const STORE_SAVINGS_ACCOUNTS = 'savingsAccounts';
+const STORE_SAVINGS_TRANSACTIONS = 'savingsTransactions';
 
 let db;
 
@@ -23,6 +27,15 @@ function initDB() {
 
             if (!db.objectStoreNames.contains(STORE_PEOPLE)) {
                 db.createObjectStore(STORE_PEOPLE, { keyPath: 'id', autoIncrement: true });
+            }
+
+            // create savings stores if upgrading
+            if (!db.objectStoreNames.contains(STORE_SAVINGS_ACCOUNTS)) {
+                db.createObjectStore(STORE_SAVINGS_ACCOUNTS, { keyPath: 'id', autoIncrement: true });
+            }
+
+            if (!db.objectStoreNames.contains(STORE_SAVINGS_TRANSACTIONS)) {
+                db.createObjectStore(STORE_SAVINGS_TRANSACTIONS, { keyPath: 'id', autoIncrement: true });
             }
         };
 
@@ -92,6 +105,8 @@ async function resetDB() {
     await clearStore(STORE_RECORDS);
     await clearStore(STORE_CATEGORIES);
     await clearStore(STORE_PEOPLE);
+    await clearStore(STORE_SAVINGS_ACCOUNTS);
+    await clearStore(STORE_SAVINGS_TRANSACTIONS);
     await seedDefaultCategories();
 }
 

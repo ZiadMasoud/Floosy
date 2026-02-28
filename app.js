@@ -8,6 +8,11 @@ let records = [];
 let categories = [];
 let people = [];
 
+// savings feature state
+let savingsAccounts = [];
+let savingsTransactions = [];
+let savingsPage = {}; // tracks current page for each account (zero-based)
+
 // DOM Elements
 const navLinks = document.querySelectorAll('.nav-links li');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -28,6 +33,16 @@ const resetBtn = document.getElementById('reset-btn');
 const viewAllRecordsBtn = document.getElementById('view-all-records');
 const recordTypeSelect = document.getElementById('record-type');
 const itemFieldContainer = document.getElementById('item-field-container');
+
+// savings DOM elements (some may not exist on other tabs)
+const addAccountBtn = document.getElementById('add-account-btn');
+const savingsListEl = document.getElementById('savings-list');
+const accountModal = document.getElementById('account-modal');
+const accountForm = document.getElementById('account-form');
+const cancelAccountBtn = document.getElementById('cancel-account-modal');
+const transactionModal = document.getElementById('transaction-modal');
+const transactionForm = document.getElementById('transaction-form');
+const cancelTransactionBtn = document.getElementById('cancel-transaction-modal');
 
 // Record Details Modal Elements
 const recordDetailsModal = document.getElementById('record-details-modal');
@@ -110,10 +125,136 @@ function initEventListeners() {
         toggleItemField();
     });
 
+    // Savings tab: add account, transaction and pagination handlers
+    if (addAccountBtn) {
+        addAccountBtn.addEventListener('click', () => openAccountModal());
+    }
+
+    if (accountForm) {
+        accountForm.addEventListener('submit', handleAccountSubmit);
+    }
+    if (cancelAccountBtn) {
+        cancelAccountBtn.addEventListener('click', closeAccountModal);
+    }
+
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', handleTransactionSubmit);
+    }
+    if (cancelTransactionBtn) {
+        cancelTransactionBtn.addEventListener('click', closeTransactionModal);
+    }
+
+    // delegate click events inside savings list (deposit/withdraw buttons, pagination)
+    if (savingsListEl) {
+        savingsListEl.addEventListener('click', (e) => {
+            const card = e.target.closest('.savings-card');
+            if (!card) return;
+            const accountId = parseInt(card.getAttribute('data-id'));
+            if (e.target.closest('.deposit-btn')) {
+                openTransactionModal(accountId, 'deposit');
+            } else if (e.target.closest('.withdraw-btn')) {
+                openTransactionModal(accountId, 'withdrawal');
+            } else if (e.target.closest('.edit-acc-btn')) {
+                const accId = parseInt(e.target.closest('.edit-acc-btn').getAttribute('data-acc-id'));
+                const acc = savingsAccounts.find(a => a.id === accId);
+                if (acc) openAccountModal(acc);
+            } else if (e.target.closest('.delete-acc-btn')) {
+                const accId = parseInt(e.target.closest('.delete-acc-btn').getAttribute('data-acc-id'));
+                if (confirm('Delete this account? All its transactions will be removed too.')) {
+                    // remove transactions first
+                    const txsToDelete = savingsTransactions.filter(t => t.accountId === accId);
+                    Promise.all(txsToDelete.map(t => remove(STORE_SAVINGS_TRANSACTIONS, t.id)))
+                        .then(() => remove(STORE_SAVINGS_ACCOUNTS, accId))
+                        .then(() => refreshData());
+                }
+            } else if (e.target.closest('.next-page')) {
+                changePage(accountId, 1);
+            } else if (e.target.closest('.prev-page')) {
+                changePage(accountId, -1);
+            } else if (e.target.closest('.edit-btn')) {
+                const txId = parseInt(e.target.closest('.edit-btn').getAttribute('data-tx-id'));
+                const tx = savingsTransactions.find(t => t.id === txId);
+                if (tx) openTransactionModal(accountId, tx.type, tx);
+            } else if (e.target.closest('.delete-btn')) {
+                const txId = parseInt(e.target.closest('.delete-btn').getAttribute('data-tx-id'));
+                if (confirm('Delete this transaction?')) {
+                    remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
+                }
+            }
+        });
+    }
+
+    // global delegation in case buttons are moved out of cards
+    document.body.addEventListener('click', (e) => {
+        let btn;
+        if (btn = e.target.closest('.deposit-btn')) {
+            e.stopPropagation();
+            const accId = parseInt(btn.getAttribute('data-acc-id'));
+            if (!isNaN(accId)) openTransactionModal(accId, 'deposit');
+            return;
+        }
+        if (btn = e.target.closest('.withdraw-btn')) {
+            e.stopPropagation();
+            const accId = parseInt(btn.getAttribute('data-acc-id'));
+            if (!isNaN(accId)) openTransactionModal(accId, 'withdrawal');
+            return;
+        }
+        if (btn = e.target.closest('.edit-acc-btn')) {
+            e.stopPropagation();
+            const accId = parseInt(btn.getAttribute('data-acc-id'));
+            const acc = savingsAccounts.find(a => a.id === accId);
+            if (acc) openAccountModal(acc);
+            return;
+        }
+        if (btn = e.target.closest('.delete-acc-btn')) {
+            e.stopPropagation();
+            const accId = parseInt(btn.getAttribute('data-acc-id'));
+            if (confirm('Delete this account? All its transactions will be removed too.')) {
+                const txsToDelete = savingsTransactions.filter(t => t.accountId === accId);
+                Promise.all(txsToDelete.map(t => remove(STORE_SAVINGS_TRANSACTIONS, t.id)))
+                    .then(() => remove(STORE_SAVINGS_ACCOUNTS, accId))
+                    .then(() => refreshData());
+            }
+            return;
+        }
+        if (btn = e.target.closest('button.edit-btn[data-tx-id]')) {
+            e.stopPropagation();
+            const accId = parseInt(btn.getAttribute('data-acc-id'));
+            const txId = parseInt(btn.getAttribute('data-tx-id'));
+            const tx = savingsTransactions.find(t => t.id === txId);
+            if (tx) openTransactionModal(accId, tx.type, tx);
+            return;
+        }
+        if (btn = e.target.closest('button.delete-btn[data-tx-id]')) {
+            e.stopPropagation();
+            const txId = parseInt(btn.getAttribute('data-tx-id'));
+            if (confirm('Delete this transaction?')) {
+                remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
+            }
+            return;
+        }
+        if (btn = e.target.closest('.next-page')) {
+            e.stopPropagation();
+            const card = e.target.closest('.savings-card');
+            const accId = card ? parseInt(card.getAttribute('data-id')) : null;
+            if (accId !== null) changePage(accId, 1);
+            return;
+        }
+        if (btn = e.target.closest('.prev-page')) {
+            e.stopPropagation();
+            const card = e.target.closest('.savings-card');
+            const accId = card ? parseInt(card.getAttribute('data-id')) : null;
+            if (accId !== null) changePage(accId, -1);
+            return;
+        }
+    });
+
     // Close modal on click outside
     window.addEventListener('click', (e) => {
         if (e.target === recordModal) closeModal();
         if (e.target === recordDetailsModal) closeDetailsModal();
+        if (e.target === accountModal) closeAccountModal();
+        if (e.target === transactionModal) closeTransactionModal();
     });
 
     // Record Details Modal
@@ -148,6 +289,10 @@ async function refreshData() {
     records = await getAll(STORE_RECORDS);
     categories = await getAll(STORE_CATEGORIES);
     people = await getAll(STORE_PEOPLE);
+    // new: load savings
+    savingsAccounts = await getAll(STORE_SAVINGS_ACCOUNTS);
+    savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
+    savingsPage = {}; // start pages over so user sees first page after data change
     updateCategoryDropdowns();
     updatePersonDropdown();
     renderAll();
@@ -171,6 +316,7 @@ function renderAll() {
     else if (currentTab === 'records') renderRecords();
     else if (currentTab === 'analytics') renderAnalytics();
     else if (currentTab === 'settings') renderSettings();
+    else if (currentTab === 'savings') renderSavings();
 }
 
 // Dashboard Functions
@@ -536,6 +682,285 @@ function renderPersonChart() {
     });
 }
 
+// -- savings feature functions ------------------------------------------------
+
+function openAccountModal(account = null) {
+    if (!account) {
+        accountForm.reset();
+        accountForm.elements['account-id'].value = '';
+        accountForm.elements['account-initial'].value = '';
+        accountModal.querySelector('h2').textContent = 'New Savings Account';
+    } else {
+        accountForm.elements['account-id'].value = account.id;
+        accountForm.elements['account-name'].value = account.name;
+        accountForm.elements['account-initial'].value = '';
+        accountModal.querySelector('h2').textContent = 'Edit Savings Account';
+    }
+    accountModal.classList.add('active');
+}
+
+function closeAccountModal() {
+    if (accountModal) accountModal.classList.remove('active');
+}
+
+async function handleAccountSubmit(e) {
+    e.preventDefault();
+    const id = accountForm.elements['account-id'].value;
+    const name = accountForm.elements['account-name'].value.trim();
+    const initial = parseFloat(accountForm.elements['account-initial'].value) || 0;
+    if (!name) return;
+
+    if (id) {
+        // update existing account
+        const acc = savingsAccounts.find(a => a.id === parseInt(id));
+        if (acc) {
+            acc.name = name;
+            await updateRecord(STORE_SAVINGS_ACCOUNTS, acc);
+        }
+    } else {
+        const newAcc = { name };
+        const newId = await add(STORE_SAVINGS_ACCOUNTS, newAcc);
+        newAcc.id = newId;
+        savingsAccounts.push(newAcc);
+        // if initial deposit provided, add transaction
+        if (initial > 0) {
+            const tx = {
+                accountId: newAcc.id,
+                type: 'deposit',
+                amount: initial,
+                date: new Date().toISOString().split('T')[0],
+                notes: 'Initial balance'
+            };
+            await add(STORE_SAVINGS_TRANSACTIONS, tx);
+            savingsTransactions.push(tx);
+        }
+    }
+    closeAccountModal();
+    await refreshData();
+}
+
+function openTransactionModal(accountId, type, tx = null) {
+    transactionForm.reset();
+    transactionForm.elements['tx-account-id'].value = accountId;
+    transactionForm.elements['tx-type'].value = type;
+    // show readable type in header and set select value
+    const label = type === 'deposit' ? 'Income' : 'Withdrawal';
+    transactionForm.querySelector('h2').textContent = label;
+    const typeDisplay = transactionForm.querySelector('#tx-type-display');
+    if (typeDisplay) {
+        typeDisplay.value = type;
+    }
+    if (tx) {
+        transactionForm.elements['tx-id'].value = tx.id;
+        transactionForm.elements['tx-amount'].value = tx.amount;
+        transactionForm.elements['tx-date'].value = tx.date;
+        transactionForm.elements['tx-notes'].value = tx.notes || '';
+    } else {
+        transactionForm.elements['tx-id'].value = '';
+        transactionForm.elements['tx-date'].valueAsDate = new Date();
+    }
+    transactionModal.classList.add('active');
+}
+
+function closeTransactionModal() {
+    if (transactionModal) transactionModal.classList.remove('active');
+}
+
+async function handleTransactionSubmit(e) {
+    e.preventDefault();
+    const id = transactionForm.elements['tx-id'].value;
+    const accountId = parseInt(transactionForm.elements['tx-account-id'].value);
+    // type may be changed via select
+    let type = transactionForm.elements['tx-type'].value;
+    const typeSelect = transactionForm.elements['tx-type-display'];
+    if (typeSelect && typeSelect.value) {
+        type = typeSelect.value;
+    }
+    const amount = parseFloat(transactionForm.elements['tx-amount'].value) || 0;
+    const date = transactionForm.elements['tx-date'].value;
+    const notes = transactionForm.elements['tx-notes'].value.trim();
+
+    if (id) {
+        const tx = savingsTransactions.find(t => t.id === parseInt(id));
+        if (tx) {
+            tx.amount = amount;
+            tx.date = date;
+            tx.notes = notes;
+            await updateRecord(STORE_SAVINGS_TRANSACTIONS, tx);
+        }
+    } else {
+        const newTx = { accountId, type, amount, date, notes };
+        const newId = await add(STORE_SAVINGS_TRANSACTIONS, newTx);
+        newTx.id = newId;
+        savingsTransactions.push(newTx);
+    }
+    closeTransactionModal();
+    await refreshData();
+}
+
+function changePage(accountId, delta) {
+    if (!savingsPage[accountId]) savingsPage[accountId] = 0;
+    savingsPage[accountId] = Math.max(0, savingsPage[accountId] + delta);
+    renderSavings();
+}
+
+function renderSavings() {
+    if (!savingsListEl) return;
+    savingsListEl.innerHTML = '';
+
+    if (savingsAccounts.length === 0) {
+        savingsListEl.innerHTML = '<p style="text-align:center; padding: 2rem; color: var(--text-muted);">No savings accounts created</p>';
+        return;
+    }
+
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+
+    savingsAccounts.forEach(acc => {
+        const txs = savingsTransactions
+            .filter(t => t.accountId === acc.id)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+        const totalDeposit = txs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
+        const totalWithdraw = txs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
+        const balance = totalDeposit - totalWithdraw;
+        const monthDeposit = txs.filter(t => {
+            const d = new Date(t.date);
+            return t.type === 'deposit' && d.getMonth() === curMonth && d.getFullYear() === curYear;
+        }).reduce((s, t) => s + t.amount, 0);
+        const monthWithdraw = txs.filter(t => {
+            const d = new Date(t.date);
+            return t.type === 'withdrawal' && d.getMonth() === curMonth && d.getFullYear() === curYear;
+        }).reduce((s, t) => s + t.amount, 0);
+
+        let page = savingsPage[acc.id] || 0;
+        const perPage = 3;
+        const totalPages = Math.ceil(txs.length / perPage);
+        // ensure current page is within bounds
+        if (page >= totalPages) page = totalPages - 1;
+        if (page < 0) page = 0;
+        savingsPage[acc.id] = page;
+        const paged = txs.slice(page * perPage, page * perPage + perPage);
+
+        const card = document.createElement('div');
+        card.className = 'savings-card card';
+        card.setAttribute('data-id', acc.id);
+        card.innerHTML = `
+            <div class="card-header">
+                <h3>${acc.name}</h3>
+                <div class="account-actions">
+                    <button class="btn-icon btn-secondary deposit-btn" data-acc-id="${acc.id}" title="Deposit"><i class="fas fa-plus"></i></button>
+                    <button class="btn-icon btn-secondary withdraw-btn" data-acc-id="${acc.id}" title="Withdraw"><i class="fas fa-minus"></i></button>
+                    <button class="btn-icon btn-secondary edit-acc-btn" data-acc-id="${acc.id}" title="Edit"><i class="fas fa-edit"></i></button>
+                    <button class="btn-icon btn-secondary delete-acc-btn" data-acc-id="${acc.id}" title="Delete"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="kpi-container savings-kpis">
+                <div class="kpi-card balance">
+                    <div class="kpi-icon"><i class="fas fa-piggy-bank"></i></div>
+                    <div class="kpi-details">
+                        <h4>Total Balance</h4>
+                        <p>$${formatCurrency(balance)}</p>
+                    </div>
+                </div>
+                <div class="kpi-card month">
+                    <div class="kpi-icon"><i class="fas fa-calendar-alt"></i></div>
+                    <div class="kpi-details">
+                        <h4>Saved This Month</h4>
+                        <p>$${formatCurrency(monthDeposit - monthWithdraw)}</p>
+                    </div>
+                </div>
+                <div class="kpi-card withdrawal">
+                    <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
+                    <div class="kpi-details">
+                        <h4>Total Withdrawn</h4>
+                        <p>$${formatCurrency(totalWithdraw)}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="savings-records-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Notes</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${paged.map(t => `
+                            <tr>
+                                <td>${t.date}</td>
+                                <td>${t.type === 'deposit' ? 'Income' : 'Withdrawal'}</td>
+                                <td class="${t.type==='deposit'?'amount-income':'amount-spending'}">$${formatCurrency(t.amount)}</td>
+                                <td>${t.notes||'-'}</td>
+                                <td>
+                                    <button class="btn-icon edit-btn" data-acc-id="${acc.id}" data-tx-id="${t.id}"><i class="fas fa-edit"></i></button>
+                                    <button class="btn-icon delete-btn" data-acc-id="${acc.id}" data-tx-id="${t.id}"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" style="margin-top:8px; text-align:right;">
+                <button class="btn btn-outline prev-page" ${page<=0?'disabled':''}>Prev</button>
+                <button class="btn btn-outline next-page" ${page>=totalPages-1?'disabled':''}>Next</button>
+            </div>
+        `;
+        savingsListEl.appendChild(card);
+
+        // attach listeners directly to the new card's buttons for reliability
+        const depBtn = card.querySelector('.deposit-btn');
+        if (depBtn) {
+            depBtn.addEventListener('click', (e) => { e.stopPropagation(); console.log('deposit btn', acc.id); openTransactionModal(acc.id, 'deposit'); });
+        }
+        const witBtn = card.querySelector('.withdraw-btn');
+        if (witBtn) {
+            witBtn.addEventListener('click', (e) => { e.stopPropagation(); console.log('withdraw btn', acc.id); openTransactionModal(acc.id, 'withdrawal'); });
+        }
+        const editAcc = card.querySelector('.edit-acc-btn');
+        if (editAcc) {
+            editAcc.addEventListener('click', (e) => { e.stopPropagation(); console.log('edit account', acc.id); openAccountModal(acc); });
+        }
+        const delAcc = card.querySelector('.delete-acc-btn');
+        if (delAcc) {
+            delAcc.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm('Delete this account? All its transactions will be removed too.')) {
+                    const txsToDelete = savingsTransactions.filter(t => t.accountId === acc.id);
+                    Promise.all(txsToDelete.map(t => remove(STORE_SAVINGS_TRANSACTIONS, t.id)))
+                        .then(() => remove(STORE_SAVINGS_ACCOUNTS, acc.id))
+                        .then(() => refreshData());
+                }
+            });
+        }
+        const editTxBtns = card.querySelectorAll('button.edit-btn');
+        editTxBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                console.log('edit tx', btn.getAttribute('data-tx-id'));
+                const txId = parseInt(btn.getAttribute('data-tx-id'));
+                const tx = savingsTransactions.find(t => t.id === txId);
+                if (tx) openTransactionModal(acc.id, tx.type, tx);
+            });
+        });
+        const delTxBtns = card.querySelectorAll('button.delete-btn');
+        delTxBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                console.log('delete tx', btn.getAttribute('data-tx-id'));
+                const txId = parseInt(btn.getAttribute('data-tx-id'));
+                if (confirm('Delete this transaction?')) {
+                    remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
+                }
+            });
+        });
+    });
+}
+
 // Modal Management
 function openModal(record = null) {
     const modalTitle = document.getElementById('modal-title');
@@ -814,6 +1239,8 @@ async function handleExport() {
         records: await getAll(STORE_RECORDS),
         categories: await getAll(STORE_CATEGORIES),
         people: await getAll(STORE_PEOPLE),
+        savingsAccounts: await getAll(STORE_SAVINGS_ACCOUNTS),
+        savingsTransactions: await getAll(STORE_SAVINGS_TRANSACTIONS),
         exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -849,6 +1276,21 @@ async function handleImport(e) {
                         for (const p of data.people) {
                             delete p.id;
                             await add(STORE_PEOPLE, p);
+                        }
+                    }
+                    // import savings
+                    if (data.savingsAccounts) {
+                        await clearStore(STORE_SAVINGS_ACCOUNTS);
+                        for (const a of data.savingsAccounts) {
+                            delete a.id;
+                            await add(STORE_SAVINGS_ACCOUNTS, a);
+                        }
+                    }
+                    if (data.savingsTransactions) {
+                        await clearStore(STORE_SAVINGS_TRANSACTIONS);
+                        for (const t of data.savingsTransactions) {
+                            delete t.id;
+                            await add(STORE_SAVINGS_TRANSACTIONS, t);
                         }
                     }
                     alert('Import successful!');

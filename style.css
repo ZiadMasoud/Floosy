@@ -181,6 +181,9 @@ h1 {
 .income .kpi-icon { background: #dcfce7; color: var(--success); }
 .spending .kpi-icon { background: #fee2e2; color: var(--danger); }
 .balance .kpi-icon { background: #e0e7ff; color: var(--primary-color); }
+/* savings-specific KPI modifiers */
+.withdrawal .kpi-icon { background: #fee2e2; color: var(--danger); }
+.month .kpi-icon { background: #e0f2fe; color: #0ea5e9; }
 
 .kpi-details h3 {
     font-size: 0.875rem;
@@ -435,6 +438,41 @@ tr:last-child td { border-bottom: none; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
 
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+
+/* Savings Styles */
+.savings-list {
+    display: grid;
+    /* always one card per row */
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.savings-card .account-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* mobile: row layout with smaller icons */
+@media (max-width: 768px) {
+    .savings-card .account-actions {
+        flex-direction: row;
+        gap: 0.25rem;
+    }
+    .savings-card .account-actions .btn-icon {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* row type coloring */
+.savings-records-table td.type-income { color: var(--success); font-weight: 600; }
+.savings-records-table td.type-withdrawal { color: var(--danger); font-weight: 600; }
+
+.savings-kpis .kpi-card {
+    padding: 1rem;
+}
 
 /* Settings Styles */
 .settings-grid {

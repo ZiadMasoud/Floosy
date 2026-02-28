@@ -13,6 +13,7 @@ Floosy is a modern, user-friendly personal finance tracking web application desi
 - **Analytics & Charts**: Visualize spending by category and track income vs. spending trends over time using interactive Chart.js charts.
 - **Category Management**: Create and organize custom categories for better expense tracking.
 - **Data Export/Import**: Export your financial data as CSV or import records from external sources.
+- **Savings Tracker**: Create and manage multiple savings accounts, record deposits and withdrawals, and view account‑specific KPIs with pagination for transactions.
 - **Responsive Design**: Fully responsive interface that works seamlessly on desktop and mobile devices.
 - **Local Storage**: All data is stored locally using IndexedDB, ensuring privacy and offline functionality.
 
