@@ -30,6 +30,9 @@ const newPersonBtn = document.getElementById('add-person-btn');
 const exportBtn = document.getElementById('export-btn');
 const importFile = document.getElementById('import-file');
 const resetBtn = document.getElementById('reset-btn');
+const selectiveResetBtn = document.getElementById('selective-reset-btn');
+const resetTypeSelect = document.getElementById('reset-type');
+const periodOptionsDiv = document.getElementById('period-options');
 const viewAllRecordsBtn = document.getElementById('view-all-records');
 const recordTypeSelect = document.getElementById('record-type');
 const itemFieldContainer = document.getElementById('item-field-container');
@@ -71,6 +74,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Set default date in modal
         document.getElementById('record-date').valueAsDate = new Date();
+        
+        // Initialize checkbox labels
+        const checkboxLabels = document.querySelectorAll('.checkbox-label');
+        checkboxLabels.forEach(label => {
+            label.addEventListener('click', function(e) {
+                e.preventDefault();
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    this.classList.toggle('checked', checkbox.checked);
+                }
+            });
+            
+            // Initialize checked state
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                label.classList.add('checked');
+            }
+        });
     } catch (error) {
         console.error('Initialization error:', error);
     }
@@ -98,6 +120,28 @@ function initEventListeners() {
         filterType.addEventListener('change', renderRecords);
     }
 
+    // Date filters
+    const filterYear = document.getElementById('filter-year');
+    const filterMonth = document.getElementById('filter-month');
+    const clearFiltersBtn = document.getElementById('clear-filters');
+    
+    if (filterYear) {
+        filterYear.addEventListener('change', renderRecords);
+    }
+    
+    if (filterMonth) {
+        filterMonth.addEventListener('change', renderRecords);
+    }
+    
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', () => {
+            if (filterType) filterType.value = 'all';
+            if (filterYear) filterYear.value = '';
+            if (filterMonth) filterMonth.value = '';
+            renderRecords();
+        });
+    }
+
     // Categories
     newCategoryBtn.addEventListener('click', handleAddCategory);
 
@@ -118,6 +162,14 @@ function initEventListeners() {
     exportBtn.addEventListener('click', handleExport);
     importFile.addEventListener('change', handleImport);
     resetBtn.addEventListener('click', handleReset);
+    
+    // Selective Reset
+    if (selectiveResetBtn) {
+        selectiveResetBtn.addEventListener('click', handleSelectiveReset);
+    }
+    if (resetTypeSelect) {
+        resetTypeSelect.addEventListener('change', handleResetTypeChange);
+    }
 
     // Record Type Toggle (Simplify Income)
     recordTypeSelect.addEventListener('change', () => {
@@ -296,6 +348,7 @@ async function refreshData() {
     updateCategoryDropdowns();
     updatePersonDropdown();
     renderAll();
+    populateYearFilter();
 }
 
 function switchTab(tabId) {
@@ -470,18 +523,59 @@ function renderCharts(monthlyRecords) {
     }
 }
 
+// Populate year dropdown
+function populateYearFilter() {
+    const yearSelect = document.getElementById('filter-year');
+    if (!yearSelect || !records || records.length === 0) return;
+    
+    // Get unique years from records
+    const years = [...new Set(records.map(r => r.date.substring(0, 4)))].sort().reverse();
+    
+    // Clear existing options except "All Years"
+    yearSelect.innerHTML = '<option value="">All Years</option>';
+    
+    // Add year options
+    years.forEach(year => {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        yearSelect.appendChild(option);
+    });
+}
+
 // Records Functions
 function renderRecords() {
     const tbody = document.getElementById('records-body');
     if (!tbody) return;
 
     const filterTypeEl = document.getElementById('filter-type');
+    const filterYearEl = document.getElementById('filter-year');
+    const filterMonthEl = document.getElementById('filter-month');
+    
     const filterType = filterTypeEl ? filterTypeEl.value : 'all';
+    const filterYear = filterYearEl ? filterYearEl.value : '';
+    const filterMonth = filterMonthEl ? filterMonthEl.value : '';
+    
     tbody.innerHTML = '';
 
     let filtered = records;
+    
+    // Filter by type
     if (filterType !== 'all') {
-        filtered = records.filter(r => r.type === filterType);
+        filtered = filtered.filter(r => r.type === filterType);
+    }
+    
+    // Filter by year
+    if (filterYear) {
+        filtered = filtered.filter(r => r.date.startsWith(filterYear));
+    }
+    
+    // Filter by month
+    if (filterMonth) {
+        filtered = filtered.filter(r => {
+            const date = new Date(r.date);
+            return date.getMonth() + 1 === parseInt(filterMonth);
+        });
     }
 
     if (filtered.length === 0) {
@@ -489,27 +583,62 @@ function renderRecords() {
         return;
     }
 
-    filtered.sort((a, b) => b.id - a.id).forEach(r => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${r.date}</td>
-            <td>${r.type === 'income' ? r.category : r.item}</td>
-            <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
-            <td>${r.person || '-'}</td>
-            <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
-                ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
-            </td>
-            <td>${r.quantity || '-'}</td>
-            <td><div class="notes-cell">${r.notes || '-'}</div></td>
-            <td>
-                <div class="action-btns">
-                    <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
-                    <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
-                </div>
-            </td>
-        `;
-        tr.addEventListener('click', () => openDetailsModal(r));
-        tbody.appendChild(tr);
+    // Sort by date descending
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Group by month for separators
+    const groupedByMonth = {};
+    filtered.forEach(record => {
+        const date = new Date(record.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!groupedByMonth[monthKey]) {
+            groupedByMonth[monthKey] = [];
+        }
+        groupedByMonth[monthKey].push(record);
+    });
+
+    // Render with monthly separators
+    const sortedMonths = Object.keys(groupedByMonth).sort().reverse();
+    
+    sortedMonths.forEach((monthKey, index) => {
+        const monthRecords = groupedByMonth[monthKey];
+        const [year, month] = monthKey.split('-');
+        const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        // Add month separator (as a proper table row)
+        if (index > 0) {
+            const separatorRow = document.createElement('tr');
+            separatorRow.innerHTML = `
+                <td colspan="8" style="padding: 0;">
+                    <div class="month-separator" data-month="${monthName} - ${monthRecords.length} transactions"></div>
+                </td>
+            `;
+            tbody.appendChild(separatorRow);
+        }
+        
+        // Add records for this month
+        monthRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${r.date}</td>
+                <td>${r.type === 'income' ? r.category : r.item}</td>
+                <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
+                <td>${r.person || '-'}</td>
+                <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
+                    ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
+                </td>
+                <td>${r.quantity || '-'}</td>
+                <td><div class="notes-cell">${r.notes || '-'}</div></td>
+                <td>
+                    <div class="action-btns">
+                        <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
+                    </div>
+                </td>
+            `;
+            tr.addEventListener('click', () => openDetailsModal(r));
+            tbody.appendChild(tr);
+        });
     });
 }
 
@@ -1248,7 +1377,7 @@ async function handleExport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `house_spending_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `Floosy_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -1313,6 +1442,100 @@ async function handleReset() {
         await resetDB();
         await refreshData();
         alert('Database reset complete.');
+    }
+}
+
+function handleResetTypeChange() {
+    const resetType = resetTypeSelect.value;
+    if (periodOptionsDiv) {
+        periodOptionsDiv.style.display = resetType === 'period' ? 'block' : 'none';
+    }
+}
+
+async function handleSelectiveReset() {
+    const resetType = resetTypeSelect.value;
+    const resetRecords = document.getElementById('reset-records').checked;
+    const resetSavings = document.getElementById('reset-savings').checked;
+    const resetCategories = document.getElementById('reset-categories').checked;
+    const resetPeople = document.getElementById('reset-people').checked;
+    
+    // Validate at least one option is selected
+    if (!resetRecords && !resetSavings && !resetCategories && !resetPeople) {
+        alert('Please select at least one type of data to reset.');
+        return;
+    }
+    
+    // Validate period dates if period is selected
+    let startDate = null;
+    let endDate = null;
+    if (resetType === 'period') {
+        startDate = new Date(document.getElementById('period-start').value);
+        endDate = new Date(document.getElementById('period-end').value);
+        
+        if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            alert('Please select valid start and end dates for the custom period.');
+            return;
+        }
+        
+        if (startDate > endDate) {
+            alert('Start date must be before end date.');
+            return;
+        }
+    }
+    
+    // Create confirmation message
+    let confirmMessage = 'Are you sure you want to reset the following data:\n\n';
+    if (resetRecords) {
+        confirmMessage += `• Transaction Records (${resetType === 'all' ? 'all time' : resetType === 'month' ? 'current month' : 'selected period'})\n`;
+    }
+    if (resetSavings) {
+        confirmMessage += `• Savings Data (${resetType === 'all' ? 'all time' : resetType === 'month' ? 'current month' : 'selected period'})\n`;
+    }
+    if (resetCategories) {
+        confirmMessage += '• Categories (will restore defaults)\n';
+    }
+    if (resetPeople) {
+        confirmMessage += '• People\n';
+    }
+    
+    confirmMessage += '\nThis action cannot be undone.';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    try {
+        const result = await selectiveReset({
+            resetType,
+            startDate,
+            endDate,
+            resetRecords,
+            resetSavings,
+            resetCategories,
+            resetPeople
+        });
+        
+        await refreshData();
+        
+        // Create success message
+        let successMessage = 'Data reset complete!\n\n';
+        if (result.recordsDeleted > 0) {
+            successMessage += `• ${result.recordsDeleted === -1 ? 'All' : result.recordsDeleted} transaction records deleted\n`;
+        }
+        if (result.savingsDeleted > 0) {
+            successMessage += `• ${result.savingsDeleted === -1 ? 'All' : result.savingsDeleted} savings transactions deleted\n`;
+        }
+        if (resetCategories) {
+            successMessage += '• Categories reset to defaults\n';
+        }
+        if (resetPeople) {
+            successMessage += '• All people data cleared\n';
+        }
+        
+        alert(successMessage);
+    } catch (error) {
+        console.error('Reset error:', error);
+        alert('An error occurred while resetting data. Please try again.');
     }
 }
 

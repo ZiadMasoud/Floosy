@@ -1,0 +1,2012 @@
+{
+  "records": [
+    {
+      "date": "2026-01-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 1
+    },
+    {
+      "date": "2026-01-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 2
+    },
+    {
+      "date": "2026-01-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "January rent",
+      "id": 3
+    },
+    {
+      "date": "2026-01-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 245.67,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 4
+    },
+    {
+      "date": "2026-01-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 5
+    },
+    {
+      "date": "2026-01-08",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 150,
+      "person": "John",
+      "item": "Electricity bill",
+      "quantity": 1,
+      "notes": "January electricity",
+      "id": 6
+    },
+    {
+      "date": "2026-01-09",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 7
+    },
+    {
+      "date": "2026-01-10",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 45,
+      "person": "John",
+      "item": "Gas",
+      "quantity": 1,
+      "notes": "Car fuel",
+      "id": 8
+    },
+    {
+      "date": "2026-01-12",
+      "type": "income",
+      "category": "Freelance",
+      "amount": 800,
+      "person": "John",
+      "notes": "Web design project",
+      "id": 9
+    },
+    {
+      "date": "2026-01-13",
+      "type": "spending",
+      "category": "Pet Supplies",
+      "amount": 65.5,
+      "person": "Emma",
+      "item": "Dog food",
+      "quantity": 2,
+      "notes": "Monthly supplies",
+      "id": 10
+    },
+    {
+      "date": "2026-01-15",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 75.5,
+      "person": "Sarah",
+      "item": "Movie night",
+      "quantity": 2,
+      "notes": "Dinner and movie",
+      "id": 11
+    },
+    {
+      "date": "2026-01-17",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 45,
+      "person": "Mike",
+      "item": "Lunch",
+      "quantity": 3,
+      "notes": "Team lunch",
+      "id": 12
+    },
+    {
+      "date": "2026-01-20",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 189.23,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 13
+    },
+    {
+      "date": "2026-01-22",
+      "type": "spending",
+      "category": "Clothing",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Winter coat",
+      "quantity": 1,
+      "notes": "Seasonal purchase",
+      "id": 14
+    },
+    {
+      "date": "2026-01-25",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 30,
+      "person": "John",
+      "item": "Public transport",
+      "quantity": 5,
+      "notes": "Weekly pass",
+      "id": 15
+    },
+    {
+      "date": "2026-01-28",
+      "type": "spending",
+      "category": "Healthcare",
+      "amount": 85,
+      "person": "David",
+      "item": "Doctor visit",
+      "quantity": 1,
+      "notes": "Regular checkup",
+      "id": 16
+    },
+    {
+      "date": "2026-02-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 17
+    },
+    {
+      "date": "2026-02-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 18
+    },
+    {
+      "date": "2026-02-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "February rent",
+      "id": 19
+    },
+    {
+      "date": "2026-02-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 267.89,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 20
+    },
+    {
+      "date": "2026-02-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 21
+    },
+    {
+      "date": "2026-02-08",
+      "type": "spending",
+      "category": "Education",
+      "amount": 150,
+      "person": "Emma",
+      "item": "Online course",
+      "quantity": 1,
+      "notes": "Professional development",
+      "id": 22
+    },
+    {
+      "date": "2026-02-10",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 142.5,
+      "person": "John",
+      "item": "Internet & phone",
+      "quantity": 1,
+      "notes": "Monthly bills",
+      "id": 23
+    },
+    {
+      "date": "2026-02-12",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 24
+    },
+    {
+      "date": "2026-02-14",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 120,
+      "person": "John",
+      "item": "Valentine's dinner",
+      "quantity": 2,
+      "notes": "Special occasion",
+      "id": 25
+    },
+    {
+      "date": "2026-02-14",
+      "type": "spending",
+      "category": "Gifts",
+      "amount": 75,
+      "person": "Sarah",
+      "item": "Valentine's gift",
+      "quantity": 1,
+      "notes": "Anniversary gift",
+      "id": 26
+    },
+    {
+      "date": "2026-02-16",
+      "type": "income",
+      "category": "Bonus",
+      "amount": 1000,
+      "person": "John",
+      "notes": "Performance bonus",
+      "id": 27
+    },
+    {
+      "date": "2026-02-18",
+      "type": "income",
+      "category": "Investment",
+      "amount": 250,
+      "person": "John",
+      "notes": "Dividend payment",
+      "id": 28
+    },
+    {
+      "date": "2026-02-20",
+      "type": "spending",
+      "category": "Home Maintenance",
+      "amount": 180,
+      "person": "Mike",
+      "item": "Plumbing repair",
+      "quantity": 1,
+      "notes": "Emergency fix",
+      "id": 29
+    },
+    {
+      "date": "2026-02-22",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 55,
+      "person": "Sarah",
+      "item": "Ride sharing",
+      "quantity": 3,
+      "notes": "Airport trip",
+      "id": 30
+    },
+    {
+      "date": "2026-02-24",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 85,
+      "person": "David",
+      "item": "Restaurant dinner",
+      "quantity": 4,
+      "notes": "Family dinner",
+      "id": 31
+    },
+    {
+      "date": "2026-02-28",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 198.45,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Monthly stock up",
+      "id": 32
+    },
+    {
+      "date": "2026-03-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 33
+    },
+    {
+      "date": "2026-03-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 34
+    },
+    {
+      "date": "2026-03-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "March rent",
+      "id": 35
+    },
+    {
+      "date": "2026-03-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 234.78,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 36
+    },
+    {
+      "date": "2026-03-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 37
+    },
+    {
+      "date": "2026-03-08",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 165,
+      "person": "John",
+      "item": "Water & electricity",
+      "quantity": 1,
+      "notes": "March utilities",
+      "id": 38
+    },
+    {
+      "date": "2026-03-10",
+      "type": "spending",
+      "category": "Pet Supplies",
+      "amount": 45,
+      "person": "Emma",
+      "item": "Cat food",
+      "quantity": 3,
+      "notes": "Monthly supplies",
+      "id": 39
+    },
+    {
+      "date": "2026-03-12",
+      "type": "income",
+      "category": "Freelance",
+      "amount": 600,
+      "person": "John",
+      "notes": "Consulting work",
+      "id": 40
+    },
+    {
+      "date": "2026-03-14",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 41
+    },
+    {
+      "date": "2026-03-15",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 89.99,
+      "person": "Sarah",
+      "item": "Concert tickets",
+      "quantity": 2,
+      "notes": "Weekend show",
+      "id": 42
+    },
+    {
+      "date": "2026-03-17",
+      "type": "income",
+      "category": "Side Hustle",
+      "amount": 300,
+      "person": "Mike",
+      "notes": "Weekend gig",
+      "id": 43
+    },
+    {
+      "date": "2026-03-20",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 40,
+      "person": "John",
+      "item": "Car maintenance",
+      "quantity": 1,
+      "notes": "Oil change",
+      "id": 44
+    },
+    {
+      "date": "2026-03-22",
+      "type": "spending",
+      "category": "Clothing",
+      "amount": 85,
+      "person": "David",
+      "item": "Running shoes",
+      "quantity": 1,
+      "notes": "Fitness gear",
+      "id": 45
+    },
+    {
+      "date": "2026-03-25",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 212.34,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 46
+    },
+    {
+      "date": "2026-03-28",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 65,
+      "person": "Emma",
+      "item": "Coffee shop",
+      "quantity": 5,
+      "notes": "Weekly treats",
+      "id": 47
+    },
+    {
+      "date": "2026-04-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 48
+    },
+    {
+      "date": "2026-04-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 49
+    },
+    {
+      "date": "2026-04-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "April rent",
+      "id": 50
+    },
+    {
+      "date": "2026-04-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 256.12,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 51
+    },
+    {
+      "date": "2026-04-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 52
+    },
+    {
+      "date": "2026-04-08",
+      "type": "spending",
+      "category": "Healthcare",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Dental cleaning",
+      "quantity": 1,
+      "notes": "Regular checkup",
+      "id": 53
+    },
+    {
+      "date": "2026-04-10",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 155,
+      "person": "John",
+      "item": "Gas bill",
+      "quantity": 1,
+      "notes": "Monthly utilities",
+      "id": 54
+    },
+    {
+      "date": "2026-04-12",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 55
+    },
+    {
+      "date": "2026-04-14",
+      "type": "spending",
+      "category": "Education",
+      "amount": 200,
+      "person": "Emma",
+      "item": "Textbooks",
+      "quantity": 3,
+      "notes": "Semester materials",
+      "id": 56
+    },
+    {
+      "date": "2026-04-16",
+      "type": "income",
+      "category": "Freelance",
+      "amount": 450,
+      "person": "John",
+      "notes": "Small project",
+      "id": 57
+    },
+    {
+      "date": "2026-04-18",
+      "type": "spending",
+      "category": "Home Maintenance",
+      "amount": 95,
+      "person": "Mike",
+      "item": "Garden supplies",
+      "quantity": 1,
+      "notes": "Spring gardening",
+      "id": 58
+    },
+    {
+      "date": "2026-04-20",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 55,
+      "person": "David",
+      "item": "Streaming services",
+      "quantity": 3,
+      "notes": "Monthly subscriptions",
+      "id": 59
+    },
+    {
+      "date": "2026-04-22",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 35,
+      "person": "Sarah",
+      "item": "Public transport",
+      "quantity": 1,
+      "notes": "Monthly pass",
+      "id": 60
+    },
+    {
+      "date": "2026-04-25",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 223.45,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 61
+    },
+    {
+      "date": "2026-04-28",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 75,
+      "person": "Mike",
+      "item": "Team lunch",
+      "quantity": 4,
+      "notes": "Project celebration",
+      "id": 62
+    },
+    {
+      "date": "2026-05-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 63
+    },
+    {
+      "date": "2026-05-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 64
+    },
+    {
+      "date": "2026-05-01",
+      "type": "income",
+      "category": "Bonus",
+      "amount": 500,
+      "person": "John",
+      "notes": "Spring bonus",
+      "id": 65
+    },
+    {
+      "date": "2026-05-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "May rent",
+      "id": 66
+    },
+    {
+      "date": "2026-05-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 278.9,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 67
+    },
+    {
+      "date": "2026-05-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 68
+    },
+    {
+      "date": "2026-05-08",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 145,
+      "person": "John",
+      "item": "Electricity",
+      "quantity": 1,
+      "notes": "Monthly bill",
+      "id": 69
+    },
+    {
+      "date": "2026-05-10",
+      "type": "spending",
+      "category": "Clothing",
+      "amount": 150,
+      "person": "Sarah",
+      "item": "Summer clothes",
+      "quantity": 5,
+      "notes": "Seasonal update",
+      "id": 70
+    },
+    {
+      "date": "2026-05-12",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 71
+    },
+    {
+      "date": "2026-05-14",
+      "type": "spending",
+      "category": "Gifts",
+      "amount": 100,
+      "person": "John",
+      "item": "Mother's Day gift",
+      "quantity": 1,
+      "notes": "Special occasion",
+      "id": 72
+    },
+    {
+      "date": "2026-05-16",
+      "type": "income",
+      "category": "Side Hustle",
+      "amount": 400,
+      "person": "Mike",
+      "notes": "Weekend work",
+      "id": 73
+    },
+    {
+      "date": "2026-05-18",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 120,
+      "person": "David",
+      "item": "Sports event tickets",
+      "quantity": 2,
+      "notes": "Weekend game",
+      "id": 74
+    },
+    {
+      "date": "2026-05-20",
+      "type": "spending",
+      "category": "Pet Supplies",
+      "amount": 85,
+      "person": "Emma",
+      "item": "Pet grooming",
+      "quantity": 1,
+      "notes": "Monthly service",
+      "id": 75
+    },
+    {
+      "date": "2026-05-22",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 95,
+      "person": "Sarah",
+      "item": "Restaurant",
+      "quantity": 3,
+      "notes": "Birthday dinner",
+      "id": 76
+    },
+    {
+      "date": "2026-05-25",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 245.67,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 77
+    },
+    {
+      "date": "2026-05-28",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 60,
+      "person": "John",
+      "item": "Gas",
+      "quantity": 1,
+      "notes": "Road trip fuel",
+      "id": 78
+    },
+    {
+      "date": "2026-06-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 79
+    },
+    {
+      "date": "2026-06-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 80
+    },
+    {
+      "date": "2026-06-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "June rent",
+      "id": 81
+    },
+    {
+      "date": "2026-06-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 265.43,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 82
+    },
+    {
+      "date": "2026-06-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 83
+    },
+    {
+      "date": "2026-06-08",
+      "type": "spending",
+      "category": "Education",
+      "amount": 180,
+      "person": "David",
+      "item": "Workshop fee",
+      "quantity": 1,
+      "notes": "Professional development",
+      "id": 84
+    },
+    {
+      "date": "2026-06-10",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 170,
+      "person": "John",
+      "item": "Water & electricity",
+      "quantity": 1,
+      "notes": "Summer rates",
+      "id": 85
+    },
+    {
+      "date": "2026-06-12",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 86
+    },
+    {
+      "date": "2026-06-14",
+      "type": "spending",
+      "category": "Gifts",
+      "amount": 80,
+      "person": "Sarah",
+      "item": "Father's Day gift",
+      "quantity": 1,
+      "notes": "Special occasion",
+      "id": 87
+    },
+    {
+      "date": "2026-06-16",
+      "type": "income",
+      "category": "Investment",
+      "amount": 350,
+      "person": "John",
+      "notes": "Stock dividends",
+      "id": 88
+    },
+    {
+      "date": "2026-06-18",
+      "type": "spending",
+      "category": "Home Maintenance",
+      "amount": 220,
+      "person": "Mike",
+      "item": "AC service",
+      "quantity": 1,
+      "notes": "Summer preparation",
+      "id": 89
+    },
+    {
+      "date": "2026-06-20",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 140,
+      "person": "Emma",
+      "item": "Concert tickets",
+      "quantity": 2,
+      "notes": "Summer festival",
+      "id": 90
+    },
+    {
+      "date": "2026-06-22",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 110,
+      "person": "David",
+      "item": "BBQ restaurant",
+      "quantity": 4,
+      "notes": "Weekend dinner",
+      "id": 91
+    },
+    {
+      "date": "2026-06-25",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 289.56,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 92
+    },
+    {
+      "date": "2026-06-28",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 45,
+      "person": "John",
+      "item": "Car wash",
+      "quantity": 1,
+      "notes": "Monthly cleaning",
+      "id": 93
+    },
+    {
+      "date": "2026-07-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 94
+    },
+    {
+      "date": "2026-07-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 95
+    },
+    {
+      "date": "2026-07-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "July rent",
+      "id": 96
+    },
+    {
+      "date": "2026-07-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 312.78,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 97
+    },
+    {
+      "date": "2026-07-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 98
+    },
+    {
+      "date": "2026-07-08",
+      "type": "spending",
+      "category": "Healthcare",
+      "amount": 95,
+      "person": "Emma",
+      "item": "Pharmacy",
+      "quantity": 1,
+      "notes": "Summer allergies",
+      "id": 99
+    },
+    {
+      "date": "2026-07-10",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 185,
+      "person": "John",
+      "item": "Electricity",
+      "quantity": 1,
+      "notes": "AC usage",
+      "id": 100
+    },
+    {
+      "date": "2026-07-12",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 101
+    },
+    {
+      "date": "2026-07-14",
+      "type": "spending",
+      "category": "Clothing",
+      "amount": 180,
+      "person": "David",
+      "item": "Swimwear",
+      "quantity": 2,
+      "notes": "Vacation prep",
+      "id": 102
+    },
+    {
+      "date": "2026-07-16",
+      "type": "income",
+      "category": "Freelance",
+      "amount": 700,
+      "person": "John",
+      "notes": "Summer project",
+      "id": 103
+    },
+    {
+      "date": "2026-07-18",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 200,
+      "person": "Sarah",
+      "item": "Theme park tickets",
+      "quantity": 4,
+      "notes": "Family outing",
+      "id": 104
+    },
+    {
+      "date": "2026-07-20",
+      "type": "spending",
+      "category": "Pet Supplies",
+      "amount": 55,
+      "person": "Emma",
+      "item": "Pet toys",
+      "quantity": 3,
+      "notes": "Summer enrichment",
+      "id": 105
+    },
+    {
+      "date": "2026-07-22",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 125,
+      "person": "Mike",
+      "item": "Restaurant",
+      "quantity": 5,
+      "notes": "Team building",
+      "id": 106
+    },
+    {
+      "date": "2026-07-25",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 298.34,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 107
+    },
+    {
+      "date": "2026-07-28",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 75,
+      "person": "John",
+      "item": "Gas",
+      "quantity": 1,
+      "notes": "Road trip",
+      "id": 108
+    },
+    {
+      "date": "2026-08-01",
+      "type": "income",
+      "category": "Salary",
+      "amount": 3500,
+      "person": "John",
+      "notes": "Monthly salary",
+      "id": 109
+    },
+    {
+      "date": "2026-08-01",
+      "type": "income",
+      "category": "Rental Income",
+      "amount": 800,
+      "person": "John",
+      "notes": "Property rental",
+      "id": 110
+    },
+    {
+      "date": "2026-08-03",
+      "type": "spending",
+      "category": "Rent/Mortgage",
+      "amount": 1200,
+      "person": "John",
+      "item": "Monthly rent",
+      "quantity": 1,
+      "notes": "August rent",
+      "id": 111
+    },
+    {
+      "date": "2026-08-05",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 276.89,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 112
+    },
+    {
+      "date": "2026-08-06",
+      "type": "spending",
+      "category": "Gym/Fitness",
+      "amount": 50,
+      "person": "John",
+      "item": "Gym membership",
+      "quantity": 1,
+      "notes": "Monthly fee",
+      "id": 113
+    },
+    {
+      "date": "2026-08-08",
+      "type": "spending",
+      "category": "Education",
+      "amount": 250,
+      "person": "Emma",
+      "item": "Online certification",
+      "quantity": 1,
+      "notes": "Career development",
+      "id": 114
+    },
+    {
+      "date": "2026-08-10",
+      "type": "spending",
+      "category": "Utilities",
+      "amount": 160,
+      "person": "John",
+      "item": "Internet & phone",
+      "quantity": 1,
+      "notes": "Monthly bills",
+      "id": 115
+    },
+    {
+      "date": "2026-08-12",
+      "type": "spending",
+      "category": "Insurance",
+      "amount": 120,
+      "person": "Sarah",
+      "item": "Health insurance",
+      "quantity": 1,
+      "notes": "Monthly premium",
+      "id": 116
+    },
+    {
+      "date": "2026-08-14",
+      "type": "spending",
+      "category": "Home Maintenance",
+      "amount": 130,
+      "person": "Mike",
+      "item": "Pest control",
+      "quantity": 1,
+      "notes": "Seasonal service",
+      "id": 117
+    },
+    {
+      "date": "2026-08-16",
+      "type": "income",
+      "category": "Side Hustle",
+      "amount": 350,
+      "person": "Mike",
+      "notes": "Weekend project",
+      "id": 118
+    },
+    {
+      "date": "2026-08-18",
+      "type": "spending",
+      "category": "Entertainment",
+      "amount": 90,
+      "person": "David",
+      "item": "Movie tickets",
+      "quantity": 3,
+      "notes": "Weekend movie",
+      "id": 119
+    },
+    {
+      "date": "2026-08-20",
+      "type": "spending",
+      "category": "Clothing",
+      "amount": 110,
+      "person": "Sarah",
+      "item": "Back to school",
+      "quantity": 2,
+      "notes": "Fall preparation",
+      "id": 120
+    },
+    {
+      "date": "2026-08-22",
+      "type": "spending",
+      "category": "Dining Out",
+      "amount": 80,
+      "person": "Emma",
+      "item": "Lunch",
+      "quantity": 4,
+      "notes": "Team lunch",
+      "id": 121
+    },
+    {
+      "date": "2026-08-25",
+      "type": "spending",
+      "category": "Groceries",
+      "amount": 267.45,
+      "person": "Sarah",
+      "item": "Weekly groceries",
+      "quantity": 1,
+      "notes": "Weekly shopping",
+      "id": 122
+    },
+    {
+      "date": "2026-08-28",
+      "type": "spending",
+      "category": "Transport",
+      "amount": 50,
+      "person": "John",
+      "item": "Gas",
+      "quantity": 1,
+      "notes": "Monthly fuel",
+      "id": 123
+    },
+    {
+      "date": "2026-08-30",
+      "type": "income",
+      "category": "Investment",
+      "amount": 400,
+      "person": "John",
+      "notes": "Quarterly dividends",
+      "id": 124
+    }
+  ],
+  "categories": [
+    {
+      "name": "Rent/Mortgage",
+      "type": "spending",
+      "id": 1
+    },
+    {
+      "name": "Groceries",
+      "type": "spending",
+      "id": 2
+    },
+    {
+      "name": "Utilities",
+      "type": "spending",
+      "id": 3
+    },
+    {
+      "name": "Transport",
+      "type": "spending",
+      "id": 4
+    },
+    {
+      "name": "Entertainment",
+      "type": "spending",
+      "id": 5
+    },
+    {
+      "name": "Salary",
+      "type": "income",
+      "id": 6
+    },
+    {
+      "name": "Freelance",
+      "type": "income",
+      "id": 7
+    },
+    {
+      "name": "Investment",
+      "type": "income",
+      "id": 8
+    },
+    {
+      "name": "Healthcare",
+      "type": "spending",
+      "id": 9
+    },
+    {
+      "name": "Insurance",
+      "type": "spending",
+      "id": 10
+    },
+    {
+      "name": "Clothing",
+      "type": "spending",
+      "id": 11
+    },
+    {
+      "name": "Dining Out",
+      "type": "spending",
+      "id": 12
+    },
+    {
+      "name": "Education",
+      "type": "spending",
+      "id": 13
+    },
+    {
+      "name": "Home Maintenance",
+      "type": "spending",
+      "id": 14
+    },
+    {
+      "name": "Gifts",
+      "type": "spending",
+      "id": 15
+    },
+    {
+      "name": "Pet Supplies",
+      "type": "spending",
+      "id": 16
+    },
+    {
+      "name": "Gym/Fitness",
+      "type": "spending",
+      "id": 17
+    },
+    {
+      "name": "Bonus",
+      "type": "income",
+      "id": 18
+    },
+    {
+      "name": "Side Hustle",
+      "type": "income",
+      "id": 19
+    },
+    {
+      "name": "Rental Income",
+      "type": "income",
+      "id": 20
+    }
+  ],
+  "people": [
+    {
+      "name": "John",
+      "id": 1
+    },
+    {
+      "name": "Sarah",
+      "id": 2
+    },
+    {
+      "name": "Mike",
+      "id": 3
+    },
+    {
+      "name": "Emma",
+      "id": 4
+    },
+    {
+      "name": "David",
+      "id": 5
+    }
+  ],
+  "savingsAccounts": [
+    {
+      "name": "Emergency Fund",
+      "id": 1,
+      "currentBalance": 2400
+    },
+    {
+      "name": "Vacation Savings",
+      "id": 2,
+      "currentBalance": 1100
+    },
+    {
+      "name": "New Car Fund",
+      "id": 3,
+      "currentBalance": 700
+    },
+    {
+      "name": "Home Renovation",
+      "id": 4,
+      "currentBalance": 1350
+    },
+    {
+      "name": "Kids Education",
+      "id": 5,
+      "currentBalance": 1100
+    },
+    {
+      "name": "Retirement Fund",
+      "id": 6,
+      "currentBalance": 4500
+    },
+    {
+      "name": "Wedding Fund",
+      "id": 7,
+      "currentBalance": 2400
+    }
+  ],
+  "savingsTransactions": [
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 1000,
+      "date": "2026-01-01",
+      "notes": "Initial emergency fund setup",
+      "id": 1
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-01-15",
+      "notes": "Monthly contribution",
+      "id": 2
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-02-15",
+      "notes": "Monthly contribution",
+      "id": 3
+    },
+    {
+      "accountId": 1,
+      "type": "withdrawal",
+      "amount": 150,
+      "date": "2026-02-20",
+      "notes": "Emergency car repair",
+      "id": 4
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-03-15",
+      "notes": "Monthly contribution",
+      "id": 5
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-04-15",
+      "notes": "Monthly contribution",
+      "id": 6
+    },
+    {
+      "accountId": 1,
+      "type": "withdrawal",
+      "amount": 200,
+      "date": "2026-05-10",
+      "notes": "Medical emergency",
+      "id": 7
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-05-15",
+      "notes": "Monthly contribution",
+      "id": 8
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-06-15",
+      "notes": "Monthly contribution",
+      "id": 9
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-07-15",
+      "notes": "Monthly contribution",
+      "id": 10
+    },
+    {
+      "accountId": 1,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-08-15",
+      "notes": "Monthly contribution",
+      "id": 11
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-01-20",
+      "notes": "Vacation fund start",
+      "id": 12
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-02-20",
+      "notes": "Monthly contribution",
+      "id": 13
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-03-20",
+      "notes": "Monthly contribution",
+      "id": 14
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-04-20",
+      "notes": "Monthly contribution",
+      "id": 15
+    },
+    {
+      "accountId": 2,
+      "type": "withdrawal",
+      "amount": 800,
+      "date": "2026-05-15",
+      "notes": "Summer vacation booking",
+      "id": 16
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-05-20",
+      "notes": "Monthly contribution",
+      "id": 17
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-06-20",
+      "notes": "Monthly contribution",
+      "id": 18
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-07-20",
+      "notes": "Monthly contribution",
+      "id": 19
+    },
+    {
+      "accountId": 2,
+      "type": "deposit",
+      "amount": 150,
+      "date": "2026-08-20",
+      "notes": "Monthly contribution",
+      "id": 20
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-01-10",
+      "notes": "Car fund initial",
+      "id": 21
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-02-10",
+      "notes": "Monthly contribution",
+      "id": 22
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-03-10",
+      "notes": "Monthly contribution",
+      "id": 23
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-04-10",
+      "notes": "Monthly contribution",
+      "id": 24
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-05-10",
+      "notes": "Monthly contribution",
+      "id": 25
+    },
+    {
+      "accountId": 3,
+      "type": "withdrawal",
+      "amount": 2000,
+      "date": "2026-06-01",
+      "notes": "Used car purchase",
+      "id": 26
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-06-10",
+      "notes": "Monthly contribution",
+      "id": 27
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-07-10",
+      "notes": "Monthly contribution",
+      "id": 28
+    },
+    {
+      "accountId": 3,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-08-10",
+      "notes": "Monthly contribution",
+      "id": 29
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 400,
+      "date": "2026-01-25",
+      "notes": "Home renovation start",
+      "id": 30
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-02-25",
+      "notes": "Monthly contribution",
+      "id": 31
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-03-25",
+      "notes": "Monthly contribution",
+      "id": 32
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-04-25",
+      "notes": "Monthly contribution",
+      "id": 33
+    },
+    {
+      "accountId": 4,
+      "type": "withdrawal",
+      "amount": 800,
+      "date": "2026-05-01",
+      "notes": "Kitchen renovation materials",
+      "id": 34
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-05-25",
+      "notes": "Monthly contribution",
+      "id": 35
+    },
+    {
+      "accountId": 4,
+      "type": "withdrawal",
+      "amount": 600,
+      "date": "2026-06-15",
+      "notes": "Bathroom renovation",
+      "id": 36
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-06-25",
+      "notes": "Monthly contribution",
+      "id": 37
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-07-25",
+      "notes": "Monthly contribution",
+      "id": 38
+    },
+    {
+      "accountId": 4,
+      "type": "deposit",
+      "amount": 250,
+      "date": "2026-08-25",
+      "notes": "Monthly contribution",
+      "id": 39
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-01-05",
+      "notes": "Education fund start",
+      "id": 40
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-02-05",
+      "notes": "Monthly contribution",
+      "id": 41
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-03-05",
+      "notes": "Monthly contribution",
+      "id": 42
+    },
+    {
+      "accountId": 5,
+      "type": "withdrawal",
+      "amount": 150,
+      "date": "2026-04-01",
+      "notes": "School supplies",
+      "id": 43
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-04-05",
+      "notes": "Monthly contribution",
+      "id": 44
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-05-05",
+      "notes": "Monthly contribution",
+      "id": 45
+    },
+    {
+      "accountId": 5,
+      "type": "withdrawal",
+      "amount": 300,
+      "date": "2026-06-01",
+      "notes": "Summer camp fees",
+      "id": 46
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-06-05",
+      "notes": "Monthly contribution",
+      "id": 47
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-07-05",
+      "notes": "Monthly contribution",
+      "id": 48
+    },
+    {
+      "accountId": 5,
+      "type": "deposit",
+      "amount": 200,
+      "date": "2026-08-05",
+      "notes": "Monthly contribution",
+      "id": 49
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 1000,
+      "date": "2026-01-01",
+      "notes": "Retirement fund initial",
+      "id": 50
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-02-01",
+      "notes": "Monthly contribution",
+      "id": 51
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-03-01",
+      "notes": "Monthly contribution",
+      "id": 52
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-04-01",
+      "notes": "Monthly contribution",
+      "id": 53
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-05-01",
+      "notes": "Monthly contribution",
+      "id": 54
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-06-01",
+      "notes": "Monthly contribution",
+      "id": 55
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-07-01",
+      "notes": "Monthly contribution",
+      "id": 56
+    },
+    {
+      "accountId": 6,
+      "type": "deposit",
+      "amount": 500,
+      "date": "2026-08-01",
+      "notes": "Monthly contribution",
+      "id": 57
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 600,
+      "date": "2026-01-14",
+      "notes": "Wedding fund start",
+      "id": 58
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-02-14",
+      "notes": "Monthly contribution",
+      "id": 59
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-03-14",
+      "notes": "Monthly contribution",
+      "id": 60
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-04-14",
+      "notes": "Monthly contribution",
+      "id": 61
+    },
+    {
+      "accountId": 7,
+      "type": "withdrawal",
+      "amount": 500,
+      "date": "2026-05-20",
+      "notes": "Venue deposit",
+      "id": 62
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-05-14",
+      "notes": "Monthly contribution",
+      "id": 63
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-06-14",
+      "notes": "Monthly contribution",
+      "id": 64
+    },
+    {
+      "accountId": 7,
+      "type": "withdrawal",
+      "amount": 800,
+      "date": "2026-07-15",
+      "notes": "Photographer payment",
+      "id": 65
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-07-14",
+      "notes": "Monthly contribution",
+      "id": 66
+    },
+    {
+      "accountId": 7,
+      "type": "deposit",
+      "amount": 300,
+      "date": "2026-08-14",
+      "notes": "Monthly contribution",
+      "id": 67
+    }
+  ],
+  "exportedAt": "2026-03-02T00:45:14.098Z"
+}
