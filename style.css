@@ -207,6 +207,7 @@ h1 {
     padding: 0.5rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
+    flex-wrap: wrap;
 }
 
 .filter-group {
@@ -244,6 +245,61 @@ h1 {
     gap: 0.25rem;
     font-size: 0.8rem;
     height: 32px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .filter-controls-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+    
+    .filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    
+    .filter-group input[type="date"],
+    .filter-group select {
+        width: 100%;
+        min-width: auto;
+        height: 36px;
+        font-size: 0.875rem;
+    }
+    
+    #clear-filters {
+        width: 100%;
+        height: 36px;
+        justify-content: center;
+        font-size: 0.875rem;
+    }
+    
+    .filter-label {
+        font-size: 0.8rem;
+        margin-bottom: 0.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .card-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .filter-controls-group {
+        order: 2;
+    }
+    
+    #add-record-btn {
+        order: 1;
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 /* Monthly Separators */
