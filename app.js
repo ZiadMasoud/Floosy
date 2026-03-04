@@ -8,6 +8,10 @@ let records = [];
 let categories = [];
 let people = [];
 
+// Combined transactions state
+let combinedTransactions = [];
+let combinedTransactionIdCounter = 0;
+
 // savings feature state
 let savingsAccounts = [];
 let savingsTransactions = [];
@@ -21,8 +25,14 @@ const recordModal = document.getElementById('record-modal');
 const recordForm = document.getElementById('record-form');
 const cancelModalBtn = document.getElementById('cancel-modal');
 const addRecordBtn = document.getElementById('add-record-btn');
+
 const recordCategorySelect = document.getElementById('record-category');
 const recordPersonSelect = document.getElementById('record-person');
+const recordSavingsAccountSelect = document.getElementById('record-savings-account');
+const recordFormatTypeSelect = document.getElementById('record-format-type');
+const combinedTransactionsSection = document.getElementById('combined-transactions-section');
+const combinedTransactionsList = document.getElementById('combined-transactions-list');
+const addTransactionBtn = document.getElementById('add-transaction-btn');
 const categoryList = document.getElementById('category-list');
 const personList = document.getElementById('person-list');
 const newCategoryBtn = document.getElementById('add-category-btn');
@@ -75,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Set default date in modal
         document.getElementById('record-date').valueAsDate = new Date();
         
-        // Initialize checkbox labels
+        // Initialize checkbox labels for custom checkboxes
         const checkboxLabels = document.querySelectorAll('.checkbox-label');
         checkboxLabels.forEach(label => {
             label.addEventListener('click', function(e) {
@@ -83,18 +93,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const checkbox = this.querySelector('input[type="checkbox"]');
                 if (checkbox) {
                     checkbox.checked = !checkbox.checked;
-                    this.classList.toggle('checked', checkbox.checked);
+                    checkbox.dispatchEvent(new Event('change'));
+                    
+                    // Update visual state
+                    if (checkbox.checked) {
+                        this.classList.add('checked');
+                    } else {
+                        this.classList.remove('checked');
+                    }
                 }
             });
             
-            // Initialize checked state
+            // Initialize visual state based on current checked status
             const checkbox = label.querySelector('input[type="checkbox"]');
             if (checkbox && checkbox.checked) {
                 label.classList.add('checked');
             }
         });
+        
+        switchTab('dashboard');
+        
     } catch (error) {
-        console.error('Initialization error:', error);
+        console.error('Error initializing app:', error);
     }
 });
 
@@ -114,6 +134,15 @@ function initEventListeners() {
     addRecordBtn.addEventListener('click', () => openModal());
     cancelModalBtn.addEventListener('click', closeModal);
     recordForm.addEventListener('submit', handleRecordSubmit);
+    
+    // Backup: Add direct click listener to save button
+    const saveButton = recordForm.querySelector('button[type="submit"]');
+    if (saveButton) {
+        saveButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleRecordSubmit(e);
+        });
+    }
 
     const filterType = document.getElementById('filter-type');
     if (filterType) {
@@ -161,14 +190,22 @@ function initEventListeners() {
     // Data Management
     exportBtn.addEventListener('click', handleExport);
     importFile.addEventListener('change', handleImport);
-    resetBtn.addEventListener('click', handleReset);
+    if (resetBtn) {
+        resetBtn.addEventListener('click', handleReset);
+    } else {
+        console.error('reset-btn not found');
+    }
     
     // Selective Reset
     if (selectiveResetBtn) {
         selectiveResetBtn.addEventListener('click', handleSelectiveReset);
+    } else {
+        console.error('selective-reset-btn not found');
     }
     if (resetTypeSelect) {
         resetTypeSelect.addEventListener('change', handleResetTypeChange);
+    } else {
+        console.error('reset-type not found');
     }
 
     // Record Type Toggle (Simplify Income)
@@ -177,16 +214,30 @@ function initEventListeners() {
         toggleItemField();
     });
 
+    // Record Format Type Toggle (Single vs Combined)
+    if (recordFormatTypeSelect) {
+        recordFormatTypeSelect.addEventListener('change', toggleRecordFormat);
+    }
+
+    // Add Transaction Button for Combined Transactions
+    if (addTransactionBtn) {
+        addTransactionBtn.addEventListener('click', addCombinedTransaction);
+    }
+
     // Savings tab: add account, transaction and pagination handlers
     if (addAccountBtn) {
         addAccountBtn.addEventListener('click', () => openAccountModal());
     }
 
-    if (accountForm) {
-        accountForm.addEventListener('submit', handleAccountSubmit);
+    // Set up account form event listener directly
+    const accountFormEl = document.getElementById('account-form');
+    if (accountFormEl) {
+        accountFormEl.addEventListener('submit', handleAccountSubmit);
     }
-    if (cancelAccountBtn) {
-        cancelAccountBtn.addEventListener('click', closeAccountModal);
+    
+    const cancelAccountBtnEl = document.getElementById('cancel-account-modal');
+    if (cancelAccountBtnEl) {
+        cancelAccountBtnEl.addEventListener('click', closeAccountModal);
     }
 
     if (transactionForm) {
@@ -324,12 +375,233 @@ function initEventListeners() {
 }
 
 function toggleItemField() {
+    const recordItem = document.getElementById('record-item');
+    const formatType = recordFormatTypeSelect?.value || 'single';
+    
     if (recordTypeSelect.value === 'income') {
         itemFieldContainer.style.display = 'none';
-        document.getElementById('record-item').required = false;
+        recordItem.removeAttribute('required');
     } else {
         itemFieldContainer.style.display = 'block';
-        document.getElementById('record-item').required = true;
+        // Only add required if not in combined mode
+        if (formatType !== 'combined') {
+            recordItem.setAttribute('required', '');
+        }
+    }
+}
+
+function toggleRecordFormat() {
+    const formatType = recordFormatTypeSelect.value;
+    const isCombined = formatType === 'combined';
+    
+    // Show/hide combined transactions section
+    if (combinedTransactionsSection) {
+        combinedTransactionsSection.style.display = isCombined ? 'block' : 'none';
+    }
+    
+    // For combined transactions, hide individual transaction fields and remove required
+    const individualFields = [
+        { element: document.getElementById('record-item'), container: document.getElementById('item-field-container') },
+        { element: document.getElementById('record-amount'), container: document.getElementById('record-amount')?.closest('.form-group') },
+        { element: document.getElementById('record-quantity'), container: document.getElementById('record-quantity')?.closest('.form-group') },
+        { element: document.getElementById('record-category'), container: document.getElementById('record-category')?.closest('.form-group') },
+        { element: document.getElementById('record-person'), container: document.getElementById('record-person')?.closest('.form-group') }
+    ];
+    
+    individualFields.forEach(({ element, container }) => {
+        if (element && container) {
+            if (isCombined) {
+                container.style.display = 'none';
+                element.removeAttribute('required');
+            } else {
+                container.style.display = 'block';
+                // Restore required attribute for necessary fields
+                if (element.id === 'record-item' && recordTypeSelect.value !== 'income') {
+                    element.setAttribute('required', '');
+                }
+                if (element.id === 'record-amount') {
+                    element.setAttribute('required', '');
+                }
+            }
+        }
+    });
+    
+    // Reset combined transactions when switching format
+    if (!isCombined) {
+        combinedTransactions = [];
+        combinedTransactionIdCounter = 0;
+        if (combinedTransactionsList) {
+            combinedTransactionsList.innerHTML = '';
+        }
+    }
+}
+
+function updateSavingsAccountDropdown() {
+    if (!recordSavingsAccountSelect) return;
+    const selectedValue = recordSavingsAccountSelect.value;
+    recordSavingsAccountSelect.innerHTML = '<option value="">No Savings Account</option>' +
+        savingsAccounts.map(acc => `<option value="${acc.id}">${acc.name}</option>`).join('');
+    recordSavingsAccountSelect.value = selectedValue;
+}
+
+function addCombinedTransaction() {
+    const transaction = {
+        id: combinedTransactionIdCounter++,
+        type: recordTypeSelect.value,
+        category: '',
+        item: '',
+        person: '',
+        amount: '',
+        quantity: '1',
+        savingsAccountId: ''
+    };
+    
+    // Add to beginning of array so new transactions appear at top
+    combinedTransactions.unshift(transaction);
+    renderCombinedTransactions();
+}
+
+function removeCombinedTransaction(id) {
+    combinedTransactions = combinedTransactions.filter(t => t.id !== id);
+    // Re-index remaining transactions to maintain sequential numbering
+    combinedTransactions.forEach((transaction, index) => {
+        transaction.id = index;
+    });
+    combinedTransactionIdCounter = combinedTransactions.length;
+    renderCombinedTransactions();
+}
+
+function renderCombinedTransactions() {
+    if (!combinedTransactionsList) return;
+    
+    combinedTransactionsList.innerHTML = '';
+    
+    // Get the total element
+    const totalElement = document.getElementById('combined-transactions-total');
+    
+    combinedTransactions.forEach((transaction, index) => {
+        // Display number in reverse order (newest gets highest number)
+        const displayNumber = combinedTransactions.length - index;
+        
+        const div = document.createElement('div');
+        div.className = 'combined-transaction-item';
+        div.innerHTML = `
+            <div class="transaction-header">
+                <span>Transaction #${displayNumber}</span>
+                <button type="button" class="remove-transaction" onclick="removeCombinedTransaction(${transaction.id})">
+                    <i class="fas fa-times"></i> Remove
+                </button>
+            </div>
+            <div class="transaction-details">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select onchange="updateCombinedTransaction(${transaction.id}, 'type', this.value)">
+                            <option value="spending" ${transaction.type === 'spending' ? 'selected' : ''}>Spending</option>
+                            <option value="income" ${transaction.type === 'income' ? 'selected' : ''}>Income</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select onchange="updateCombinedTransaction(${transaction.id}, 'category', this.value)">
+                            <option value="">Select Category</option>
+                            ${categories.filter(c => c.type === transaction.type).map(c => 
+                                `<option value="${c.name}" ${transaction.category === c.name ? 'selected' : ''}>${c.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" ${transaction.type === 'income' ? 'style="display: none;"' : ''}>
+                        <label>Item</label>
+                        <input type="text" placeholder="e.g. Grocery shopping" 
+                               value="${transaction.item}"
+                               onchange="updateCombinedTransaction(${transaction.id}, 'item', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount</label>
+                        <input type="number" step="0.01" placeholder="0.00" 
+                               value="${transaction.amount}"
+                               onchange="updateCombinedTransaction(${transaction.id}, 'amount', this.value)">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Person</label>
+                        <select onchange="updateCombinedTransaction(${transaction.id}, 'person', this.value)">
+                            <option value="">Select Person (Optional)</option>
+                            ${people.map(p => 
+                                `<option value="${p.name}" ${transaction.person === p.name ? 'selected' : ''}>${p.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" placeholder="1" 
+                               value="${transaction.quantity}"
+                               onchange="updateCombinedTransaction(${transaction.id}, 'quantity', this.value)">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Savings Account (Optional)</label>
+                        <select onchange="updateCombinedTransaction(${transaction.id}, 'savingsAccountId', this.value)">
+                            <option value="">No Savings Account</option>
+                            ${savingsAccounts.map(acc => 
+                                `<option value="${acc.id}" ${transaction.savingsAccountId == acc.id ? 'selected' : ''}>${acc.name}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <!-- Empty div for grid layout balance -->
+                    </div>
+                </div>
+            </div>
+        `;
+        combinedTransactionsList.appendChild(div);
+    });
+    
+    // Update total display in header
+    if (totalElement) {
+        if (combinedTransactions.length > 0) {
+            let totalIncome = 0;
+            let totalSpending = 0;
+            
+            combinedTransactions.forEach(t => {
+                const amount = parseFloat(t.amount) || 0;
+                const quantity = parseInt(t.quantity) || 1;
+                const totalAmount = amount * quantity;
+                
+                if (t.type === 'income') {
+                    totalIncome += totalAmount;
+                } else {
+                    totalSpending += totalAmount;
+                }
+            });
+            
+            const netAmount = totalIncome - totalSpending;
+            const incomeCount = combinedTransactions.filter(t => t.type === 'income').length;
+            const spendingCount = combinedTransactions.filter(t => t.type === 'spending').length;
+            
+            totalElement.innerHTML = `Total: ${netAmount >= 0 ? '+' : ''}$${formatCurrency(Math.abs(netAmount))} (${incomeCount} income, ${spendingCount} spending)`;
+            totalElement.style.display = 'block';
+        } else {
+            totalElement.style.display = 'none';
+        }
+    }
+}
+
+function updateCombinedTransaction(id, field, value) {
+    const transaction = combinedTransactions.find(t => t.id === id);
+    if (transaction) {
+        transaction[field] = value;
+        
+        // If type changed, update category options and item field visibility
+        if (field === 'type') {
+            transaction.category = '';
+            transaction.item = '';
+            renderCombinedTransactions();
+        }
     }
 }
 
@@ -347,6 +619,7 @@ async function refreshData() {
     savingsPage = {}; // start pages over so user sees first page after data change
     updateCategoryDropdowns();
     updatePersonDropdown();
+    updateSavingsAccountDropdown();
     renderAll();
     populateYearFilter();
 }
@@ -383,7 +656,34 @@ function renderDashboard() {
         monthDisplay.textContent = now.toLocaleString('default', { month: 'long', year: 'numeric' });
     }
 
-    const monthlyRecords = records.filter(r => {
+    // Process records to expand combined transactions for KPI calculations
+    const expandedRecords = [];
+    records.forEach(r => {
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            // Expand combined transactions into individual components
+            r.combinedTransactions.forEach(ct => {
+                const amount = parseFloat(ct.amount) || 0;
+                const quantity = parseInt(ct.quantity) || 1;
+                const totalAmount = amount * quantity;
+                
+                expandedRecords.push({
+                    ...r,
+                    type: ct.type,
+                    category: ct.category,
+                    person: ct.person || r.person,
+                    item: ct.item || r.item,
+                    amount: totalAmount,
+                    quantity: quantity,
+                    originalId: r.id,
+                    isCombinedComponent: true
+                });
+            });
+        } else {
+            expandedRecords.push(r);
+        }
+    });
+
+    const monthlyRecords = expandedRecords.filter(r => {
         const d = new Date(r.date);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
@@ -409,7 +709,12 @@ function renderRecentRecords(monthlyRecords) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const sorted = [...monthlyRecords].sort((a, b) => b.id - a.id).slice(0, 5);
+    // Sort by date and ID (newest first)
+    const sorted = [...monthlyRecords].sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        return b.id - a.id; // If same date, newer ID first
+    }).slice(0, 5);
 
     if (sorted.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">No records for this month</td></tr>';
@@ -418,13 +723,21 @@ function renderRecentRecords(monthlyRecords) {
 
     sorted.forEach(r => {
         const tr = document.createElement('tr');
+        const isCombined = r.formatType === 'combined';
+        
         tr.innerHTML = `
             <td>${r.date}</td>
-            <td>${r.type === 'income' ? r.category : r.item}</td>
+            <td>
+                ${isCombined ? 
+                    `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
+                    (r.type === 'income' ? r.category : r.item)
+                }
+            </td>
             <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
             <td>${r.person || '-'}</td>
             <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
                 ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
+                ${isCombined ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
             </td>
             <td>
                 <div class="action-btns">
@@ -549,83 +862,79 @@ function renderRecords() {
     if (!tbody) return;
 
     const filterTypeEl = document.getElementById('filter-type');
-    const filterYearEl = document.getElementById('filter-year');
-    const filterMonthEl = document.getElementById('filter-month');
-    
-    const filterType = filterTypeEl ? filterTypeEl.value : 'all';
-    const filterYear = filterYearEl ? filterYearEl.value : '';
-    const filterMonth = filterMonthEl ? filterMonthEl.value : '';
-    
     tbody.innerHTML = '';
 
-    let filtered = records;
-    
-    // Filter by type
-    if (filterType !== 'all') {
-        filtered = filtered.filter(r => r.type === filterType);
-    }
-    
-    // Filter by year
-    if (filterYear) {
-        filtered = filtered.filter(r => r.date.startsWith(filterYear));
-    }
-    
-    // Filter by month
-    if (filterMonth) {
-        filtered = filtered.filter(r => {
-            const date = new Date(r.date);
-            return date.getMonth() + 1 === parseInt(filterMonth);
-        });
-    }
+    const filterType = document.getElementById('filter-type')?.value || 'all';
+    const filterYear = document.getElementById('filter-year')?.value;
+    const filterMonth = document.getElementById('filter-month')?.value;
 
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 3rem; color: var(--text-muted);">No transactions found</td></tr>';
+    let filteredRecords = records.filter(r => {
+        const typeMatch = filterType === 'all' || r.type === filterType;
+        const yearMatch = !filterYear || new Date(r.date).getFullYear().toString() === filterYear;
+        const monthMatch = !filterMonth || new Date(r.date).getMonth().toString() === filterMonth;
+        return typeMatch && yearMatch && monthMatch;
+    });
+
+    if (filteredRecords.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 2rem; color: var(--text-muted);">No records found</td></tr>';
         return;
     }
 
-    // Sort by date descending
-    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // Group by month for separators
-    const groupedByMonth = {};
-    filtered.forEach(record => {
-        const date = new Date(record.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        if (!groupedByMonth[monthKey]) {
-            groupedByMonth[monthKey] = [];
-        }
-        groupedByMonth[monthKey].push(record);
+    // Group by month and sort by date (newest first within each month)
+    const grouped = {};
+    filteredRecords.forEach(r => {
+        const date = new Date(r.date);
+        const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+        if (!grouped[monthKey]) grouped[monthKey] = [];
+        grouped[monthKey].push(r);
     });
 
-    // Render with monthly separators
-    const sortedMonths = Object.keys(groupedByMonth).sort().reverse();
-    
-    sortedMonths.forEach((monthKey, index) => {
-        const monthRecords = groupedByMonth[monthKey];
-        const [year, month] = monthKey.split('-');
-        const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-        
-        // Add month separator (as a proper table row)
-        if (index > 0) {
-            const separatorRow = document.createElement('tr');
-            separatorRow.innerHTML = `
-                <td colspan="8" style="padding: 0;">
-                    <div class="month-separator" data-month="${monthName} - ${monthRecords.length} transactions"></div>
-                </td>
-            `;
-            tbody.appendChild(separatorRow);
-        }
+    // Sort months by date (newest first)
+    const sortedMonths = Object.keys(grouped).sort((a, b) => {
+        const [aYear, aMonth] = a.split('-').map(Number);
+        const [bYear, bMonth] = b.split('-').map(Number);
+        return (bYear - aYear) || (bMonth - aMonth);
+    });
+
+    sortedMonths.forEach(monthKey => {
+        const monthRecords = grouped[monthKey];
+        // Sort records within month by date and ID (newest first)
+        monthRecords.sort((a, b) => {
+            const dateCompare = new Date(b.date) - new Date(a.date);
+            if (dateCompare !== 0) return dateCompare;
+            return b.id - a.id; // If same date, newer ID (newer record) first
+        });
+
+        const [year, month] = monthKey.split('-').map(Number);
+        const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+        // Add month separator
+        const separatorRow = document.createElement('tr');
+        separatorRow.innerHTML = `
+            <td colspan="8" style="padding: 0;">
+                <div class="month-separator" data-month="${monthName} - ${monthRecords.length} transactions"></div>
+            </td>
+        `;
+        tbody.appendChild(separatorRow);
         
         // Add records for this month
         monthRecords.forEach(r => {
             const tr = document.createElement('tr');
+            const isCombined = r.formatType === 'combined';
+            
             tr.innerHTML = `
                 <td>${r.date}</td>
-                <td>${r.type === 'income' ? r.category : r.item}</td>
+                <td>
+                    ${isCombined ? 
+                        `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
+                        (r.type === 'income' ? r.category : r.item)
+                    }
+                </td>
                 <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
                 <td>${r.person || '-'}</td>
                 <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
                     ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
+                    ${isCombined ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
                 </td>
                 <td>${r.quantity || '-'}</td>
                 <td><div class="notes-cell">${r.notes || '-'}</div></td>
@@ -636,6 +945,8 @@ function renderRecords() {
                     </div>
                 </td>
             `;
+            
+            // Add click handler to show details
             tr.addEventListener('click', () => openDetailsModal(r));
             tbody.appendChild(tr);
         });
@@ -648,9 +959,36 @@ function renderAnalytics() {
     if (!statsBody) return;
     statsBody.innerHTML = '';
 
+    // Process records to expand combined transactions for analytics
+    const expandedRecords = [];
+    records.forEach(r => {
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            // Expand combined transactions into individual components
+            r.combinedTransactions.forEach(ct => {
+                const amount = parseFloat(ct.amount) || 0;
+                const quantity = parseInt(ct.quantity) || 1;
+                const totalAmount = amount * quantity;
+                
+                expandedRecords.push({
+                    ...r,
+                    type: ct.type,
+                    category: ct.category,
+                    person: ct.person || r.person,
+                    item: ct.item || r.item,
+                    amount: totalAmount,
+                    quantity: quantity,
+                    originalId: r.id,
+                    isCombinedComponent: true
+                });
+            });
+        } else {
+            expandedRecords.push(r);
+        }
+    });
+
     // Group records by month
     const monthlyStats = {};
-    records.forEach(r => {
+    expandedRecords.forEach(r => {
         const date = new Date(r.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyStats[monthKey]) {
@@ -692,9 +1030,9 @@ function renderAnalytics() {
             <td class="amount-income">$${formatCurrency(stats.income)}</td>
             <td class="amount-spending">$${formatCurrency(stats.spending)}</td>
             <td style="font-weight: 700; color: ${savings >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                $${formatCurrency(savings)}
+                ${savings >= 0 ? '+' : ''}$${formatCurrency(savings)}
             </td>
-            <td><span class="category-badge badge-spending">${topCategory}</span></td>
+            <td>${topCategory}</td>
         `;
         statsBody.appendChild(tr);
     });
@@ -834,38 +1172,53 @@ function closeAccountModal() {
 
 async function handleAccountSubmit(e) {
     e.preventDefault();
-    const id = accountForm.elements['account-id'].value;
-    const name = accountForm.elements['account-name'].value.trim();
-    const initial = parseFloat(accountForm.elements['account-initial'].value) || 0;
-    if (!name) return;
-
-    if (id) {
-        // update existing account
-        const acc = savingsAccounts.find(a => a.id === parseInt(id));
-        if (acc) {
-            acc.name = name;
-            await updateRecord(STORE_SAVINGS_ACCOUNTS, acc);
-        }
-    } else {
-        const newAcc = { name };
-        const newId = await add(STORE_SAVINGS_ACCOUNTS, newAcc);
-        newAcc.id = newId;
-        savingsAccounts.push(newAcc);
-        // if initial deposit provided, add transaction
-        if (initial > 0) {
-            const tx = {
-                accountId: newAcc.id,
-                type: 'deposit',
-                amount: initial,
-                date: new Date().toISOString().split('T')[0],
-                notes: 'Initial balance'
-            };
-            await add(STORE_SAVINGS_TRANSACTIONS, tx);
-            savingsTransactions.push(tx);
-        }
+    
+    // Get the form element from the event target
+    const form = e.target.closest('form');
+    if (!form) return;
+    
+    const id = form.elements['account-id'].value;
+    const name = form.elements['account-name'].value.trim();
+    const initial = parseFloat(form.elements['account-initial'].value) || 0;
+    
+    if (!name) {
+        alert('Please enter an account name');
+        return;
     }
-    closeAccountModal();
-    await refreshData();
+
+    try {
+        if (id) {
+            // update existing account
+            const acc = savingsAccounts.find(a => a.id === parseInt(id));
+            if (acc) {
+                acc.name = name;
+                await updateRecord(STORE_SAVINGS_ACCOUNTS, acc);
+            }
+        } else {
+            const newAcc = { name };
+            const newId = await add(STORE_SAVINGS_ACCOUNTS, newAcc);
+            newAcc.id = newId;
+            savingsAccounts.push(newAcc);
+            
+            // if initial deposit provided, add transaction (allow 0)
+            if (initial >= 0) {
+                const tx = {
+                    accountId: newAcc.id,
+                    type: 'deposit',
+                    amount: initial,
+                    date: new Date().toISOString().split('T')[0],
+                    notes: 'Initial balance'
+                };
+                await add(STORE_SAVINGS_TRANSACTIONS, tx);
+                savingsTransactions.push(tx);
+            }
+        }
+        
+        closeAccountModal();
+        await refreshData();
+    } catch (error) {
+        alert('Error saving account: ' + error.message);
+    }
 }
 
 function openTransactionModal(accountId, type, tx = null) {
@@ -1101,16 +1454,29 @@ function openModal(record = null) {
     const recordAmount = document.getElementById('record-amount');
     const recordQuantity = document.getElementById('record-quantity');
     const recordNotes = document.getElementById('record-notes');
+    const recordSavingsAccount = document.getElementById('record-savings-account');
+
+    // Reset combined transactions
+    combinedTransactions = [];
+    combinedTransactionIdCounter = 0;
 
     if (record) {
         modalTitle.textContent = 'Edit Transaction';
         recordId.value = record.id;
+        recordFormatTypeSelect.value = record.formatType || 'single';
         recordTypeSelect.value = record.type;
         recordDate.value = record.date;
         recordItem.value = record.item || '';
         recordAmount.value = record.amount;
         recordQuantity.value = record.quantity || '';
         recordNotes.value = record.notes || '';
+        recordSavingsAccount.value = record.savingsAccountId || '';
+
+        // If it's a combined transaction, load the combined transactions
+        if (record.formatType === 'combined' && record.combinedTransactions) {
+            combinedTransactions = [...record.combinedTransactions];
+            combinedTransactionIdCounter = Math.max(...combinedTransactions.map(t => t.id)) + 1;
+        }
 
         updateCategoryDropdowns();
         recordCategory.value = record.category;
@@ -1119,9 +1485,18 @@ function openModal(record = null) {
         recordForm.reset();
         recordId.value = '';
         recordDate.valueAsDate = new Date();
+        recordFormatTypeSelect.value = 'single';
         updateCategoryDropdowns();
     }
+    
+    toggleRecordFormat();
     toggleItemField();
+    
+    // Render combined transactions if applicable
+    if (recordFormatTypeSelect.value === 'combined') {
+        renderCombinedTransactions();
+    }
+    
     recordModal.classList.add('active');
 }
 
@@ -1131,28 +1506,192 @@ function closeModal() {
 
 async function handleRecordSubmit(e) {
     e.preventDefault();
+    
+    // Check if required elements exist
+    if (!recordFormatTypeSelect) {
+        console.error('recordFormatTypeSelect not found');
+        alert('Error: recordFormatTypeSelect not found');
+        return;
+    }
+    
     const id = document.getElementById('record-id').value;
-    const type = recordTypeSelect.value;
-    const data = {
-        type: type,
-        date: document.getElementById('record-date').value,
-        item: type === 'income' ? '' : document.getElementById('record-item').value,
-        category: document.getElementById('record-category').value,
-        person: document.getElementById('record-person').value || '',
-        amount: parseFloat(document.getElementById('record-amount').value),
-        quantity: document.getElementById('record-quantity').value,
-        notes: document.getElementById('record-notes').value
-    };
-
-    if (id) {
-        data.id = parseInt(id);
-        await updateRecord(STORE_RECORDS, data);
+    const formatType = recordFormatTypeSelect.value;
+    const savingsAccountId = document.getElementById('record-savings-account')?.value || '';
+    const date = document.getElementById('record-date')?.value || '';
+    const notes = document.getElementById('record-notes')?.value || '';
+    
+    if (formatType === 'combined') {
+        // Handle combined transactions
+        if (combinedTransactions.length === 0) {
+            alert('Please add at least one transaction to the combined record.');
+            return;
+        }
+        
+        // Validate all combined transactions - be more lenient
+        let hasValidTransaction = false;
+        for (const transaction of combinedTransactions) {
+            if (transaction.category && transaction.amount && parseFloat(transaction.amount) > 0) {
+                hasValidTransaction = true;
+                break;
+            }
+        }
+        
+        if (!hasValidTransaction) {
+            alert('Please fill in category and a valid amount for at least one transaction.');
+            return;
+        }
+        
+        // Filter out invalid transactions
+        const validTransactions = combinedTransactions.filter(t => 
+            t.category && t.amount && parseFloat(t.amount) > 0
+        );
+        
+        // Create main record
+        let totalIncome = 0;
+        let totalSpending = 0;
+        
+        validTransactions.forEach(t => {
+            const amount = parseFloat(t.amount) || 0;
+            const quantity = parseInt(t.quantity) || 1;
+            const totalAmount = amount * quantity;
+            
+            if (t.type === 'income') {
+                totalIncome += totalAmount;
+            } else {
+                totalSpending += totalAmount;
+            }
+        });
+        
+        const netAmount = totalIncome - totalSpending;
+        
+        const data = {
+            formatType: 'combined',
+            type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
+            date: date,
+            item: `Combined Transaction (${validTransactions.length} items)`,
+            category: 'Combined',
+            person: validTransactions[0].person || '',
+            amount: Math.abs(netAmount),
+            quantity: validTransactions.length,
+            notes: notes,
+            savingsAccountId: savingsAccountId,
+            combinedTransactions: validTransactions
+        };
+        
+        try {
+            if (id) {
+                data.id = parseInt(id);
+                await updateRecord(STORE_RECORDS, data);
+            } else {
+                await add(STORE_RECORDS, data);
+            }
+            
+            // Update savings account for each transaction
+            if (savingsAccountId) {
+                await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId);
+            } else {
+                // Handle individual savings accounts for each transaction
+                await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date);
+            }
+            
+        } catch (error) {
+            console.error('Error saving combined transaction:', error);
+            alert('Error saving combined transaction: ' + error.message);
+            return;
+        }
+        
     } else {
-        await add(STORE_RECORDS, data);
+        // Handle single transaction
+        const type = recordTypeSelect?.value || 'spending';
+        const amount = parseFloat(document.getElementById('record-amount')?.value || 0);
+        
+        if (amount <= 0) {
+            alert('Please enter a valid amount.');
+            return;
+        }
+        
+        const data = {
+            formatType: 'single',
+            type: type,
+            date: date,
+            item: type === 'income' ? '' : (document.getElementById('record-item')?.value || ''),
+            category: document.getElementById('record-category')?.value || '',
+            person: document.getElementById('record-person')?.value || '',
+            amount: amount,
+            quantity: document.getElementById('record-quantity')?.value || '1',
+            notes: notes,
+            savingsAccountId: savingsAccountId
+        };
+
+        try {
+            if (id) {
+                data.id = parseInt(id);
+                await updateRecord(STORE_RECORDS, data);
+            } else {
+                await add(STORE_RECORDS, data);
+            }
+            
+            // Update savings account if selected
+            if (savingsAccountId) {
+                await updateSavingsAccountForSingleTransaction(data, savingsAccountId);
+            }
+        } catch (error) {
+            console.error('Error saving single transaction:', error);
+            alert('Error saving transaction: ' + error.message);
+            return;
+        }
     }
 
     closeModal();
     await refreshData();
+}
+
+async function updateSavingsAccountForSingleTransaction(record, accountId) {
+    const account = savingsAccounts.find(acc => acc.id === parseInt(accountId));
+    if (!account) return;
+    
+    const transactionType = record.type === 'income' ? 'deposit' : 'withdrawal';
+    const transaction = {
+        accountId: parseInt(accountId),
+        type: transactionType,
+        amount: record.amount,
+        date: record.date,
+        notes: `${record.type === 'income' ? 'Income' : 'Spending'}: ${record.category}${record.item ? ' - ' + record.item : ''}`
+    };
+    
+    await add(STORE_SAVINGS_TRANSACTIONS, transaction);
+}
+
+async function updateSavingsAccountForCombinedTransactions(transactions, date, accountId) {
+    for (const transaction of transactions) {
+        const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
+        const savingsTransaction = {
+            accountId: parseInt(accountId),
+            type: transactionType,
+            amount: parseFloat(transaction.amount),
+            date: date,
+            notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`
+        };
+        
+        await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+    }
+}
+
+async function updateSavingsAccountForCombinedTransactionsIndividual(transactions, date) {
+    for (const transaction of transactions) {
+        if (transaction.savingsAccountId) {
+            const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
+            const savingsTransaction = {
+                accountId: parseInt(transaction.savingsAccountId),
+                type: transactionType,
+                amount: parseFloat(transaction.amount),
+                date: date,
+                notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`
+            };
+            
+            await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+        }
+    }
 }
 
 async function editRecord(id) {
@@ -1172,14 +1711,19 @@ function openDetailsModal(record) {
     if (!recordDetailsModal || !recordDetailsContent) return;
 
     currentDetailRecordId = record.id;
+    const isCombined = record.formatType === 'combined';
 
     const itemLabel = record.type === 'income' ? 'Source' : 'Item';
     const itemValue = record.type === 'income' ? record.category : (record.item || '-');
 
-    recordDetailsContent.innerHTML = `
+    let detailsHTML = `
         <div class="detail-row">
             <span class="detail-label">Type</span>
             <span class="detail-value ${record.type}">${record.type === 'income' ? 'Income' : 'Spending'}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Format</span>
+            <span class="detail-value">${isCombined ? '📦 Combined Transactions' : 'Single Transaction'}</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Date</span>
@@ -1209,6 +1753,12 @@ function openDetailsModal(record) {
             <span class="detail-value">${record.quantity}</span>
         </div>
         ` : ''}
+        ${record.savingsAccountId ? `
+        <div class="detail-row">
+            <span class="detail-label">Savings Account</span>
+            <span class="detail-value">${savingsAccounts.find(acc => acc.id === parseInt(record.savingsAccountId))?.name || 'Unknown'}</span>
+        </div>
+        ` : ''}
         ${record.notes ? `
         <div class="detail-row">
             <span class="detail-label">Notes</span>
@@ -1217,6 +1767,38 @@ function openDetailsModal(record) {
         ` : ''}
     `;
 
+    // Add combined transactions details if applicable
+    if (isCombined && record.combinedTransactions) {
+        detailsHTML += `
+            <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                <h4 style="margin-bottom: 1rem; color: var(--primary-color);">📦 Combined Transactions Details</h4>
+                ${record.combinedTransactions.map((transaction, index) => {
+                    const savingsAccount = transaction.savingsAccountId ? 
+                        savingsAccounts.find(acc => acc.id === parseInt(transaction.savingsAccountId))?.name || 'Unknown' : 
+                        'None';
+                    
+                    return `
+                    <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 0.75rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary-color);">
+                            Transaction #${index + 1}
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.875rem;">
+                            <div><strong>Type:</strong> <span class="${transaction.type}">${transaction.type === 'income' ? 'Income' : 'Spending'}</span></div>
+                            <div><strong>Category:</strong> ${transaction.category}</div>
+                            ${transaction.item ? `<div><strong>Item:</strong> ${transaction.item}</div>` : ''}
+                            <div><strong>Amount:</strong> <span class="${transaction.type}">${transaction.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(transaction.amount))}</span></div>
+                            ${transaction.person ? `<div><strong>Person:</strong> ${transaction.person}</div>` : ''}
+                            ${transaction.quantity && transaction.quantity !== '1' ? `<div><strong>Quantity:</strong> ${transaction.quantity}</div>` : ''}
+                            <div><strong>Savings Account:</strong> ${savingsAccount}</div>
+                        </div>
+                    </div>
+                `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    recordDetailsContent.innerHTML = detailsHTML;
     recordDetailsModal.classList.add('active');
 }
 
@@ -1454,10 +2036,10 @@ function handleResetTypeChange() {
 
 async function handleSelectiveReset() {
     const resetType = resetTypeSelect.value;
-    const resetRecords = document.getElementById('reset-records').checked;
-    const resetSavings = document.getElementById('reset-savings').checked;
-    const resetCategories = document.getElementById('reset-categories').checked;
-    const resetPeople = document.getElementById('reset-people').checked;
+    const resetRecords = document.getElementById('reset-records')?.checked || false;
+    const resetSavings = document.getElementById('reset-savings')?.checked || false;
+    const resetCategories = document.getElementById('reset-categories')?.checked || false;
+    const resetPeople = document.getElementById('reset-people')?.checked || false;
     
     // Validate at least one option is selected
     if (!resetRecords && !resetSavings && !resetCategories && !resetPeople) {
@@ -1545,3 +2127,5 @@ window.deleteRecord = deleteRecord;
 window.deleteCategory = deleteCategory;
 window.deletePerson = deletePerson;
 window.switchTab = switchTab;
+window.removeCombinedTransaction = removeCombinedTransaction;
+window.updateCombinedTransaction = updateCombinedTransaction;

@@ -876,6 +876,129 @@ tr:last-child td {
     gap: 1rem;
 }
 
+/* Combined Transactions Styles */
+.combined-transactions-list {
+    margin-bottom: 1rem;
+}
+
+.combined-transaction-item {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+}
+
+.combined-transaction-item .transaction-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.combined-transaction-item .transaction-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.combined-transaction-item .transaction-detail {
+    display: flex;
+    justify-content: space-between;
+}
+
+.combined-transaction-item .transaction-detail label {
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.combined-transaction-item .transaction-detail span {
+    color: var(--text-main);
+}
+
+.combined-transaction-item .remove-transaction {
+    background: #fee2e2;
+    color: var(--danger);
+    border: none;
+    border-radius: 4px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: background-color 0.2s;
+}
+
+.combined-transaction-item .remove-transaction:hover {
+    background: #fecaca;
+}
+
+.combined-transaction-summary {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.add-transaction-btn {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.combined-transactions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.combined-transactions-header .add-transaction-btn {
+    width: auto;
+    flex: 1;
+    margin-bottom: 0;
+    min-width: 200px;
+}
+
+.combined-transaction-summary {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+    max-width: 300px;
+}
+
+@media (max-width: 768px) {
+    .combined-transactions-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .combined-transactions-header .add-transaction-btn {
+        width: 100%;
+        order: 2;
+    }
+    
+    .combined-transaction-summary {
+        width: 100%;
+        max-width: none;
+        text-align: center;
+        order: 1;
+        white-space: normal;
+    }
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
     .sidebar {
