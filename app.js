@@ -390,6 +390,40 @@ function toggleItemField() {
     }
 }
 
+function updateCombinedTransactionCategoryDropdown() {
+    const combinedCategorySelect = document.getElementById('combined-transaction-category');
+    if (!combinedCategorySelect) return;
+    
+    const selectedValue = combinedCategorySelect.value;
+    
+    // Show all categories for combined transactions (both income and spending)
+    combinedCategorySelect.innerHTML = '<option value="">Select Category (Optional)</option>' +
+        categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    
+    combinedCategorySelect.value = selectedValue;
+}
+
+function getCombinedTransactionNetType() {
+    if (combinedTransactions.length === 0) return 'spending';
+    
+    let totalIncome = 0;
+    let totalSpending = 0;
+    
+    combinedTransactions.forEach(t => {
+        const amount = parseFloat(t.amount) || 0;
+        const quantity = parseInt(t.quantity) || 1;
+        const totalAmount = amount * quantity;
+        
+        if (t.type === 'income') {
+            totalIncome += totalAmount;
+        } else {
+            totalSpending += totalAmount;
+        }
+    });
+    
+    return totalIncome >= totalSpending ? 'income' : 'spending';
+}
+
 function toggleRecordFormat() {
     const formatType = recordFormatTypeSelect.value;
     const isCombined = formatType === 'combined';
@@ -425,6 +459,11 @@ function toggleRecordFormat() {
             }
         }
     });
+    
+    // Update combined transaction category dropdown when switching to combined format
+    if (isCombined) {
+        updateCombinedTransactionCategoryDropdown();
+    }
     
     // Reset combined transactions when switching format
     if (!isCombined) {
@@ -585,6 +624,9 @@ function renderCombinedTransactions() {
             
             totalElement.innerHTML = `Total: ${netAmount >= 0 ? '+' : ''}$${formatCurrency(Math.abs(netAmount))} (${incomeCount} income, ${spendingCount} spending)`;
             totalElement.style.display = 'block';
+            
+            // Update combined transaction category dropdown when transactions change
+            updateCombinedTransactionCategoryDropdown();
         } else {
             totalElement.style.display = 'none';
         }
@@ -603,6 +645,60 @@ function updateCombinedTransaction(id, field, value) {
             renderCombinedTransactions();
         }
     }
+}
+
+function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
+    // Get all records before the transaction date (not including same date records except the current one)
+    const recordsBeforeDate = records.filter(r => {
+        const recordDateTime = new Date(r.date);
+        const targetDateTime = new Date(recordDate);
+        
+        // If same date, only include records with earlier ID (assuming sequential IDs)
+        if (recordDateTime.getTime() === targetDateTime.getTime()) {
+            return r.id !== excludeRecordId && r.id < excludeRecordId;
+        }
+        
+        return recordDateTime < targetDateTime;
+    });
+    
+    // Sort records by date and ID to ensure proper order
+    recordsBeforeDate.sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        if (dateA.getTime() !== dateB.getTime()) {
+            return dateA - dateB;
+        }
+        return a.id - b.id; // Sort by ID if same date
+    });
+    
+    // Expand combined transactions for accurate balance calculation
+    const expandedRecords = [];
+    recordsBeforeDate.forEach(r => {
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            // For combined transactions, add the net amount as a single entry
+            // Don't expand individual components to avoid double counting
+            expandedRecords.push({
+                ...r,
+                type: r.type, // Use the combined transaction's net type
+                amount: r.amount // Use the combined transaction's net amount
+            });
+        } else {
+            expandedRecords.push(r);
+        }
+    });
+    
+    // Calculate balance
+    let balance = 0;
+    expandedRecords.forEach(r => {
+        const amount = parseFloat(r.amount) || 0;
+        if (r.type === 'income') {
+            balance += amount;
+        } else {
+            balance -= amount;
+        }
+    });
+    
+    return balance;
 }
 
 function formatCurrency(amount) {
@@ -1398,15 +1494,15 @@ function renderSavings() {
         // attach listeners directly to the new card's buttons for reliability
         const depBtn = card.querySelector('.deposit-btn');
         if (depBtn) {
-            depBtn.addEventListener('click', (e) => { e.stopPropagation(); console.log('deposit btn', acc.id); openTransactionModal(acc.id, 'deposit'); });
+            depBtn.addEventListener('click', (e) => { e.stopPropagation(); openTransactionModal(acc.id, 'deposit'); });
         }
         const witBtn = card.querySelector('.withdraw-btn');
         if (witBtn) {
-            witBtn.addEventListener('click', (e) => { e.stopPropagation(); console.log('withdraw btn', acc.id); openTransactionModal(acc.id, 'withdrawal'); });
+            witBtn.addEventListener('click', (e) => { e.stopPropagation(); openTransactionModal(acc.id, 'withdrawal'); });
         }
         const editAcc = card.querySelector('.edit-acc-btn');
         if (editAcc) {
-            editAcc.addEventListener('click', (e) => { e.stopPropagation(); console.log('edit account', acc.id); openAccountModal(acc); });
+            editAcc.addEventListener('click', (e) => { e.stopPropagation(); openAccountModal(acc); });
         }
         const delAcc = card.querySelector('.delete-acc-btn');
         if (delAcc) {
@@ -1424,7 +1520,6 @@ function renderSavings() {
         editTxBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                console.log('edit tx', btn.getAttribute('data-tx-id'));
                 const txId = parseInt(btn.getAttribute('data-tx-id'));
                 const tx = savingsTransactions.find(t => t.id === txId);
                 if (tx) openTransactionModal(acc.id, tx.type, tx);
@@ -1434,7 +1529,6 @@ function renderSavings() {
         delTxBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                console.log('delete tx', btn.getAttribute('data-tx-id'));
                 const txId = parseInt(btn.getAttribute('data-tx-id'));
                 if (confirm('Delete this transaction?')) {
                     remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
@@ -1476,6 +1570,16 @@ function openModal(record = null) {
         if (record.formatType === 'combined' && record.combinedTransactions) {
             combinedTransactions = [...record.combinedTransactions];
             combinedTransactionIdCounter = Math.max(...combinedTransactions.map(t => t.id)) + 1;
+            
+            // Load combined transaction name and category
+            const combinedNameField = document.getElementById('combined-transaction-name');
+            const combinedCategoryField = document.getElementById('combined-transaction-category');
+            if (combinedNameField) {
+                combinedNameField.value = record.combinedTransactionName || '';
+            }
+            if (combinedCategoryField) {
+                combinedCategoryField.value = record.category || '';
+            }
         }
 
         updateCategoryDropdowns();
@@ -1564,18 +1668,23 @@ async function handleRecordSubmit(e) {
         
         const netAmount = totalIncome - totalSpending;
         
+        // Get combined transaction name and category
+        const combinedTransactionName = document.getElementById('combined-transaction-name')?.value || '';
+        const combinedTransactionCategory = document.getElementById('combined-transaction-category')?.value || 'Combined';
+        
         const data = {
             formatType: 'combined',
             type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
             date: date,
-            item: `Combined Transaction (${validTransactions.length} items)`,
-            category: 'Combined',
+            item: combinedTransactionName || `Combined Transaction (${validTransactions.length} items)`,
+            category: combinedTransactionCategory,
             person: validTransactions[0].person || '',
             amount: Math.abs(netAmount),
             quantity: validTransactions.length,
             notes: notes,
             savingsAccountId: savingsAccountId,
-            combinedTransactions: validTransactions
+            combinedTransactions: validTransactions,
+            combinedTransactionName: combinedTransactionName
         };
         
         try {
@@ -1713,33 +1822,101 @@ function openDetailsModal(record) {
     currentDetailRecordId = record.id;
     const isCombined = record.formatType === 'combined';
 
-    const itemLabel = record.type === 'income' ? 'Source' : 'Item';
+    // Calculate balance at the time of this transaction
+    const balanceBefore = calculateBalanceAtTransaction(record.date, record.id);
+    const recordAmount = parseFloat(record.amount) || 0;
+    const balanceAfter = record.type === 'income' ? balanceBefore + recordAmount : balanceBefore - recordAmount;
+
+    const itemLabel = record.type === 'income' ? 'Source (Where money came from)' : 'Item (What was purchased)';
     const itemValue = record.type === 'income' ? record.category : (record.item || '-');
 
     let detailsHTML = `
         <div class="detail-row">
-            <span class="detail-label">Type</span>
+            <span class="detail-label">Transaction Type</span>
             <span class="detail-value ${record.type}">${record.type === 'income' ? 'Income' : 'Spending'}</span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Format</span>
             <span class="detail-value">${isCombined ? '📦 Combined Transactions' : 'Single Transaction'}</span>
         </div>
+        ${isCombined && record.combinedTransactionName ? `
+        <div class="detail-row">
+            <span class="detail-label">Combined Name</span>
+            <span class="detail-value">${record.combinedTransactionName}</span>
+        </div>
+        ` : ''}
         <div class="detail-row">
             <span class="detail-label">Date</span>
             <span class="detail-value">${record.date}</span>
         </div>
         <div class="detail-row">
-            <span class="detail-label">${itemLabel}</span>
-            <span class="detail-value">${itemValue}</span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Category</span>
-            <span class="detail-value">${record.category}</span>
+            <span class="detail-label">${record.type === 'income' ? 'Source & Category' : 'Item & Category'}</span>
+            <span class="detail-value">
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <div style="color: ${record.type === 'income' ? '#059669' : '#dc2626'}; font-weight: 500;">
+                        ${record.type === 'income' ? record.category : (record.item || '-')}
+                    </div>
+                    <div style="color: #6b7280; font-size: 0.85rem;">
+                        ${record.category}
+                    </div>
+                </div>
+            </span>
         </div>
         <div class="detail-row">
             <span class="detail-label">Amount</span>
             <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}</span>
+        </div>
+        <div class="detail-row" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: var(--radius-sm); margin: 0.5rem 0;">
+            <span class="detail-label" style="font-weight: 600; color: #1e40af; font-size: 1rem;">Balance Analysis</span>
+            <div style="font-size: 0.875rem; line-height: 1.6;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <div><strong>Opening Balance:</strong></div>
+                    <div style="text-align: right;">$${formatCurrency(balanceBefore)}</div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: white; border-radius: 4px;">
+                    <div><strong>Transaction:</strong></div>
+                    <div style="text-align: right; font-weight: 600; color: ${record.type === 'income' ? '#059669' : '#dc2626'};">
+                        ${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}
+                    </div>
+                    ${isCombined && record.combinedTransactions ? `
+                    <div style="grid-column: 1 / -1; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
+                        <div style="font-weight: 600; margin-bottom: 0.25rem; color: #6b7280; font-size: 0.85rem;">Breakdown:</div>
+                        ${record.combinedTransactions.map((transaction, index) => {
+                            const amount = parseFloat(transaction.amount) || 0;
+                            const quantity = parseInt(transaction.quantity) || 1;
+                            const totalAmount = amount * quantity;
+                            return `
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                                <div style="color: ${transaction.type === 'income' ? '#059669' : '#dc2626'};">
+                                    ${transaction.item || transaction.category} ${transaction.quantity && transaction.quantity !== '1' ? `(${transaction.quantity})` : ''}:
+                                </div>
+                                <div style="text-align: right; font-weight: 500; color: ${transaction.type === 'income' ? '#059669' : '#dc2626'};">
+                                    ${transaction.type === 'income' ? '+' : '-'}$${formatCurrency(totalAmount)}
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
+                    <div><strong style="color: #1e40af;">Closing Balance:</strong></div>
+                    <div style="text-align: right; font-weight: 600; color: #1e40af;">$${formatCurrency(balanceAfter)}</div>
+                </div>
+                <div style="margin-top: 0.5rem; padding: 0.5rem; background: #eff6ff; border-radius: 4px; font-size: 0.8rem;">
+                    <strong>Net Change:</strong> 
+                    <span style="color: ${balanceAfter >= balanceBefore ? '#059669' : '#dc2626'};">
+                        ${balanceAfter >= balanceBefore ? '+' : ''}$${formatCurrency(balanceAfter - balanceBefore)}
+                    </span>
+                    ${record.type === 'spending' ? `
+                    <div style="margin-top: 0.25rem; color: #7c3aed; font-size: 0.75rem;">
+                        💰 Funds allocated to: ${record.category}
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
         </div>
         ${record.person ? `
         <div class="detail-row">

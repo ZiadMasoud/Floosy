@@ -602,6 +602,23 @@
             <!-- Combined Transactions Section (hidden by default) -->
             <div id="combined-transactions-section" style="display: none;">
               <div class="form-group">
+                <label>Combined Transaction Name (Optional)</label>
+                <input
+                  type="text"
+                  id="combined-transaction-name"
+                  placeholder="e.g. Weekly Shopping, Monthly Bills..."
+                />
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label>Combined Transaction Category</label>
+                  <select id="combined-transaction-category" style="width: 100%;">
+                    <option value="">Select Category (Optional)</option>
+                    <!-- Options will be loaded dynamically -->
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
                 <label>Combined Transactions</label>
                 <div class="combined-transactions-header">
                   <button type="button" class="btn btn-outline" id="add-transaction-btn">
