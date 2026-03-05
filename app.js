@@ -113,6 +113,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         switchTab('dashboard');
         
+        // Test monthly balance reset functionality
+        testMonthlyBalanceReset();
+        
     } catch (error) {
         console.error('Error initializing app:', error);
     }
@@ -648,17 +651,27 @@ function updateCombinedTransaction(id, field, value) {
 }
 
 function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
-    // Get all records before the transaction date (not including same date records except the current one)
+    const targetDate = new Date(recordDate);
+    const targetMonth = targetDate.getMonth();
+    const targetYear = targetDate.getFullYear();
+    
+    // Get all records before the transaction date within the same month only
     const recordsBeforeDate = records.filter(r => {
         const recordDateTime = new Date(r.date);
-        const targetDateTime = new Date(recordDate);
+        const recordMonth = recordDateTime.getMonth();
+        const recordYear = recordDateTime.getFullYear();
+        
+        // Only include records from the same month and year
+        if (recordMonth !== targetMonth || recordYear !== targetYear) {
+            return false;
+        }
         
         // If same date, only include records with earlier ID (assuming sequential IDs)
-        if (recordDateTime.getTime() === targetDateTime.getTime()) {
+        if (recordDateTime.getTime() === targetDate.getTime()) {
             return r.id !== excludeRecordId && r.id < excludeRecordId;
         }
         
-        return recordDateTime < targetDateTime;
+        return recordDateTime < targetDate;
     });
     
     // Sort records by date and ID to ensure proper order
@@ -703,6 +716,39 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
 
 function formatCurrency(amount) {
     return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Test function for monthly balance reset
+function testMonthlyBalanceReset() {
+    // Create test records spanning multiple months
+    const testRecords = [
+        { id: 1, date: '2026-02-15', type: 'income', amount: 1000, formatType: 'single' },
+        { id: 2, date: '2026-02-20', type: 'spending', amount: 200, formatType: 'single' },
+        { id: 3, date: '2026-03-01', type: 'income', amount: 500, formatType: 'single' },
+        { id: 4, date: '2026-03-05', type: 'spending', amount: 100, formatType: 'single' },
+        { id: 5, date: '2026-03-10', type: 'income', amount: 300, formatType: 'single' }
+    ];
+    
+    // Temporarily replace records with test data
+    const originalRecords = records;
+    records = testRecords;
+    
+    // Test February transaction (should have opening balance of 0)
+    const febBalance = calculateBalanceAtTransaction('2026-02-20', 2);
+    console.log('February transaction opening balance:', febBalance); // Should be 1000
+    
+    // Test March transaction (should have opening balance of 0, ignoring February)
+    const marchBalance = calculateBalanceAtTransaction('2026-03-05', 4);
+    console.log('March transaction opening balance:', marchBalance); // Should be 500
+    
+    // Test later March transaction (should include earlier March transactions)
+    const lateMarchBalance = calculateBalanceAtTransaction('2026-03-10', 5);
+    console.log('Late March transaction opening balance:', lateMarchBalance); // Should be 500 + (-100) = 400
+    
+    // Restore original records
+    records = originalRecords;
+    
+    console.log('Monthly balance reset test completed');
 }
 
 async function refreshData() {
