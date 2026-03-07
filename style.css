@@ -1109,10 +1109,20 @@ tr:last-child td {
     }
 
     header {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
         gap: 1rem;
         margin-bottom: 1.5rem;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    .user-info {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.75rem;
     }
 
     .charts-row,
