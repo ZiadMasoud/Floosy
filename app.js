@@ -889,13 +889,11 @@ function renderDashboard() {
         if (r.type === 'income') {
             income += parseFloat(r.amount);
         } else if (r.type === 'account_receivable') {
-            if (r.collected) {
-                // Collected AR reduces spending (money received back)
-                spending -= parseFloat(r.amount);
-            } else {
+            if (!r.collected) {
                 // Pending AR adds to spending (money deducted but not yet received back)
                 spending += parseFloat(r.amount);
             }
+            // Collected AR: neutral - no effect on spending (money recovered, as if never spent)
         } else {
             spending += parseFloat(r.amount);
         }
@@ -1330,8 +1328,8 @@ function renderAnalytics() {
         const stats = monthlyStats[monthKey];
         // Total spending includes pending AR (money deducted now)
         const totalSpending = stats.spending + stats.arPending;
-        // Total income includes collected AR (money received)
-        const totalIncome = stats.income + stats.arCollected;
+        // Total income - collected AR is neutral (money recovered, not earned)
+        const totalIncome = stats.income;
         const savings = totalIncome - totalSpending;
 
         let topCategory = 'N/A';
@@ -1373,7 +1371,7 @@ function renderMonthlyTrendChart(monthlyStats) {
     // Calculate total income and spending including AR logic
     const incomeData = months.map(m => {
         const stats = monthlyStats[m];
-        return stats.income + stats.arCollected; // Include collected AR in income
+        return stats.income; // Collected AR is neutral, not income
     });
     const spendingData = months.map(m => {
         const stats = monthlyStats[m];
