@@ -155,6 +155,8 @@ function initEventListeners() {
     // Date filters
     const filterYear = document.getElementById('filter-year');
     const filterMonth = document.getElementById('filter-month');
+    const filterPerson = document.getElementById('filter-person');
+    const filterCategory = document.getElementById('filter-category');
     const clearFiltersBtn = document.getElementById('clear-filters');
     
     if (filterYear) {
@@ -164,13 +166,57 @@ function initEventListeners() {
     if (filterMonth) {
         filterMonth.addEventListener('change', renderRecords);
     }
+
+    if (filterPerson) {
+        filterPerson.addEventListener('change', renderRecords);
+    }
+
+    if (filterCategory) {
+        filterCategory.addEventListener('change', renderRecords);
+    }
     
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener('click', () => {
             if (filterType) filterType.value = 'all';
             if (filterYear) filterYear.value = '';
             if (filterMonth) filterMonth.value = '';
+            if (filterPerson) filterPerson.value = '';
+            if (filterCategory) filterCategory.value = '';
             renderRecords();
+        });
+    }
+
+    // Analytics Filters
+    const analyticsFilterType = document.getElementById('analytics-filter-type');
+    const analyticsFilterYear = document.getElementById('analytics-filter-year');
+    const analyticsFilterMonth = document.getElementById('analytics-filter-month');
+    const analyticsFilterPerson = document.getElementById('analytics-filter-person');
+    const analyticsFilterCategory = document.getElementById('analytics-filter-category');
+    const analyticsClearFiltersBtn = document.getElementById('analytics-clear-filters');
+    
+    if (analyticsFilterType) {
+        analyticsFilterType.addEventListener('change', renderAnalytics);
+    }
+    if (analyticsFilterYear) {
+        analyticsFilterYear.addEventListener('change', renderAnalytics);
+    }
+    if (analyticsFilterMonth) {
+        analyticsFilterMonth.addEventListener('change', renderAnalytics);
+    }
+    if (analyticsFilterPerson) {
+        analyticsFilterPerson.addEventListener('change', renderAnalytics);
+    }
+    if (analyticsFilterCategory) {
+        analyticsFilterCategory.addEventListener('change', renderAnalytics);
+    }
+    if (analyticsClearFiltersBtn) {
+        analyticsClearFiltersBtn.addEventListener('click', () => {
+            if (analyticsFilterType) analyticsFilterType.value = 'all';
+            if (analyticsFilterYear) analyticsFilterYear.value = '';
+            if (analyticsFilterMonth) analyticsFilterMonth.value = '';
+            if (analyticsFilterPerson) analyticsFilterPerson.value = '';
+            if (analyticsFilterCategory) analyticsFilterCategory.value = '';
+            renderAnalytics();
         });
     }
 
@@ -380,11 +426,13 @@ function initEventListeners() {
 function toggleItemField() {
     const recordItem = document.getElementById('record-item');
     const formatType = recordFormatTypeSelect?.value || 'single';
+    const recordType = recordTypeSelect?.value || 'spending';
     
-    if (recordTypeSelect.value === 'income') {
+    if (recordType === 'income') {
         itemFieldContainer.style.display = 'none';
         recordItem.removeAttribute('required');
     } else {
+        // Show item field for spending and account_receivable
         itemFieldContainer.style.display = 'block';
         // Only add required if not in combined mode
         if (formatType !== 'combined') {
@@ -764,6 +812,7 @@ async function refreshData() {
     updateSavingsAccountDropdown();
     renderAll();
     populateYearFilter();
+    populateAnalyticsFilterDropdowns();
 }
 
 function switchTab(tabId) {
@@ -830,17 +879,42 @@ function renderDashboard() {
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
 
-    const income = monthlyRecords.filter(r => r.type === 'income').reduce((sum, r) => sum + parseFloat(r.amount), 0);
-    const spending = monthlyRecords.filter(r => r.type === 'spending').reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    // Calculate income, spending, and balance with AR logic
+    // Pending AR counts as spending (money deducted now)
+    // Collected AR counts as income (money received)
+    let income = 0;
+    let spending = 0;
+    
+    monthlyRecords.forEach(r => {
+        if (r.type === 'income') {
+            income += parseFloat(r.amount);
+        } else if (r.type === 'account_receivable') {
+            if (r.collected) {
+                // Collected AR adds to income
+                income += parseFloat(r.amount);
+            } else {
+                // Pending AR adds to spending (money deducted but not yet received back)
+                spending += parseFloat(r.amount);
+            }
+        } else {
+            spending += parseFloat(r.amount);
+        }
+    });
+    
     const balance = income - spending;
+    
+    // Calculate Accounts Receivable (pending AR records only for KPI display)
+    const arPending = monthlyRecords.filter(r => r.type === 'account_receivable' && !r.collected).reduce((sum, r) => sum + parseFloat(r.amount), 0);
 
     const incomeEl = document.getElementById('total-income');
     const spendingEl = document.getElementById('total-spending');
     const balanceEl = document.getElementById('total-balance');
+    const arEl = document.getElementById('total-ar');
 
     if (incomeEl) incomeEl.textContent = `$${formatCurrency(income)}`;
     if (spendingEl) spendingEl.textContent = `$${formatCurrency(spending)}`;
     if (balanceEl) balanceEl.textContent = `$${formatCurrency(balance)}`;
+    if (arEl) arEl.textContent = `$${formatCurrency(arPending)}`;
 
     renderRecentRecords(monthlyRecords);
     renderCharts(monthlyRecords);
@@ -866,6 +940,9 @@ function renderRecentRecords(monthlyRecords) {
     sorted.forEach(r => {
         const tr = document.createElement('tr');
         const isCombined = r.formatType === 'combined';
+        const isAR = r.type === 'account_receivable';
+        const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
+        const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
         
         tr.innerHTML = `
             <td>${r.date}</td>
@@ -875,14 +952,21 @@ function renderRecentRecords(monthlyRecords) {
                     (r.type === 'income' ? r.category : r.item)
                 }
             </td>
-            <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
+            <td><span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span></td>
             <td>${r.person || '-'}</td>
-            <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
-                ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
+            <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
+                ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
                 ${isCombined ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
             </td>
             <td>
                 <div class="action-btns">
+                    ${isAR ? `
+                        <button class="btn-icon ${r.collected ? 'undo-btn' : 'collect-btn'}" 
+                                onclick="event.stopPropagation(); ${r.collected ? 'undoCollectAR' : 'collectAR'}(${r.id})" 
+                                title="${r.collected ? 'Undo Collection' : 'Mark as Collected'}">
+                            <i class="fas ${r.collected ? 'fa-undo' : 'fa-check'}"></i>
+                        </button>
+                    ` : ''}
                     <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
                 </div>
             </td>
@@ -981,21 +1065,74 @@ function renderCharts(monthlyRecords) {
 // Populate year dropdown
 function populateYearFilter() {
     const yearSelect = document.getElementById('filter-year');
-    if (!yearSelect || !records || records.length === 0) return;
+    const analyticsYearSelect = document.getElementById('analytics-filter-year');
+    
+    if (!records || records.length === 0) return;
     
     // Get unique years from records
     const years = [...new Set(records.map(r => r.date.substring(0, 4)))].sort().reverse();
     
-    // Clear existing options except "All Years"
-    yearSelect.innerHTML = '<option value="">All Years</option>';
+    // Populate records filter
+    if (yearSelect) {
+        yearSelect.innerHTML = '<option value="">All Years</option>';
+        years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            yearSelect.appendChild(option);
+        });
+    }
     
-    // Add year options
-    years.forEach(year => {
-        const option = document.createElement('option');
-        option.value = year;
-        option.textContent = year;
-        yearSelect.appendChild(option);
-    });
+    // Populate analytics filter
+    if (analyticsYearSelect) {
+        analyticsYearSelect.innerHTML = '<option value="">All Years</option>';
+        years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            analyticsYearSelect.appendChild(option);
+        });
+    }
+}
+
+// Populate analytics person and category dropdowns
+function populateAnalyticsFilterDropdowns() {
+    const analyticsPersonSelect = document.getElementById('analytics-filter-person');
+    const analyticsCategorySelect = document.getElementById('analytics-filter-category');
+    const recordsPersonSelect = document.getElementById('filter-person');
+    const recordsCategorySelect = document.getElementById('filter-category');
+    
+    // Populate analytics person dropdown
+    if (analyticsPersonSelect) {
+        const currentValue = analyticsPersonSelect.value;
+        analyticsPersonSelect.innerHTML = '<option value="">All People</option>' +
+            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        analyticsPersonSelect.value = currentValue;
+    }
+    
+    // Populate analytics category dropdown
+    if (analyticsCategorySelect) {
+        const currentValue = analyticsCategorySelect.value;
+        analyticsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
+            categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        analyticsCategorySelect.value = currentValue;
+    }
+
+    // Populate records person dropdown
+    if (recordsPersonSelect) {
+        const currentValue = recordsPersonSelect.value;
+        recordsPersonSelect.innerHTML = '<option value="">All People</option>' +
+            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        recordsPersonSelect.value = currentValue;
+    }
+
+    // Populate records category dropdown
+    if (recordsCategorySelect) {
+        const currentValue = recordsCategorySelect.value;
+        recordsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
+            categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        recordsCategorySelect.value = currentValue;
+    }
 }
 
 // Records Functions
@@ -1009,12 +1146,16 @@ function renderRecords() {
     const filterType = document.getElementById('filter-type')?.value || 'all';
     const filterYear = document.getElementById('filter-year')?.value;
     const filterMonth = document.getElementById('filter-month')?.value;
+    const filterPerson = document.getElementById('filter-person')?.value;
+    const filterCategory = document.getElementById('filter-category')?.value;
 
     let filteredRecords = records.filter(r => {
         const typeMatch = filterType === 'all' || r.type === filterType;
         const yearMatch = !filterYear || new Date(r.date).getFullYear().toString() === filterYear;
         const monthMatch = !filterMonth || new Date(r.date).getMonth().toString() === filterMonth;
-        return typeMatch && yearMatch && monthMatch;
+        const personMatch = !filterPerson || r.person === filterPerson;
+        const categoryMatch = !filterCategory || r.category === filterCategory;
+        return typeMatch && yearMatch && monthMatch && personMatch && categoryMatch;
     });
 
     if (filteredRecords.length === 0) {
@@ -1063,6 +1204,9 @@ function renderRecords() {
         monthRecords.forEach(r => {
             const tr = document.createElement('tr');
             const isCombined = r.formatType === 'combined';
+            const isAR = r.type === 'account_receivable';
+            const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
+            const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
             
             tr.innerHTML = `
                 <td>${r.date}</td>
@@ -1072,16 +1216,23 @@ function renderRecords() {
                         (r.type === 'income' ? r.category : r.item)
                     }
                 </td>
-                <td><span class="category-badge badge-${r.type}">${r.category}</span></td>
+                <td><span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span></td>
                 <td>${r.person || '-'}</td>
-                <td class="${r.type === 'income' ? 'amount-income' : 'amount-spending'}">
-                    ${r.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(r.amount))}
+                <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
+                    ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
                     ${isCombined ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
                 </td>
                 <td>${r.quantity || '-'}</td>
                 <td><div class="notes-cell">${r.notes || '-'}</div></td>
                 <td>
                     <div class="action-btns">
+                        ${isAR ? `
+                            <button class="btn-icon ${r.collected ? 'undo-btn' : 'collect-btn'}" 
+                                    onclick="event.stopPropagation(); ${r.collected ? 'undoCollectAR' : 'collectAR'}(${r.id})" 
+                                    title="${r.collected ? 'Undo Collection' : 'Mark as Collected'}">
+                                <i class="fas ${r.collected ? 'fa-undo' : 'fa-check'}"></i>
+                            </button>
+                        ` : ''}
                         <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
                         <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
                     </div>
@@ -1100,6 +1251,13 @@ function renderAnalytics() {
     const statsBody = document.getElementById('stats-body');
     if (!statsBody) return;
     statsBody.innerHTML = '';
+
+    // Get filter values
+    const filterType = document.getElementById('analytics-filter-type')?.value || 'all';
+    const filterYear = document.getElementById('analytics-filter-year')?.value;
+    const filterMonth = document.getElementById('analytics-filter-month')?.value;
+    const filterPerson = document.getElementById('analytics-filter-person')?.value;
+    const filterCategory = document.getElementById('analytics-filter-category')?.value;
 
     // Process records to expand combined transactions for analytics
     const expandedRecords = [];
@@ -1128,16 +1286,34 @@ function renderAnalytics() {
         }
     });
 
+    // Apply filters
+    const filteredRecords = expandedRecords.filter(r => {
+        const recordDate = new Date(r.date);
+        const typeMatch = filterType === 'all' || r.type === filterType;
+        const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
+        const monthMatch = filterMonth === '' || recordDate.getMonth().toString() === filterMonth;
+        const personMatch = !filterPerson || r.person === filterPerson;
+        const categoryMatch = !filterCategory || r.category === filterCategory;
+        return typeMatch && yearMatch && monthMatch && personMatch && categoryMatch;
+    });
+
     // Group records by month
     const monthlyStats = {};
-    expandedRecords.forEach(r => {
+    filteredRecords.forEach(r => {
         const date = new Date(r.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyStats[monthKey]) {
-            monthlyStats[monthKey] = { income: 0, spending: 0, categories: {} };
+            monthlyStats[monthKey] = { income: 0, spending: 0, arPending: 0, arCollected: 0, categories: {} };
         }
+        
         if (r.type === 'income') {
             monthlyStats[monthKey].income += parseFloat(r.amount);
+        } else if (r.type === 'account_receivable') {
+            if (r.collected) {
+                monthlyStats[monthKey].arCollected += parseFloat(r.amount);
+            } else {
+                monthlyStats[monthKey].arPending += parseFloat(r.amount);
+            }
         } else {
             monthlyStats[monthKey].spending += parseFloat(r.amount);
             monthlyStats[monthKey].categories[r.category] = (monthlyStats[monthKey].categories[r.category] || 0) + parseFloat(r.amount);
@@ -1152,7 +1328,11 @@ function renderAnalytics() {
 
     sortedMonths.forEach(monthKey => {
         const stats = monthlyStats[monthKey];
-        const savings = stats.income - stats.spending;
+        // Total spending includes pending AR (money deducted now)
+        const totalSpending = stats.spending + stats.arPending;
+        // Total income includes collected AR (money received)
+        const totalIncome = stats.income + stats.arCollected;
+        const savings = totalIncome - totalSpending;
 
         let topCategory = 'N/A';
         let maxAmount = 0;
@@ -1169,8 +1349,8 @@ function renderAnalytics() {
 
         tr.innerHTML = `
             <td style="font-weight: 600;">${monthName}</td>
-            <td class="amount-income">$${formatCurrency(stats.income)}</td>
-            <td class="amount-spending">$${formatCurrency(stats.spending)}</td>
+            <td class="amount-income">$${formatCurrency(totalIncome)}</td>
+            <td class="amount-spending">$${formatCurrency(totalSpending)}</td>
             <td style="font-weight: 700; color: ${savings >= 0 ? 'var(--success)' : 'var(--danger)'}">
                 ${savings >= 0 ? '+' : ''}$${formatCurrency(savings)}
             </td>
@@ -1180,7 +1360,7 @@ function renderAnalytics() {
     });
 
     renderMonthlyTrendChart(monthlyStats);
-    renderPersonChart();
+    renderPersonChart(filteredRecords);
 }
 
 function renderMonthlyTrendChart(monthlyStats) {
@@ -1190,8 +1370,15 @@ function renderMonthlyTrendChart(monthlyStats) {
     if (monthlyTrendChart) monthlyTrendChart.destroy();
 
     const months = Object.keys(monthlyStats).sort();
-    const incomeData = months.map(m => monthlyStats[m].income);
-    const spendingData = months.map(m => monthlyStats[m].spending);
+    // Calculate total income and spending including AR logic
+    const incomeData = months.map(m => {
+        const stats = monthlyStats[m];
+        return stats.income + stats.arCollected; // Include collected AR in income
+    });
+    const spendingData = months.map(m => {
+        const stats = monthlyStats[m];
+        return stats.spending + stats.arPending; // Include pending AR in spending
+    });
     const labels = months.map(m => {
         const [year, month] = m.split('-');
         return new Date(year, month - 1).toLocaleString('default', { month: 'short' });
@@ -1234,18 +1421,26 @@ function renderMonthlyTrendChart(monthlyStats) {
     });
 }
 
-function renderPersonChart() {
+function renderPersonChart(filteredRecords = null) {
     const canvas = document.getElementById('personChart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (personChart) personChart.destroy();
 
-    // Calculate spending by person
-    const spendingByPerson = {};
-    const spendingRecords = records.filter(r => r.type === 'spending' && r.person);
+    // Use filtered records if provided, otherwise use all records
+    const recordsToUse = filteredRecords || records;
 
-    spendingRecords.forEach(r => {
-        spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
+    // Calculate spending by person (includes pending AR)
+    const spendingByPerson = {};
+    recordsToUse.forEach(r => {
+        if (r.person) {
+            if (r.type === 'spending') {
+                spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
+            } else if (r.type === 'account_receivable' && !r.collected) {
+                // Pending AR counts as spending (money deducted now)
+                spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
+            }
+        }
     });
 
     const labels = Object.keys(spendingByPerson);
@@ -2124,7 +2319,9 @@ async function deleteCategory(id) {
 function updateCategoryDropdowns() {
     if (!recordTypeSelect || !recordCategorySelect) return;
     const type = recordTypeSelect.value;
-    const filtered = categories.filter(c => c.type === type);
+    // For account_receivable, use spending categories
+    const categoryType = type === 'account_receivable' ? 'spending' : type;
+    const filtered = categories.filter(c => c.type === categoryType);
     recordCategorySelect.innerHTML = filtered.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
 }
 
@@ -2352,3 +2549,40 @@ window.deletePerson = deletePerson;
 window.switchTab = switchTab;
 window.removeCombinedTransaction = removeCombinedTransaction;
 window.updateCombinedTransaction = updateCombinedTransaction;
+
+// Accounts Receivable functions
+async function collectAR(id) {
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+    
+    record.collected = true;
+    record.collectedDate = new Date().toISOString().split('T')[0];
+    
+    try {
+        await updateRecord(STORE_RECORDS, record);
+        await refreshData();
+    } catch (error) {
+        console.error('Error collecting AR:', error);
+        alert('Error marking as collected: ' + error.message);
+    }
+}
+
+async function undoCollectAR(id) {
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+    
+    record.collected = false;
+    delete record.collectedDate;
+    
+    try {
+        await updateRecord(STORE_RECORDS, record);
+        await refreshData();
+    } catch (error) {
+        console.error('Error undoing AR collection:', error);
+        alert('Error undoing collection: ' + error.message);
+    }
+}
+
+// Make AR functions globally available
+window.collectAR = collectAR;
+window.undoCollectAR = undoCollectAR;

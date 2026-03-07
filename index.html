@@ -79,6 +79,13 @@
                 <p id="total-balance">$0.00</p>
               </div>
             </div>
+            <div class="kpi-card accounts-receivable">
+              <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
+              <div class="kpi-details">
+                <h3>Accounts Receivable</h3>
+                <p id="total-ar">$0.00</p>
+              </div>
+            </div>
           </div>
 
           <div class="charts-row">
@@ -135,6 +142,7 @@
                     <option value="all">All</option>
                     <option value="spending">Spending</option>
                     <option value="income">Income</option>
+                    <option value="account_receivable">Account Receivable</option>
                   </select>
                 </div>
                 <div class="filter-group">
@@ -159,6 +167,18 @@
                     <option value="10">October</option>
                     <option value="11">November</option>
                     <option value="12">December</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label">Person:</label>
+                  <select id="filter-person" class="btn btn-outline">
+                    <option value="">All People</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label">Category:</label>
+                  <select id="filter-category" class="btn btn-outline">
+                    <option value="">All Categories</option>
                   </select>
                 </div>
                 <button class="btn btn-outline" id="clear-filters">
@@ -193,6 +213,59 @@
 
         <!-- Analytics Tab -->
         <section id="analytics" class="tab-content">
+          <div class="card">
+            <div class="filter-controls-group" style="margin-bottom: 1.5rem; flex-wrap: wrap;">
+              <div class="filter-group">
+                <label class="filter-label">Type:</label>
+                <select id="analytics-filter-type" class="btn btn-outline">
+                  <option value="all">All</option>
+                  <option value="spending">Spending</option>
+                  <option value="income">Income</option>
+                  <option value="account_receivable">Account Receivable</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Year:</label>
+                <select id="analytics-filter-year" class="btn btn-outline">
+                  <option value="">All Years</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Month:</label>
+                <select id="analytics-filter-month" class="btn btn-outline">
+                  <option value="">All Months</option>
+                  <option value="0">January</option>
+                  <option value="1">February</option>
+                  <option value="2">March</option>
+                  <option value="3">April</option>
+                  <option value="4">May</option>
+                  <option value="5">June</option>
+                  <option value="6">July</option>
+                  <option value="7">August</option>
+                  <option value="8">September</option>
+                  <option value="9">October</option>
+                  <option value="10">November</option>
+                  <option value="11">December</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Person:</label>
+                <select id="analytics-filter-person" class="btn btn-outline">
+                  <option value="">All People</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Category:</label>
+                <select id="analytics-filter-category" class="btn btn-outline">
+                  <option value="">All Categories</option>
+                </select>
+              </div>
+              <button class="btn btn-outline" id="analytics-clear-filters">
+                <i class="fas fa-times"></i> Clear
+              </button>
+            </div>
+          </div>
+
           <div class="card">
             <h3>Monthly History</h3>
             <div class="chart-container" style="height: 300px">
@@ -538,6 +611,7 @@
               <select id="record-type" required>
                 <option value="spending">Spending</option>
                 <option value="income">Income</option>
+                <option value="account_receivable">Account Receivable</option>
               </select>
             </div>
             <div class="form-row">

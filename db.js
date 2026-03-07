@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 3; // bumped to support savings stores
+const DB_VERSION = 4; // bumped to support accounts receivable
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
