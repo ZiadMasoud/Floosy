@@ -890,8 +890,8 @@ function renderDashboard() {
             income += parseFloat(r.amount);
         } else if (r.type === 'account_receivable') {
             if (r.collected) {
-                // Collected AR adds to income
-                income += parseFloat(r.amount);
+                // Collected AR reduces spending (money received back)
+                spending -= parseFloat(r.amount);
             } else {
                 // Pending AR adds to spending (money deducted but not yet received back)
                 spending += parseFloat(r.amount);
