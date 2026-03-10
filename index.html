@@ -1,223 +1,140 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <title>Floosy</title>
-    <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
-    />
-  </head>
-  <body>
-    <div class="app-container">
-      <!-- Sidebar/Bottom Navigation for Mobile -->
-      <nav class="sidebar">
-        <div class="logo">
-          <i class="fas fa-wallet"></i>
-          <span>Floosy</span>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Floosy</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+
+<body>
+  <div class="app-container">
+    <!-- Sidebar/Bottom Navigation for Mobile -->
+    <nav class="sidebar">
+      <div class="logo">
+        <i class="fas fa-wallet"></i>
+        <span>Floosy</span>
+      </div>
+      <ul class="nav-links">
+        <li class="active" data-tab="dashboard">
+          <i class="fas fa-th-large"></i>
+          <span>Dashboard</span>
+        </li>
+        <li data-tab="records">
+          <i class="fas fa-list"></i>
+          <span>Records</span>
+        </li>
+        <li data-tab="analytics">
+          <i class="fas fa-chart-line"></i>
+          <span>Analytics</span>
+        </li>
+        <li data-tab="savings">
+          <i class="fas fa-piggy-bank"></i>
+          <span>Savings</span>
+        </li>
+        <li data-tab="settings">
+          <i class="fas fa-cog"></i>
+          <span>Settings</span>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <header>
+        <h1 id="tab-title">Dashboard</h1>
+        <div class="user-info">
+          <span id="current-month-display">...</span>
         </div>
-        <ul class="nav-links">
-          <li class="active" data-tab="dashboard">
-            <i class="fas fa-th-large"></i>
-            <span>Dashboard</span>
-          </li>
-          <li data-tab="records">
-            <i class="fas fa-list"></i>
-            <span>Records</span>
-          </li>
-          <li data-tab="analytics">
-            <i class="fas fa-chart-line"></i>
-            <span>Analytics</span>
-          </li>
-          <li data-tab="savings">
-            <i class="fas fa-piggy-bank"></i>
-            <span>Savings</span>
-          </li>
-          <li data-tab="settings">
-            <i class="fas fa-cog"></i>
-            <span>Settings</span>
-          </li>
-        </ul>
-      </nav>
+      </header>
 
-      <!-- Main Content Area -->
-      <main class="main-content">
-        <header>
-          <h1 id="tab-title">Dashboard</h1>
-          <div class="user-info">
-            <span id="current-month-display">...</span>
-          </div>
-        </header>
-
-        <!-- Dashboard Tab -->
-        <section id="dashboard" class="tab-content active">
-          <div class="kpi-container">
-            <div class="kpi-card income">
-              <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
-              <div class="kpi-details">
-                <h3>Total Income</h3>
-                <p id="total-income">$0.00</p>
-              </div>
-            </div>
-            <div class="kpi-card spending">
-              <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
-              <div class="kpi-details">
-                <h3>Total Spending</h3>
-                <p id="total-spending">$0.00</p>
-              </div>
-            </div>
-            <div class="kpi-card balance">
-              <div class="kpi-icon"><i class="fas fa-balance-scale"></i></div>
-              <div class="kpi-details">
-                <h3>Balance</h3>
-                <p id="total-balance">$0.00</p>
-              </div>
-            </div>
-            <div class="kpi-card accounts-receivable">
-              <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
-              <div class="kpi-details">
-                <h3>Accounts Receivable</h3>
-                <p id="total-ar">$0.00</p>
-              </div>
+      <!-- Dashboard Tab -->
+      <section id="dashboard" class="tab-content active">
+        <div class="kpi-container">
+          <div class="kpi-card income">
+            <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
+            <div class="kpi-details">
+              <h3>Total Income</h3>
+              <p id="total-income">$0.00</p>
             </div>
           </div>
-
-          <div class="charts-row">
-            <div class="card">
-              <h3>Spending by Category</h3>
-              <div class="chart-container">
-                <canvas id="categoryChart"></canvas>
-              </div>
-            </div>
-            <div class="card">
-              <h3>Income vs Spending</h3>
-              <div class="chart-container">
-                <canvas id="trendChart"></canvas>
-              </div>
+          <div class="kpi-card spending">
+            <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
+            <div class="kpi-details">
+              <h3>Total Spending</h3>
+              <p id="total-spending">$0.00</p>
             </div>
           </div>
-
-          <div class="recent-records card">
-            <div class="card-header">
-              <h3>Recent Transactions</h3>
-              <button class="btn-text" id="view-all-records">View All</button>
-            </div>
-            <div class="table-responsive">
-              <table id="recent-records-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Item</th>
-                    <th>Category</th>
-                    <th>Person</th>
-                    <th>Amount</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="recent-records-body">
-                  <!-- Data will be injected here -->
-                </tbody>
-              </table>
+          <div class="kpi-card balance">
+            <div class="kpi-icon"><i class="fas fa-balance-scale"></i></div>
+            <div class="kpi-details">
+              <h3>Balance</h3>
+              <p id="total-balance">$0.00</p>
             </div>
           </div>
-        </section>
-
-        <!-- Records Tab -->
-        <section id="records" class="tab-content">
-          <div class="actions-bar card">
-            <div class="card-header">
-              <button class="btn btn-primary" id="add-record-btn">
-                <i class="fas fa-plus"></i> Add Transaction
-              </button>
-              <div class="filter-controls-group">
-                <div class="filter-group">
-                  <label class="filter-label">Type:</label>
-                  <select id="filter-type" class="btn btn-outline">
-                    <option value="all">All</option>
-                    <option value="spending">Spending</option>
-                    <option value="income">Income</option>
-                    <option value="account_receivable">Account Receivable</option>
-                  </select>
-                </div>
-                <div class="filter-group">
-                  <label class="filter-label">Year:</label>
-                  <select id="filter-year" class="btn btn-outline">
-                    <option value="">All Years</option>
-                  </select>
-                </div>
-                <div class="filter-group">
-                  <label class="filter-label">Month:</label>
-                  <select id="filter-month" class="btn btn-outline">
-                    <option value="">All Months</option>
-                    <option value="01">January</option>
-                    <option value="02">February</option>
-                    <option value="03">March</option>
-                    <option value="04">April</option>
-                    <option value="05">May</option>
-                    <option value="06">June</option>
-                    <option value="07">July</option>
-                    <option value="08">August</option>
-                    <option value="09">September</option>
-                    <option value="10">October</option>
-                    <option value="11">November</option>
-                    <option value="12">December</option>
-                  </select>
-                </div>
-                <div class="filter-group">
-                  <label class="filter-label">Person:</label>
-                  <select id="filter-person" class="btn btn-outline">
-                    <option value="">All People</option>
-                  </select>
-                </div>
-                <div class="filter-group">
-                  <label class="filter-label">Category:</label>
-                  <select id="filter-category" class="btn btn-outline">
-                    <option value="">All Categories</option>
-                  </select>
-                </div>
-                <button class="btn btn-outline" id="clear-filters">
-                  <i class="fas fa-times"></i> Clear
-                </button>
-              </div>
+          <div class="kpi-card accounts-receivable">
+            <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="kpi-details">
+              <h3>Accounts Receivable</h3>
+              <p id="total-ar">$0.00</p>
             </div>
           </div>
+        </div>
 
-          <div class="records-list card">
-            <div class="table-responsive">
-              <table id="records-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Item</th>
-                    <th>Category</th>
-                    <th>Person</th>
-                    <th>Amount</th>
-                    <th>Qty</th>
-                    <th>Notes</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="records-body">
-                  <!-- Data will be injected here -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Analytics Tab -->
-        <section id="analytics" class="tab-content">
+        <div class="charts-row">
           <div class="card">
-            <div class="filter-controls-group" style="margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <h3>Spending by Category</h3>
+            <div class="chart-container">
+              <canvas id="categoryChart"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Income vs Spending</h3>
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="recent-records card">
+          <div class="card-header">
+            <h3>Recent Transactions</h3>
+            <button class="btn-text" id="view-all-records">View All</button>
+          </div>
+          <div class="table-responsive">
+            <table id="recent-records-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Person</th>
+                  <th>Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recent-records-body">
+                <!-- Data will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Records Tab -->
+      <section id="records" class="tab-content">
+        <div class="actions-bar card">
+          <div class="card-header">
+            <button class="btn btn-primary" id="add-record-btn">
+              <i class="fas fa-plus"></i> Add Transaction
+            </button>
+            <div class="filter-controls-group">
               <div class="filter-group">
                 <label class="filter-label">Type:</label>
-                <select id="analytics-filter-type" class="btn btn-outline">
+                <select id="filter-type" class="btn btn-outline">
                   <option value="all">All</option>
                   <option value="spending">Spending</option>
                   <option value="income">Income</option>
@@ -226,94 +143,170 @@
               </div>
               <div class="filter-group">
                 <label class="filter-label">Year:</label>
-                <select id="analytics-filter-year" class="btn btn-outline">
+                <select id="filter-year" class="btn btn-outline">
                   <option value="">All Years</option>
                 </select>
               </div>
               <div class="filter-group">
                 <label class="filter-label">Month:</label>
-                <select id="analytics-filter-month" class="btn btn-outline">
+                <select id="filter-month" class="btn btn-outline">
                   <option value="">All Months</option>
-                  <option value="0">January</option>
-                  <option value="1">February</option>
-                  <option value="2">March</option>
-                  <option value="3">April</option>
-                  <option value="4">May</option>
-                  <option value="5">June</option>
-                  <option value="6">July</option>
-                  <option value="7">August</option>
-                  <option value="8">September</option>
-                  <option value="9">October</option>
-                  <option value="10">November</option>
-                  <option value="11">December</option>
+                  <option value="01">January</option>
+                  <option value="02">February</option>
+                  <option value="03">March</option>
+                  <option value="04">April</option>
+                  <option value="05">May</option>
+                  <option value="06">June</option>
+                  <option value="07">July</option>
+                  <option value="08">August</option>
+                  <option value="09">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
                 </select>
               </div>
               <div class="filter-group">
                 <label class="filter-label">Person:</label>
-                <select id="analytics-filter-person" class="btn btn-outline">
+                <select id="filter-person" class="btn btn-outline">
                   <option value="">All People</option>
                 </select>
               </div>
               <div class="filter-group">
                 <label class="filter-label">Category:</label>
-                <select id="analytics-filter-category" class="btn btn-outline">
+                <select id="filter-category" class="btn btn-outline">
                   <option value="">All Categories</option>
                 </select>
               </div>
-              <button class="btn btn-outline" id="analytics-clear-filters">
+              <button class="btn btn-outline" id="clear-filters">
                 <i class="fas fa-times"></i> Clear
               </button>
             </div>
           </div>
+        </div>
 
-          <div class="card">
-            <h3>Monthly History</h3>
-            <div class="chart-container" style="height: 300px">
-              <canvas id="monthlyTrendChart"></canvas>
-            </div>
+        <div class="records-list card">
+          <div class="table-responsive">
+            <table id="records-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Item</th>
+                  <th>Category</th>
+                  <th>Person</th>
+                  <th>Amount</th>
+                  <th>Qty</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="records-body">
+                <!-- Data will be injected here -->
+              </tbody>
+            </table>
           </div>
+        </div>
+      </section>
 
-          <div class="card">
-            <h3>Spending by Person</h3>
-            <div class="chart-container" style="height: 300px">
-              <canvas id="personChart"></canvas>
+      <!-- Analytics Tab -->
+      <section id="analytics" class="tab-content">
+        <div class="card">
+          <div class="filter-controls-group" style="margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <div class="filter-group">
+              <label class="filter-label">Type:</label>
+              <select id="analytics-filter-type" class="btn btn-outline">
+                <option value="all">All</option>
+                <option value="spending">Spending</option>
+                <option value="income">Income</option>
+                <option value="account_receivable">Account Receivable</option>
+              </select>
             </div>
-          </div>
-
-          <div class="card">
-            <h3>Monthly Statistics</h3>
-            <div class="table-responsive">
-              <table id="stats-table">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Income</th>
-                    <th>Spending</th>
-                    <th>Savings</th>
-                    <th>Top Category</th>
-                  </tr>
-                </thead>
-                <tbody id="stats-body">
-                  <!-- Stats will be injected here -->
-                </tbody>
-              </table>
+            <div class="filter-group">
+              <label class="filter-label">Year:</label>
+              <select id="analytics-filter-year" class="btn btn-outline">
+                <option value="">All Years</option>
+              </select>
             </div>
+            <div class="filter-group">
+              <label class="filter-label">Month:</label>
+              <select id="analytics-filter-month" class="btn btn-outline">
+                <option value="">All Months</option>
+                <option value="0">January</option>
+                <option value="1">February</option>
+                <option value="2">March</option>
+                <option value="3">April</option>
+                <option value="4">May</option>
+                <option value="5">June</option>
+                <option value="6">July</option>
+                <option value="7">August</option>
+                <option value="8">September</option>
+                <option value="9">October</option>
+                <option value="10">November</option>
+                <option value="11">December</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Person:</label>
+              <select id="analytics-filter-person" class="btn btn-outline">
+                <option value="">All People</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Category:</label>
+              <select id="analytics-filter-category" class="btn btn-outline">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <button class="btn btn-outline" id="analytics-clear-filters">
+              <i class="fas fa-times"></i> Clear
+            </button>
           </div>
-        </section>
+        </div>
 
-        <!-- Settings Tab -->
-        <section id="settings" class="tab-content">
-          <div class="settings-grid">
+        <div class="card">
+          <h3>Monthly History</h3>
+          <div class="chart-container" style="height: 300px">
+            <canvas id="monthlyTrendChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Spending by Person</h3>
+          <div class="chart-container" style="height: 300px">
+            <canvas id="personChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Monthly Statistics</h3>
+          <div class="table-responsive">
+            <table id="stats-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Income</th>
+                  <th>Spending</th>
+                  <th>Savings</th>
+                  <th>Top Category</th>
+                </tr>
+              </thead>
+              <tbody id="stats-body">
+                <!-- Stats will be injected here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings Tab -->
+      <section id="settings" class="tab-content">
+        <div class="settings-grid">
+          <div class="management-row">
             <div class="card">
               <h3>Category Management</h3>
               <div class="add-category-form-container">
                 <div class="form-group">
                   <label>New Category Name</label>
-                  <input
-                    type="text"
-                    id="new-category-name"
-                    placeholder="e.g. Health, Gift..."
-                  />
+                  <input type="text" id="new-category-name" placeholder="e.g. Health, Gift..." />
                 </div>
                 <div class="form-row">
                   <div class="form-group">
@@ -323,15 +316,8 @@
                       <option value="income">Income</option>
                     </select>
                   </div>
-                  <div
-                    class="form-group"
-                    style="display: flex; align-items: flex-end"
-                  >
-                    <button
-                      class="btn btn-primary"
-                      id="add-category-btn"
-                      style="width: 100%"
-                    >
+                  <div class="form-group" style="display: flex; align-items: flex-end">
+                    <button class="btn btn-primary" id="add-category-btn" style="width: 100%">
                       Add Category
                     </button>
                   </div>
@@ -340,11 +326,8 @@
               <div class="category-list" id="category-list">
                 <!-- Categories will be listed here -->
               </div>
-              <button
-                class="btn btn-outline"
-                id="show-more-categories"
-                style="display: none; margin-top: 1rem; width: 100%"
-              >
+              <button class="btn btn-outline" id="show-more-categories"
+                style="display: none; margin-top: 1rem; width: 100%">
                 Show More
               </button>
             </div>
@@ -354,21 +337,10 @@
               <div class="add-category-form-container">
                 <div class="form-group">
                   <label>New Person Name</label>
-                  <input
-                    type="text"
-                    id="new-person-name"
-                    placeholder="e.g. John, Sarah..."
-                  />
+                  <input type="text" id="new-person-name" placeholder="e.g. John, Sarah..." />
                 </div>
-                <div
-                  class="form-group"
-                  style="display: flex; align-items: flex-end"
-                >
-                  <button
-                    class="btn btn-primary"
-                    id="add-person-btn"
-                    style="width: 100%"
-                  >
+                <div class="form-group" style="display: flex; align-items: flex-end">
+                  <button class="btn btn-primary" id="add-person-btn" style="width: 100%">
                     Add Person
                   </button>
                 </div>
@@ -376,370 +348,354 @@
               <div class="category-list" id="person-list">
                 <!-- People will be listed here -->
               </div>
-              <button
-                class="btn btn-outline"
-                id="show-more-people"
-                style="display: none; margin-top: 1rem; width: 100%"
-              >
+              <button class="btn btn-outline" id="show-more-people"
+                style="display: none; margin-top: 1rem; width: 100%">
                 Show More
               </button>
             </div>
+          </div>
 
-            <div class="card">
-              <h3>Data Management</h3>
-              <p
-                style="
+          <div class="card">
+            <h3>Monthly Summary</h3>
+            <p style="
                   color: var(--text-muted);
                   margin-bottom: 1.5rem;
                   font-size: 0.875rem;
-                "
-              >
-                Export your data to a JSON file for backup or import it to
-                another device. Resetting will clear your records based on selected options.
-              </p>
-              <div class="data-actions">
-                <button class="btn btn-outline" id="export-btn">
-                  <i class="fas fa-download"></i> Export JSON
-                </button>
-                <label
-                  for="import-file"
-                  class="btn btn-outline"
-                  style="cursor: pointer"
-                >
-                  <i class="fas fa-upload"></i> Import JSON
-                </label>
-                <input
-                  type="file"
-                  id="import-file"
-                  style="display: none"
-                  accept=".json"
-                />
-                <button class="btn btn-danger" id="reset-btn">
-                  <i class="fas fa-trash-alt"></i> Reset Database
-                </button>
-              </div>
-              
-              <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Selective Data Reset</h3>
-              <p
-                style="
-                  color: var(--text-muted);
-                  margin-bottom: 1.5rem;
-                  font-size: 0.875rem;
-                "
-              >
-                Choose specific data to reset instead of clearing everything.
-              </p>
-              
-              <div class="reset-options">
+                ">
+              Generate and download a beautiful PDF summary of your monthly financial performance.
+              Track income, spending, savings, and category breakdowns for any month.
+            </p>
+
+            <div class="monthly-summary-controls">
+              <div class="form-row">
                 <div class="form-group">
-                  <label>Reset Type</label>
-                  <select id="reset-type" class="btn btn-outline" style="width: 100%">
-                    <option value="all">All Data</option>
-                    <option value="month">Current Month Only</option>
-                    <option value="period">Custom Period</option>
+                  <label>Select Month</label>
+                  <select id="summary-month-select" class="btn btn-outline">
+                    <!-- Options will be populated dynamically -->
                   </select>
                 </div>
-                
-                <div id="period-options" style="display: none;">
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label>From Date</label>
-                      <input type="date" id="period-start" />
-                    </div>
-                    <div class="form-group">
-                      <label>To Date</label>
-                      <input type="date" id="period-end" />
-                    </div>
-                  </div>
-                </div>
-                
                 <div class="form-group">
-                  <label>Data to Reset</label>
-                  <div class="checkbox-group">
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="reset-records" checked>
-                      <span class="checkbox-text">Transaction Records</span>
-                    </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="reset-savings" checked>
-                      <span class="checkbox-text">Savings Data</span>
-                    </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="reset-categories">
-                      <span class="checkbox-text">Categories (will restore defaults)</span>
-                    </label>
-                    <label class="checkbox-label">
-                      <input type="checkbox" id="reset-people">
-                      <span class="checkbox-text">People</span>
-                    </label>
+                  <label>Select Year</label>
+                  <select id="summary-year-select" class="btn btn-outline">
+                    <!-- Options will be populated dynamically -->
+                  </select>
+                </div>
+              </div>
+
+              <div class="summary-options" style="margin: 1.5rem 0;">
+                <div class="checkbox-group">
+
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="include-categories" checked>
+                    <span class="checkbox-text">Category Breakdown</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="include-people" checked>
+                    <span class="checkbox-text">People Summary</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="include-savings" checked>
+                    <span class="checkbox-text">Savings Overview</span>
+                  </label>
+                </div>
+              </div>
+
+              <button class="btn btn-primary" id="generate-pdf-btn" style="width: 100%">
+                <i class="fas fa-file-pdf"></i> Generate PDF Summary
+              </button>
+            </div>
+          </div>
+
+          <div class="card data-management-card">
+            <h3>Data Management</h3>
+            <p style="
+                  color: var(--text-muted);
+                  margin-bottom: 1.5rem;
+                  font-size: 0.875rem;
+                ">
+              Export your data to a JSON file for backup or import it to
+              another device. Resetting will clear your records based on selected options.
+            </p>
+            <div class="data-actions">
+              <button class="btn btn-outline" id="export-btn">
+                <i class="fas fa-download"></i> Export JSON
+              </button>
+              <label for="import-file" class="btn btn-outline" style="cursor: pointer">
+                <i class="fas fa-upload"></i> Import JSON
+              </label>
+              <input type="file" id="import-file" style="display: none" accept=".json" />
+              <button class="btn btn-danger" id="reset-btn">
+                <i class="fas fa-trash-alt"></i> Reset Database
+              </button>
+            </div>
+
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Selective Data Reset</h3>
+            <p style="
+                  color: var(--text-muted);
+                  margin-bottom: 1.5rem;
+                  font-size: 0.875rem;
+                ">
+              Choose specific data to reset instead of clearing everything.
+            </p>
+
+            <div class="reset-options">
+              <div class="form-group">
+                <label>Reset Type</label>
+                <select id="reset-type" class="btn btn-outline" style="width: 100%">
+                  <option value="all">All Data</option>
+                  <option value="month">Current Month Only</option>
+                  <option value="period">Custom Period</option>
+                </select>
+              </div>
+
+              <div id="period-options" style="display: none;">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>From Date</label>
+                    <input type="date" id="period-start" />
+                  </div>
+                  <div class="form-group">
+                    <label>To Date</label>
+                    <input type="date" id="period-end" />
                   </div>
                 </div>
-                
-                <button class="btn btn-danger" id="selective-reset-btn" style="width: 100%">
-                  <i class="fas fa-trash-alt"></i> Reset Selected Data
-                </button>
               </div>
-            </div>
-          </div>
-        </section>
 
-        <!-- Savings Tab -->
-        <section id="savings" class="tab-content">
-          <div class="actions-bar card">
-            <div class="card-header" style="margin-bottom: 0">
-              <button class="btn btn-primary" id="add-account-btn">
-                <i class="fas fa-plus"></i> New Account
-              </button>
-            </div>
-          </div>
-          <div id="savings-list" class="savings-list">
-            <!-- Account cards will be injected here -->
-          </div>
-        </section>
-      </main>
+              <div class="form-group">
+                <label>Data to Reset</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="reset-records" checked>
+                    <span class="checkbox-text">Transaction Records</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="reset-savings" checked>
+                    <span class="checkbox-text">Savings Data</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="reset-categories">
+                    <span class="checkbox-text">Categories (will restore defaults)</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="reset-people">
+                    <span class="checkbox-text">People</span>
+                  </label>
+                </div>
+              </div>
 
-      <!-- Modal for Add/Edit Account -->
-      <div id="account-modal" class="modal">
-        <div class="modal-content">
-          <h2>New Savings Account</h2>
-          <form id="account-form">
-            <input type="hidden" id="account-id" name="account-id" />
-            <div class="form-group">
-              <label>Name</label>
-              <input
-                type="text"
-                id="account-name"
-                name="account-name"
-                required
-                placeholder="Account name"
-              />
-            </div>
-            <div class="form-group">
-              <label>Initial Amount (optional)</label>
-              <input
-                type="number"
-                step="0.01"
-                id="account-initial"
-                name="account-initial"
-                placeholder="0.00"
-              />
-            </div>
-            <div class="modal-actions">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                id="cancel-account-modal"
-              >
-                Cancel
-              </button>
-              <button type="submit" class="btn btn-primary">
-                Save Account
+              <button class="btn btn-danger" id="selective-reset-btn" style="width: 100%">
+                <i class="fas fa-trash-alt"></i> Reset Selected Data
               </button>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Modal for Savings Transaction -->
-      <div id="transaction-modal" class="modal">
-        <div class="modal-content">
-          <h2>Deposit</h2>
-          <form id="transaction-form">
-            <input type="hidden" id="tx-id" name="tx-id" />
-            <input type="hidden" id="tx-account-id" name="tx-account-id" />
-            <input type="hidden" id="tx-type" name="tx-type" />
-            <div class="form-group">
-              <label>Type</label>
-              <select id="tx-type-display" name="tx-type-display">
-                <option value="deposit">Income</option>
-                <option value="withdrawal">Withdrawal</option>
-              </select>
-            </div>
+      <!-- Savings Tab -->
+      <section id="savings" class="tab-content">
+        <div class="actions-bar card">
+          <div class="card-header" style="margin-bottom: 0">
+            <button class="btn btn-primary" id="add-account-btn">
+              <i class="fas fa-plus"></i> New Account
+            </button>
+          </div>
+        </div>
+        <div id="savings-list" class="savings-list">
+          <!-- Account cards will be injected here -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Modal for Add/Edit Account -->
+    <div id="account-modal" class="modal">
+      <div class="modal-content">
+        <h2>New Savings Account</h2>
+        <form id="account-form">
+          <input type="hidden" id="account-id" name="account-id" />
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="account-name" name="account-name" required placeholder="Account name" />
+          </div>
+          <div class="form-group">
+            <label>Initial Amount (optional)</label>
+            <input type="number" step="0.01" id="account-initial" name="account-initial" placeholder="0.00" />
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-account-modal">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Save Account
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal for Savings Transaction -->
+    <div id="transaction-modal" class="modal">
+      <div class="modal-content">
+        <h2>Deposit</h2>
+        <form id="transaction-form">
+          <input type="hidden" id="tx-id" name="tx-id" />
+          <input type="hidden" id="tx-account-id" name="tx-account-id" />
+          <input type="hidden" id="tx-type" name="tx-type" />
+          <div class="form-group">
+            <label>Type</label>
+            <select id="tx-type-display" name="tx-type-display">
+              <option value="deposit">Income</option>
+              <option value="withdrawal">Withdrawal</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="tx-date" name="tx-date" required />
+          </div>
+          <div class="form-group">
+            <label>Amount</label>
+            <input type="number" step="0.01" id="tx-amount" name="tx-amount" required placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea id="tx-notes" name="tx-notes" rows="2" placeholder="Optional notes"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-transaction-modal">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal for Add/Edit Record -->
+    <div id="record-modal" class="modal">
+      <div class="modal-content">
+        <h2 id="modal-title">Add Transaction</h2>
+        <form id="record-form">
+          <input type="hidden" id="record-id" />
+          <div class="form-group">
+            <label>Record Type</label>
+            <select id="record-format-type" required>
+              <option value="single">Single Transaction</option>
+              <option value="combined">Combined Transactions</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Transaction Type</label>
+            <select id="record-type" required>
+              <option value="spending">Spending</option>
+              <option value="income">Income</option>
+              <option value="account_receivable">Account Receivable</option>
+            </select>
+          </div>
+          <div class="form-row">
             <div class="form-group">
               <label>Date</label>
-              <input type="date" id="tx-date" name="tx-date" required />
+              <input type="date" id="record-date" required />
             </div>
             <div class="form-group">
-              <label>Amount</label>
-              <input
-                type="number"
-                step="0.01"
-                id="tx-amount"
-                name="tx-amount"
-                required
-                placeholder="0.00"
-              />
-            </div>
-            <div class="form-group">
-              <label>Notes</label>
-              <textarea
-                id="tx-notes"
-                name="tx-notes"
-                rows="2"
-                placeholder="Optional notes"
-              ></textarea>
-            </div>
-            <div class="modal-actions">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                id="cancel-transaction-modal"
-              >
-                Cancel
-              </button>
-              <button type="submit" class="btn btn-primary">Save</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Modal for Add/Edit Record -->
-      <div id="record-modal" class="modal">
-        <div class="modal-content">
-          <h2 id="modal-title">Add Transaction</h2>
-          <form id="record-form">
-            <input type="hidden" id="record-id" />
-            <div class="form-group">
-              <label>Record Type</label>
-              <select id="record-format-type" required>
-                <option value="single">Single Transaction</option>
-                <option value="combined">Combined Transactions</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Transaction Type</label>
-              <select id="record-type" required>
-                <option value="spending">Spending</option>
-                <option value="income">Income</option>
-                <option value="account_receivable">Account Receivable</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Date</label>
-                <input type="date" id="record-date" required />
-              </div>
-              <div class="form-group">
-                <label>Category</label>
-                <select id="record-category" required>
-                  <!-- Options will be loaded dynamically -->
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Person</label>
-                <select id="record-person">
-                  <option value="">Select Person (Optional)</option>
-                  <!-- Options will be loaded dynamically -->
-                </select>
-              </div>
-            </div>
-            <div class="form-group" id="item-field-container">
-              <label>Item/Description</label>
-              <input
-                type="text"
-                id="record-item"
-                placeholder="e.g. Grocery shopping"
-              />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Amount</label>
-                <input
-                  type="number"
-                  id="record-amount"
-                  step="0.01"
-                  required
-                  placeholder="0.00"
-                />
-              </div>
-              <div class="form-group">
-                <label>Quantity (Optional)</label>
-                <input type="number" id="record-quantity" placeholder="1" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Savings Account (Optional)</label>
-              <select id="record-savings-account">
-                <option value="">No Savings Account</option>
+              <label>Category</label>
+              <select id="record-category" required>
                 <!-- Options will be loaded dynamically -->
               </select>
             </div>
             <div class="form-group">
-              <label>Notes</label>
-              <textarea
-                id="record-notes"
-                rows="2"
-                placeholder="Additional details..."
-              ></textarea>
+              <label>Person</label>
+              <select id="record-person">
+                <option value="">Select Person (Optional)</option>
+                <!-- Options will be loaded dynamically -->
+              </select>
             </div>
-            
-            <!-- Combined Transactions Section (hidden by default) -->
-            <div id="combined-transactions-section" style="display: none;">
-              <div class="form-group">
-                <label>Combined Transaction Name (Optional)</label>
-                <input
-                  type="text"
-                  id="combined-transaction-name"
-                  placeholder="e.g. Weekly Shopping, Monthly Bills..."
-                />
-              </div>
-              <div class="form-row">
-                <div class="form-group" style="grid-column: 1 / -1;">
-                  <label>Combined Transaction Category</label>
-                  <select id="combined-transaction-category" style="width: 100%;">
-                    <option value="">Select Category (Optional)</option>
-                    <!-- Options will be loaded dynamically -->
-                  </select>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Combined Transactions</label>
-                <div class="combined-transactions-header">
-                  <button type="button" class="btn btn-outline" id="add-transaction-btn">
-                    <i class="fas fa-plus"></i> Add Transaction
-                  </button>
-                  <div id="combined-transactions-total" class="combined-transaction-summary" style="display: none;">
-                    <!-- Total will be shown here -->
-                  </div>
-                </div>
-                <div id="combined-transactions-list">
-                  <!-- Individual transactions will be added here -->
-                </div>
-              </div>
-            </div>
-            
-            <div class="modal-actions">
-              <button type="button" class="btn btn-secondary" id="cancel-modal">
-                Cancel
-              </button>
-              <button type="submit" class="btn btn-primary">
-                Save Transaction
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- Modal for Viewing Record Details -->
-      <div id="record-details-modal" class="modal">
-        <div class="modal-content">
-          <h2>Transaction Details</h2>
-          <div id="record-details-content" class="details-content">
-            <!-- Details will be injected here -->
           </div>
+          <div class="form-group" id="item-field-container">
+            <label>Item/Description</label>
+            <input type="text" id="record-item" placeholder="e.g. Grocery shopping" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" id="record-amount" step="0.01" required placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Quantity (Optional)</label>
+              <input type="number" id="record-quantity" placeholder="1" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Savings Account (Optional)</label>
+            <select id="record-savings-account">
+              <option value="">No Savings Account</option>
+              <!-- Options will be loaded dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea id="record-notes" rows="2" placeholder="Additional details..."></textarea>
+          </div>
+
+          <!-- Combined Transactions Section (hidden by default) -->
+          <div id="combined-transactions-section" style="display: none;">
+            <div class="form-group">
+              <label>Combined Transaction Name (Optional)</label>
+              <input type="text" id="combined-transaction-name" placeholder="e.g. Weekly Shopping, Monthly Bills..." />
+            </div>
+            <div class="form-row">
+              <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Combined Transaction Category</label>
+                <select id="combined-transaction-category" style="width: 100%;">
+                  <option value="">Select Category (Optional)</option>
+                  <!-- Options will be loaded dynamically -->
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Combined Transactions</label>
+              <div class="combined-transactions-header">
+                <button type="button" class="btn btn-outline" id="add-transaction-btn">
+                  <i class="fas fa-plus"></i> Add Transaction
+                </button>
+                <div id="combined-transactions-total" class="combined-transaction-summary" style="display: none;">
+                  <!-- Total will be shown here -->
+                </div>
+              </div>
+              <div id="combined-transactions-list">
+                <!-- Individual transactions will be added here -->
+              </div>
+            </div>
+          </div>
+
           <div class="modal-actions">
-            <button
-              type="button"
-              class="btn btn-secondary"
-              id="close-details-modal"
-            >
-              Close
+            <button type="button" class="btn btn-secondary" id="cancel-modal">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">
+              Save Transaction
             </button>
           </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal for Viewing Record Details -->
+    <div id="record-details-modal" class="modal">
+      <div class="modal-content">
+        <h2>Transaction Details</h2>
+        <div id="record-details-content" class="details-content">
+          <!-- Details will be injected here -->
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="close-details-modal">
+            Close
+          </button>
         </div>
       </div>
     </div>
-    <script src="db.js"></script>
-    <script src="app.js"></script>
-  </body>
+  </div>
+  <script src="db.js"></script>
+  <script src="app.js"></script>
+  <script src="monthly-summary.js"></script>
+</body>
+
 </html>

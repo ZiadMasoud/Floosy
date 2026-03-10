@@ -69,8 +69,8 @@ const showMoreCategoriesBtn = document.getElementById('show-more-categories');
 const showMorePeopleBtn = document.getElementById('show-more-people');
 
 // Pagination State
-let categoriesVisible = 5;
-let peopleVisible = 5;
+let categoriesVisible = 2;
+let peopleVisible = 2;
 let categoriesExpanded = false;
 let peopleExpanded = false;
 
@@ -2252,7 +2252,7 @@ function renderSettings() {
 
     // Update Show More button for categories
     if (showMoreCategoriesBtn) {
-        if (categories.length > 5) {
+        if (categories.length > 2) {
             showMoreCategoriesBtn.style.display = 'block';
             showMoreCategoriesBtn.textContent = categoriesExpanded ? 'Show Less' : 'Show More';
         } else {
@@ -2284,7 +2284,7 @@ function renderSettings() {
 
         // Update Show More button for people
         if (showMorePeopleBtn) {
-            if (people.length > 5) {
+            if (people.length > 2) {
                 showMorePeopleBtn.style.display = 'block';
                 showMorePeopleBtn.textContent = peopleExpanded ? 'Show Less' : 'Show More';
             } else {
@@ -2334,13 +2334,13 @@ function updatePersonDropdown() {
 // Show More Toggle Functions
 function toggleCategoriesVisibility() {
     categoriesExpanded = !categoriesExpanded;
-    categoriesVisible = categoriesExpanded ? categories.length : 5;
+    categoriesVisible = categoriesExpanded ? categories.length : 2;
     renderSettings();
 }
 
 function togglePeopleVisibility() {
     peopleExpanded = !peopleExpanded;
-    peopleVisible = peopleExpanded ? people.length : 5;
+    peopleVisible = peopleExpanded ? people.length : 2;
     renderSettings();
 }
 
