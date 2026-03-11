@@ -8,6 +8,7 @@ class MonthlySummaryPDF {
         this.savingsAccounts = [];
         this.savingsTransactions = [];
         this.isInitialized = false;
+        this.arabicFontLoaded = false;
 
         // Design tokens
         this.colors = {
@@ -33,13 +34,14 @@ class MonthlySummaryPDF {
     async init() {
         try {
             await this.loadjsPDF();
+            await this.loadArabicFont();
             await this.loadData();
             this.populateDateSelectors();
             this.bindEvents();
             this.isInitialized = true;
         } catch (error) {
             console.error('Failed to initialize Monthly Summary PDF:', error);
-            this.showErrorMessage('Failed to initialize PDF generator. Please refresh the page.');
+            this.showErrorMessage('Failed to initialize PDF generator. Please refresh page.');
         }
     }
 
@@ -59,6 +61,28 @@ class MonthlySummaryPDF {
             script.onerror = () => reject(new Error('Failed to load jsPDF'));
             document.head.appendChild(script);
         });
+    }
+
+    async loadArabicFont() {
+        try {
+            // Use a web-safe Arabic font from Google Fonts or CDN
+            const fontUrl = 'https://cdn.jsdelivr.net/gh/khaledalam0/WebFont@main/fonts/Cairo/Cairo-Regular.ttf';
+            
+            const response = await fetch(fontUrl);
+            if (!response.ok) throw new Error('Failed to fetch Arabic font');
+            
+            const fontBytes = await response.arrayBuffer();
+            const base64Font = btoa(String.fromCharCode(...new Uint8Array(fontBytes)));
+            
+            // Store the base64 font for later use
+            this.arabicFontBase64 = base64Font;
+            this.arabicFontLoaded = true;
+            
+            console.log('Arabic font loaded successfully');
+        } catch (error) {
+            console.warn('Failed to load Arabic font, falling back to default:', error);
+            this.arabicFontLoaded = false;
+        }
     }
 
     async loadData() {
@@ -227,6 +251,80 @@ class MonthlySummaryPDF {
         if (!prev || prev === 0) return null;
         const pct = ((current - prev) / Math.abs(prev)) * 100;
         return { pct: Math.abs(pct).toFixed(1), up: pct >= 0 };
+    }
+
+    // ─── Arabic/RTL Text Support ─────────────────────────────────────────────────────
+
+    isArabic(text) {
+        if (!text) return false;
+        const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+        return arabicRegex.test(text);
+    }
+
+    containsArabic(text) {
+        if (!text) return false;
+        return this.isArabic(text);
+    }
+
+    reverseText(text) {
+        // For RTL display, we need to reverse the text order
+        return text.split('').reverse().join('');
+    }
+
+    processTextForPDF(text) {
+        if (!text) return text;
+        
+        // Check if text contains Arabic
+        if (this.containsArabic(text)) {
+            // For PDF rendering, we'll handle Arabic text specially
+            return {
+                text: text,
+                isArabic: true,
+                processed: text // We'll process this in the text rendering methods
+            };
+        }
+        
+        return {
+            text: text,
+            isArabic: false,
+            processed: text
+        };
+    }
+
+    setArabicFont(pdf) {
+        if (this.arabicFontLoaded && this.arabicFontBase64 && pdf.addFileToVFS && pdf.addFont) {
+            try {
+                pdf.addFileToVFS('Cairo-Regular.ttf', this.arabicFontBase64);
+                pdf.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
+                return true;
+            } catch (error) {
+                console.warn('Failed to set Arabic font:', error);
+                return false;
+            }
+        }
+        return false;
+    }
+
+    renderText(pdf, textObj, x, y, options = {}) {
+        const { text, isArabic, processed } = textObj;
+        
+        if (isArabic && this.arabicFontLoaded) {
+            // Use Arabic font for Arabic text
+            const fontSet = this.setArabicFont(pdf);
+            if (fontSet) {
+                pdf.setFont('Cairo', 'normal');
+                // For Arabic, we might need to adjust positioning and handle RTL
+                const textOptions = { ...options, align: options.align || 'left' };
+                pdf.text(processed, x, y, textOptions);
+                // Reset to default font
+                pdf.setFont('helvetica', options.fontStyle || 'normal');
+                return;
+            }
+        }
+        
+        // Fallback to default font handling
+        pdf.setFont('helvetica', options.fontStyle || 'normal');
+        pdf.text(processed, x, y, options);
     }
 
     // ─── Main PDF generator ─────────────────────────────────────────────────────
@@ -656,10 +754,13 @@ class MonthlySummaryPDF {
             const pct = total > 0 ? (amt / total) : 0;
             const barW = pct * barAreaW;
 
+            // Process text for Arabic support
+            const srcText = this.processTextForPDF(src.substring(0, 28));
+
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8.5);
             this._c(pdf, C.textDark);
-            pdf.text(src.substring(0, 28), margin + 2, y);
+            this.renderText(pdf, srcText, margin + 2, y);
 
             this._c(pdf, C.success);
             pdf.text(this.fmtMoney(amt), margin + contentW * 0.45, y);
@@ -732,10 +833,13 @@ class MonthlySummaryPDF {
             const barW = pct * barAreaW;
             const barColor = i === 0 ? C.danger : i === 1 ? C.warning : C.primary;
 
+            // Process text for Arabic support
+            const catText = this.processTextForPDF(cat.substring(0, 28));
+
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8.5);
             this._c(pdf, C.textDark);
-            pdf.text(cat.substring(0, 28), margin + 2, y);
+            this.renderText(pdf, catText, margin + 2, y);
 
             this._c(pdf, C.textDark);
             pdf.text(this.fmtMoney(amt), margin + contentW * 0.45, y);
@@ -793,6 +897,10 @@ class MonthlySummaryPDF {
             this._fc(pdf, C.bgCard);
             pdf.roundedRect(px, py - 2, halfW, 16, 1.5, 1.5, 'F');
 
+            // Process person name for Arabic support
+            const personText = this.processTextForPDF(person.substring(0, 20));
+            const firstChar = person.charAt(0).toUpperCase();
+
             // Avatar circle
             const avatarColors = [C.primary, C.success, C.warning, C.info, C.danger];
             this._fc(pdf, avatarColors[i % avatarColors.length]);
@@ -800,12 +908,12 @@ class MonthlySummaryPDF {
             pdf.setFont('helvetica', 'bold');
             pdf.setFontSize(7);
             this._c(pdf, C.white);
-            pdf.text(person.charAt(0).toUpperCase(), px + 7, py + 7, { align: 'center' });
+            pdf.text(firstChar, px + 7, py + 7, { align: 'center' });
 
             pdf.setFont('helvetica', 'bold');
             pdf.setFontSize(8.5);
             this._c(pdf, C.textDark);
-            pdf.text(person.substring(0, 20), px + 14, py + 3);
+            this.renderText(pdf, personText, px + 14, py + 3);
 
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(7.5);
@@ -889,10 +997,13 @@ class MonthlySummaryPDF {
 
                 if (i % 2 === 0) { this._fc(pdf, C.bgCard); pdf.rect(margin, y - 4, contentW, 8, 'F'); }
 
+                // Process account name for Arabic support
+                const accountText = this.processTextForPDF(acc.name.substring(0, 25));
+
                 pdf.setFont('helvetica', 'normal');
                 pdf.setFontSize(8.5);
                 this._c(pdf, C.textDark);
-                pdf.text(acc.name.substring(0, 25), margin + 2, y);
+                this.renderText(pdf, accountText, margin + 2, y);
                 pdf.text(this.fmtMoney(deps), margin + contentW * 0.45, y);
                 pdf.text(this.fmtMoney(withs), margin + contentW * 0.65, y);
                 this._c(pdf, net >= 0 ? C.success : C.danger);
@@ -964,7 +1075,12 @@ class MonthlySummaryPDF {
             const typeColor = r.type === 'income' ? C.success : r.type === 'account_receivable' ? C.info : C.danger;
             const typeLabel = r.type === 'income' ? 'INC' : r.type === 'account_receivable' ? 'A/R' : 'EXP';
             const amt = (parseFloat(r.amount) || 0) * (parseInt(r.quantity) || 1);
-            const item = (r.item || r.notes || (r.formatType === 'combined' ? 'Combined tx' : '—')).substring(0, 30);
+            const rawItem = r.item || r.notes || (r.formatType === 'combined' ? 'Combined tx' : '—');
+            const item = rawItem.substring(0, 30);
+
+            // Process text for Arabic support
+            const itemText = this.processTextForPDF(item);
+            const categoryText = this.processTextForPDF((r.category || '-').substring(0, 18));
 
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8);
@@ -983,10 +1099,10 @@ class MonthlySummaryPDF {
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(8);
             this._c(pdf, C.textDark);
-            pdf.text(item, margin + 42, y);
+            this.renderText(pdf, itemText, margin + 42, y);
 
             this._c(pdf, C.textMid);
-            pdf.text((r.category || '-').substring(0, 18), margin + contentW * 0.62, y);
+            this.renderText(pdf, categoryText, margin + contentW * 0.62, y);
 
             this._c(pdf, typeColor);
             pdf.setFont('helvetica', 'bold');

@@ -64,6 +64,14 @@ const closeDetailsModalBtn = document.getElementById('close-details-modal');
 const editDetailsBtn = document.getElementById('edit-details-btn');
 let currentDetailRecordId = null;
 
+// Category Edit Modal Elements
+const categoryEditModal = document.getElementById('category-edit-modal');
+const categoryEditForm = document.getElementById('category-edit-form');
+const editCategoryIdInput = document.getElementById('edit-category-id');
+const editCategoryNameInput = document.getElementById('edit-category-name');
+const editCategoryTypeSelect = document.getElementById('edit-category-type');
+const cancelCategoryEditBtn = document.getElementById('cancel-category-edit-modal');
+
 // Show More Buttons
 const showMoreCategoriesBtn = document.getElementById('show-more-categories');
 const showMorePeopleBtn = document.getElementById('show-more-people');
@@ -73,6 +81,59 @@ let categoriesVisible = 2;
 let peopleVisible = 2;
 let categoriesExpanded = false;
 let peopleExpanded = false;
+
+// Chart categories pagination state
+let chartCategoriesVisible = 5;
+let chartCategoriesExpanded = false;
+
+// Utility Notification Functions
+function showToast(message, type = 'info') {
+    let backgroundColor = "#3b82f6"; // default blue
+    if (type === 'error') backgroundColor = "#ef4444";
+    if (type === 'success') backgroundColor = "#10b981";
+    if (type === 'warning') backgroundColor = "#f59e0b";
+    
+    Toastify({
+        text: message,
+        duration: 3000,
+        close: true,
+        gravity: "top", // `top` or `bottom`
+        position: "center", // `left`, `center` or `right`
+        stopOnFocus: true, // Prevents dismissing of toast on hover
+        style: {
+            background: backgroundColor,
+            borderRadius: "8px",
+            fontFamily: "Inter, sans-serif",
+            fontWeight: "500"
+        }
+    }).showToast();
+}
+
+function showConfirm(message) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-confirm-modal');
+        if (!modal) return resolve(confirm(message));
+
+        const msgEl = document.getElementById('custom-confirm-message');
+        const okBtn = document.getElementById('custom-confirm-ok');
+        const cancelBtn = document.getElementById('custom-confirm-cancel');
+        
+        msgEl.textContent = message;
+        modal.classList.add('active');
+        
+        const cleanup = () => {
+            modal.classList.remove('active');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+        };
+        
+        const onOk = () => { cleanup(); resolve(true); };
+        const onCancel = () => { cleanup(); resolve(false); };
+        
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+}
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', async () => {
@@ -236,6 +297,12 @@ function initEventListeners() {
         showMorePeopleBtn.addEventListener('click', togglePeopleVisibility);
     }
 
+    // Show More Chart Categories Button
+    const showMoreChartCategoriesBtn = document.getElementById('show-more-chart-categories');
+    if (showMoreChartCategoriesBtn) {
+        showMoreChartCategoriesBtn.addEventListener('click', toggleChartCategoriesVisibility);
+    }
+
     // Data Management
     exportBtn.addEventListener('click', handleExport);
     importFile.addEventListener('change', handleImport);
@@ -298,7 +365,7 @@ function initEventListeners() {
 
     // delegate click events inside savings list (deposit/withdraw buttons, pagination)
     if (savingsListEl) {
-        savingsListEl.addEventListener('click', (e) => {
+        savingsListEl.addEventListener('click', async (e) => {
             const card = e.target.closest('.savings-card');
             if (!card) return;
             const accountId = parseInt(card.getAttribute('data-id'));
@@ -312,7 +379,7 @@ function initEventListeners() {
                 if (acc) openAccountModal(acc);
             } else if (e.target.closest('.delete-acc-btn')) {
                 const accId = parseInt(e.target.closest('.delete-acc-btn').getAttribute('data-acc-id'));
-                if (confirm('Delete this account? All its transactions will be removed too.')) {
+                if (await showConfirm('Delete this account? All its transactions will be removed too.')) {
                     // remove transactions first
                     const txsToDelete = savingsTransactions.filter(t => t.accountId === accId);
                     Promise.all(txsToDelete.map(t => remove(STORE_SAVINGS_TRANSACTIONS, t.id)))
@@ -329,7 +396,7 @@ function initEventListeners() {
                 if (tx) openTransactionModal(accountId, tx.type, tx);
             } else if (e.target.closest('.delete-btn')) {
                 const txId = parseInt(e.target.closest('.delete-btn').getAttribute('data-tx-id'));
-                if (confirm('Delete this transaction?')) {
+                if (await showConfirm('Delete this transaction?')) {
                     remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
                 }
             }
@@ -337,7 +404,7 @@ function initEventListeners() {
     }
 
     // global delegation in case buttons are moved out of cards
-    document.body.addEventListener('click', (e) => {
+    document.body.addEventListener('click', async (e) => {
         let btn;
         if (btn = e.target.closest('.deposit-btn')) {
             e.stopPropagation();
@@ -361,7 +428,7 @@ function initEventListeners() {
         if (btn = e.target.closest('.delete-acc-btn')) {
             e.stopPropagation();
             const accId = parseInt(btn.getAttribute('data-acc-id'));
-            if (confirm('Delete this account? All its transactions will be removed too.')) {
+            if (await showConfirm('Delete this account? All its transactions will be removed too.')) {
                 const txsToDelete = savingsTransactions.filter(t => t.accountId === accId);
                 Promise.all(txsToDelete.map(t => remove(STORE_SAVINGS_TRANSACTIONS, t.id)))
                     .then(() => remove(STORE_SAVINGS_ACCOUNTS, accId))
@@ -380,7 +447,7 @@ function initEventListeners() {
         if (btn = e.target.closest('button.delete-btn[data-tx-id]')) {
             e.stopPropagation();
             const txId = parseInt(btn.getAttribute('data-tx-id'));
-            if (confirm('Delete this transaction?')) {
+            if (await showConfirm('Delete this transaction?')) {
                 remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
             }
             return;
@@ -407,6 +474,7 @@ function initEventListeners() {
         if (e.target === recordDetailsModal) closeDetailsModal();
         if (e.target === accountModal) closeAccountModal();
         if (e.target === transactionModal) closeTransactionModal();
+        if (e.target === categoryEditModal) closeCategoryEditModal();
     });
 
     // Record Details Modal
@@ -420,6 +488,14 @@ function initEventListeners() {
                 editRecord(currentDetailRecordId);
             }
         });
+    }
+
+    // Category Edit Modal
+    if (cancelCategoryEditBtn) {
+        cancelCategoryEditBtn.addEventListener('click', closeCategoryEditModal);
+    }
+    if (categoryEditForm) {
+        categoryEditForm.addEventListener('submit', handleEditSubmit);
     }
 }
 
@@ -943,8 +1019,8 @@ function renderRecentRecords(monthlyRecords) {
         const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
         
         tr.innerHTML = `
-            <td>${r.date}</td>
-            <td>
+            <td class="item-cell">${r.date}</td>
+            <td class="item-cell">
                 ${isCombined ? 
                     `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
                     (r.type === 'income' ? r.category : r.item)
@@ -987,8 +1063,42 @@ function renderCharts(monthlyRecords) {
         const ctxCat = canvasCat.getContext('2d');
         if (categoryChart) categoryChart.destroy();
 
-        const labels = Object.keys(spendingByCategory);
-        const data = Object.values(spendingByCategory);
+        let labels = Object.keys(spendingByCategory);
+        let data = Object.values(spendingByCategory);
+        
+        // Check if we're on mobile and need to limit categories
+        const isMobile = window.innerWidth <= 768;
+        const showMoreBtn = document.getElementById('show-more-chart-categories');
+        
+        if (isMobile && !chartCategoriesExpanded && labels.length > chartCategoriesVisible) {
+            // Limit categories and create "Other" category for the rest
+            const sortedCategories = labels
+                .map((label, index) => ({ label, value: data[index] }))
+                .sort((a, b) => b.value - a.value);
+            
+            const visibleCategories = sortedCategories.slice(0, chartCategoriesVisible);
+            const otherCategories = sortedCategories.slice(chartCategoriesVisible);
+            
+            labels = visibleCategories.map(cat => cat.label);
+            data = visibleCategories.map(cat => cat.value);
+            
+            // Add "Other" category if there are remaining items
+            if (otherCategories.length > 0) {
+                const otherTotal = otherCategories.reduce((sum, cat) => sum + cat.value, 0);
+                labels.push('Other');
+                data.push(otherTotal);
+            }
+            
+            // Show the show more button
+            if (showMoreBtn) {
+                showMoreBtn.style.display = 'block';
+            }
+        } else {
+            // Show all categories or on desktop
+            if (showMoreBtn) {
+                showMoreBtn.style.display = isMobile && labels.length > chartCategoriesVisible ? 'block' : 'none';
+            }
+        }
 
         if (labels.length > 0) {
             categoryChart = new Chart(ctxCat, {
@@ -1207,8 +1317,8 @@ function renderRecords() {
             const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
             
             tr.innerHTML = `
-                <td>${r.date}</td>
-                <td>
+                <td class="item-cell">${r.date}</td>
+                <td class="item-cell">
                     ${isCombined ? 
                         `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
                         (r.type === 'income' ? r.category : r.item)
@@ -1517,7 +1627,7 @@ async function handleAccountSubmit(e) {
     const initial = parseFloat(form.elements['account-initial'].value) || 0;
     
     if (!name) {
-        alert('Please enter an account name');
+        showToast('Please enter an account name', 'warning');
         return;
     }
 
@@ -1552,7 +1662,7 @@ async function handleAccountSubmit(e) {
         closeAccountModal();
         await refreshData();
     } catch (error) {
-        alert('Error saving account: ' + error.message);
+        showToast('Error saving account: ' + error.message, 'error');
     }
 }
 
@@ -1745,9 +1855,9 @@ function renderSavings() {
         }
         const delAcc = card.querySelector('.delete-acc-btn');
         if (delAcc) {
-            delAcc.addEventListener('click', (e) => {
+            delAcc.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (confirm('Delete this account? All its transactions will be removed too.')) {
+                if (await showConfirm('Delete this account? All its transactions will be removed too.')) {
                     const txsToDelete = savingsTransactions.filter(t => t.accountId === acc.id);
                     Promise.all(txsToDelete.map(t => remove(STORE_SAVINGS_TRANSACTIONS, t.id)))
                         .then(() => remove(STORE_SAVINGS_ACCOUNTS, acc.id))
@@ -1766,10 +1876,10 @@ function renderSavings() {
         });
         const delTxBtns = card.querySelectorAll('button.delete-btn');
         delTxBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const txId = parseInt(btn.getAttribute('data-tx-id'));
-                if (confirm('Delete this transaction?')) {
+                if (await showConfirm('Delete this transaction?')) {
                     remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
                 }
             });
@@ -1853,7 +1963,7 @@ async function handleRecordSubmit(e) {
     // Check if required elements exist
     if (!recordFormatTypeSelect) {
         console.error('recordFormatTypeSelect not found');
-        alert('Error: recordFormatTypeSelect not found');
+        showToast('Error: recordFormatTypeSelect not found', 'error');
         return;
     }
     
@@ -1866,7 +1976,7 @@ async function handleRecordSubmit(e) {
     if (formatType === 'combined') {
         // Handle combined transactions
         if (combinedTransactions.length === 0) {
-            alert('Please add at least one transaction to the combined record.');
+            showToast('Please add at least one transaction to the combined record.', 'warning');
             return;
         }
         
@@ -1880,7 +1990,7 @@ async function handleRecordSubmit(e) {
         }
         
         if (!hasValidTransaction) {
-            alert('Please fill in category and a valid amount for at least one transaction.');
+            showToast('Please fill in category and a valid amount for at least one transaction.', 'warning');
             return;
         }
         
@@ -1944,7 +2054,7 @@ async function handleRecordSubmit(e) {
             
         } catch (error) {
             console.error('Error saving combined transaction:', error);
-            alert('Error saving combined transaction: ' + error.message);
+            showToast('Error saving combined transaction: ' + error.message, 'error');
             return;
         }
         
@@ -1954,7 +2064,7 @@ async function handleRecordSubmit(e) {
         const amount = parseFloat(document.getElementById('record-amount')?.value || 0);
         
         if (amount <= 0) {
-            alert('Please enter a valid amount.');
+            showToast('Please enter a valid amount.', 'warning');
             return;
         }
         
@@ -1985,7 +2095,7 @@ async function handleRecordSubmit(e) {
             }
         } catch (error) {
             console.error('Error saving single transaction:', error);
-            alert('Error saving transaction: ' + error.message);
+            showToast('Error saving transaction: ' + error.message, 'error');
             return;
         }
     }
@@ -2048,7 +2158,7 @@ async function editRecord(id) {
 }
 
 async function deleteRecord(id) {
-    if (confirm('Are you sure you want to delete this record?')) {
+    if (await showConfirm('Are you sure you want to delete this record?')) {
         await remove(STORE_RECORDS, id);
         await refreshData();
     }
@@ -2225,15 +2335,263 @@ function closeDetailsModal() {
     }
 }
 
+// Arabic-aware string comparison function
+function compareStringsAlphabetically(a, b) {
+    // Check if strings contain Arabic characters
+    const isArabicA = /[\u0600-\u06FF]/.test(a);
+    const isArabicB = /[\u0600-\u06FF]/.test(b);
+    
+    // If one is Arabic and one is not, prioritize non-Arabic first
+    if (isArabicA && !isArabicB) return 1;
+    if (!isArabicA && isArabicB) return -1;
+    
+    // If both are Arabic, use localeCompare with Arabic locale
+    if (isArabicA && isArabicB) {
+        return a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' });
+    }
+    
+    // If neither are Arabic, use standard comparison
+    return a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' });
+}
+
+// Category Edit Functions
+function openCategoryEditModal(category) {
+    if (!categoryEditModal || !editCategoryIdInput || !editCategoryNameInput || !editCategoryTypeSelect) return;
+    
+    const editTargetTypeInput = document.getElementById('edit-target-type');
+    if (editTargetTypeInput) editTargetTypeInput.value = 'category';
+    
+    editCategoryIdInput.value = category.id;
+    editCategoryNameInput.value = category.name;
+    editCategoryTypeSelect.value = category.type;
+    categoryEditModal.classList.add('active');
+    editCategoryNameInput.focus();
+}
+
+function closeCategoryEditModal() {
+    if (categoryEditModal) {
+        categoryEditModal.classList.remove('active');
+        
+        // Reset person edit modal state
+        const modalTitle = categoryEditModal.querySelector('h2');
+        if (modalTitle) modalTitle.textContent = 'Edit Category';
+        
+        const nameLabel = editCategoryNameInput.parentElement.querySelector('label');
+        if (nameLabel) nameLabel.textContent = 'Category Name';
+        
+        // Show type select and label again
+        const typeContainer = editCategoryTypeSelect.parentElement;
+        const typeLabel = typeContainer.querySelector('label');
+        if (typeLabel) typeLabel.style.display = 'block';
+        editCategoryTypeSelect.style.display = 'block';
+    }
+}
+
+async function handleEditSubmit(e) {
+    e.preventDefault();
+    const targetType = document.getElementById('edit-target-type')?.value;
+    if (targetType === 'person') {
+        return handlePersonEdit(e);
+    } else {
+        return handleCategoryEdit(e);
+    }
+}
+
+async function handleCategoryEdit(e) {
+    e.preventDefault();
+    
+    const id = parseInt(editCategoryIdInput.value);
+    const name = editCategoryNameInput.value.trim();
+    const type = editCategoryTypeSelect.value;
+    
+    if (!name) {
+        showToast('Please enter a category name', 'warning');
+        return;
+    }
+    
+    try {
+        // Get the old category before updating
+        const oldCategory = categories.find(c => c.id === id);
+        
+        // Update the category
+        await updateRecord(STORE_CATEGORIES, { id, name, type });
+        
+        // Update all records that reference the old category name
+        if (oldCategory && oldCategory.name !== name) {
+            // Update regular records
+            const recordsToUpdate = records.filter(r => r.category === oldCategory.name);
+            for (const record of recordsToUpdate) {
+                await updateRecord(STORE_RECORDS, { 
+                    ...record, 
+                    category: name 
+                });
+            }
+            
+            // Update combined transactions
+            const combinedRecordsToUpdate = records.filter(r => 
+                r.formatType === 'combined' && r.combinedTransactions
+            );
+            
+            for (const record of combinedRecordsToUpdate) {
+                let updated = false;
+                // Update combined transaction categories
+                const updatedCombinedTransactions = record.combinedTransactions.map(ct => {
+                    if (ct.category === oldCategory.name) {
+                        updated = true;
+                        return { ...ct, category: name };
+                    }
+                    return ct;
+                });
+                
+                let parentUpdated = false;
+                let updatedParentCategory = record.category;
+                if (record.category === oldCategory.name) {
+                    updatedParentCategory = name;
+                    parentUpdated = true;
+                }
+                
+                if (updated || parentUpdated) {
+                    await updateRecord(STORE_RECORDS, { 
+                        ...record, 
+                        category: updatedParentCategory,
+                        combinedTransactions: updatedCombinedTransactions 
+                    });
+                }
+            }
+        }
+        
+        closeCategoryEditModal();
+        await refreshData();
+    } catch (error) {
+        console.error('Error updating category:', error);
+        showToast('Failed to update category. Please try again.', 'error');
+    }
+}
+
+async function editCategory(id) {
+    const category = categories.find(c => c.id === id);
+    if (category) {
+        openCategoryEditModal(category);
+    }
+}
+
+// Person Edit Functions
+function openPersonEditModal(person) {
+    // Reuse the category edit modal for person editing
+    if (!categoryEditModal || !editCategoryIdInput || !editCategoryNameInput) return;
+    
+    const editTargetTypeInput = document.getElementById('edit-target-type');
+    if (editTargetTypeInput) editTargetTypeInput.value = 'person';
+    
+    editCategoryIdInput.value = person.id;
+    editCategoryNameInput.value = person.name;
+    // Hide type select for people (they don't have types)
+    const typeContainer = editCategoryTypeSelect.parentElement;
+    const typeLabel = typeContainer.querySelector('label');
+    if (typeLabel) typeLabel.style.display = 'none';
+    editCategoryTypeSelect.style.display = 'none';
+    
+    // Update modal title
+    const modalTitle = categoryEditModal.querySelector('h2');
+    if (modalTitle) modalTitle.textContent = 'Edit Person';
+
+    const nameLabel = editCategoryNameInput.parentElement.querySelector('label');
+    if (nameLabel) nameLabel.textContent = 'Person Name';
+    
+    categoryEditModal.classList.add('active');
+    editCategoryNameInput.focus();
+}
+
+async function handlePersonEdit(e) {
+    e.preventDefault();
+    
+    const id = parseInt(editCategoryIdInput.value);
+    const name = editCategoryNameInput.value.trim();
+    
+    if (!name) {
+        showToast('Please enter a person name', 'warning');
+        return;
+    }
+    
+    try {
+        // Get the old person before updating
+        const oldPerson = people.find(p => p.id === id);
+        
+        // Update the person
+        await updateRecord(STORE_PEOPLE, { id, name });
+        
+        // Update all records that reference the old person name
+        if (oldPerson && oldPerson.name !== name) {
+            // Update regular records
+            const recordsToUpdate = records.filter(r => r.person === oldPerson.name);
+            for (const record of recordsToUpdate) {
+                await updateRecord(STORE_RECORDS, { 
+                    ...record, 
+                    person: name 
+                });
+            }
+            
+            // Update combined transactions
+            const combinedRecordsToUpdate = records.filter(r => 
+                r.formatType === 'combined' && r.combinedTransactions
+            );
+            
+            for (const record of combinedRecordsToUpdate) {
+                let updated = false;
+                const updatedCombinedTransactions = record.combinedTransactions.map(ct => {
+                    if (ct.person === oldPerson.name) {
+                        updated = true;
+                        return { ...ct, person: name };
+                    }
+                    return ct;
+                });
+                
+                let parentUpdated = false;
+                let updatedParentPerson = record.person;
+                if (record.person === oldPerson.name) {
+                    updatedParentPerson = name;
+                    parentUpdated = true;
+                }
+                
+                if (updated || parentUpdated) {
+                    await updateRecord(STORE_RECORDS, { 
+                        ...record, 
+                        person: updatedParentPerson,
+                        combinedTransactions: updatedCombinedTransactions 
+                    });
+                }
+            }
+        }
+        
+        closeCategoryEditModal();
+        await refreshData();
+    } catch (error) {
+        console.error('Error updating person:', error);
+        showToast('Failed to update person. Please try again.', 'error');
+    }
+}
+
+async function editPerson(id) {
+    const person = people.find(p => p.id === id);
+    if (person) {
+        openPersonEditModal(person);
+    }
+}
+
 // Settings Functions
 function renderSettings() {
     if (!categoryList) return;
     categoryList.innerHTML = '';
 
     if (categories.length === 0) {
-        categoryList.innerHTML = '<p style="text-align:center; padding: 1rem; color: var(--text-muted);">No categories defined</p>';
+        categoryList.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; padding: 2rem; color: var(--text-muted); width: 100%;">No categories defined</p>';
     } else {
-        const visibleCategories = categoriesExpanded ? categories : categories.slice(0, categoriesVisible);
+        // Sort categories alphabetically with Arabic support
+        const sortedCategories = [...categories].sort((a, b) => {
+            return compareStringsAlphabetically(a.name, b.name);
+        });
+        
+        const visibleCategories = categoriesExpanded ? sortedCategories : sortedCategories.slice(0, categoriesVisible);
         visibleCategories.forEach(cat => {
             const div = document.createElement('div');
             div.className = 'category-item';
@@ -2243,7 +2601,12 @@ function renderSettings() {
                     <span class="category-badge badge-${cat.type}">${cat.type}</span>
                 </div>
                 <div>
-                    <button class="btn-icon delete-btn" onclick="deleteCategory(${cat.id})"><i class="fas fa-trash"></i></button>
+                    <button class="btn-icon edit-btn" onclick="editCategory(${cat.id})" title="Edit Category">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon delete-btn" onclick="deleteCategory(${cat.id})" title="Delete Category">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             `;
             categoryList.appendChild(div);
@@ -2264,9 +2627,14 @@ function renderSettings() {
     if (personList) {
         personList.innerHTML = '';
         if (people.length === 0) {
-            personList.innerHTML = '<p style="text-align:center; padding: 1rem; color: var(--text-muted);">No people defined</p>';
+            personList.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; padding: 2rem; color: var(--text-muted); width: 100%;">No people defined</p>';
         } else {
-            const visiblePeople = peopleExpanded ? people : people.slice(0, peopleVisible);
+            // Sort people alphabetically with Arabic support
+            const sortedPeople = [...people].sort((a, b) => {
+                return compareStringsAlphabetically(a.name, b.name);
+            });
+            
+            const visiblePeople = peopleExpanded ? sortedPeople : sortedPeople.slice(0, peopleVisible);
             visiblePeople.forEach(person => {
                 const div = document.createElement('div');
                 div.className = 'category-item';
@@ -2275,7 +2643,12 @@ function renderSettings() {
                         <strong>${person.name}</strong>
                     </div>
                     <div>
-                        <button class="btn-icon delete-btn" onclick="deletePerson(${person.id})"><i class="fas fa-trash"></i></button>
+                        <button class="btn-icon edit-btn" onclick="editPerson(${person.id})" title="Edit Person">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-icon delete-btn" onclick="deletePerson(${person.id})" title="Delete Person">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 `;
                 personList.appendChild(div);
@@ -2308,7 +2681,7 @@ async function handleAddCategory() {
 }
 
 async function deleteCategory(id) {
-    if (confirm('Delete this category? Records with this category will remain but the category option will be removed.')) {
+    if (await showConfirm('Delete this category? Records with this category will remain but the category option will be removed.')) {
         await remove(STORE_CATEGORIES, id);
         await refreshData();
     }
@@ -2344,6 +2717,22 @@ function togglePeopleVisibility() {
     renderSettings();
 }
 
+function toggleChartCategoriesVisibility() {
+    chartCategoriesExpanded = !chartCategoriesExpanded;
+    const btn = document.getElementById('show-more-chart-categories');
+    if (btn) {
+        btn.textContent = chartCategoriesExpanded ? 'Show Less' : 'Show More';
+    }
+    // Re-render charts with updated visibility
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const monthlyRecords = records.filter(r => {
+        const recordDate = new Date(r.date);
+        return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+    });
+    renderCharts(monthlyRecords);
+}
+
 // People Management Functions
 async function handleAddPerson() {
     const nameInput = document.getElementById('new-person-name');
@@ -2357,7 +2746,7 @@ async function handleAddPerson() {
 }
 
 async function deletePerson(id) {
-    if (confirm('Delete this person? Records with this person will remain but the person option will be removed.')) {
+    if (await showConfirm('Delete this person? Records with this person will remain but the person option will be removed.')) {
         await remove(STORE_PEOPLE, id);
         await refreshData();
     }
@@ -2390,7 +2779,7 @@ async function handleImport(e) {
         try {
             const data = JSON.parse(event.target.result);
             if (data.records && data.categories) {
-                if (confirm('Importing will overwrite your current data. Continue?')) {
+                if (await showConfirm('Importing will overwrite your current data. Continue?')) {
                     await clearStore(STORE_RECORDS);
                     await clearStore(STORE_CATEGORIES);
                     await clearStore(STORE_PEOPLE);
@@ -2423,14 +2812,14 @@ async function handleImport(e) {
                             await add(STORE_SAVINGS_TRANSACTIONS, t);
                         }
                     }
-                    alert('Import successful!');
+                    showToast('Import successful!', 'success');
                     await refreshData();
                 }
             } else {
-                alert('Invalid file format.');
+                showToast('Invalid file format.', 'warning');
             }
         } catch (err) {
-            alert('Error importing data: ' + err.message);
+            showToast('Error importing data: ' + err.message, 'error');
         }
         e.target.value = '';
     };
@@ -2438,10 +2827,10 @@ async function handleImport(e) {
 }
 
 async function handleReset() {
-    if (confirm('Are you sure you want to reset the entire database? This will delete all records and restore default categories.')) {
+    if (await showConfirm('Are you sure you want to reset the entire database? This will delete all records and restore default categories.')) {
         await resetDB();
         await refreshData();
-        alert('Database reset complete.');
+        showToast('Database reset complete.', 'success');
     }
 }
 
@@ -2461,7 +2850,7 @@ async function handleSelectiveReset() {
     
     // Validate at least one option is selected
     if (!resetRecords && !resetSavings && !resetCategories && !resetPeople) {
-        alert('Please select at least one type of data to reset.');
+        showToast('Please select at least one type of data to reset.', 'warning');
         return;
     }
     
@@ -2473,12 +2862,12 @@ async function handleSelectiveReset() {
         endDate = new Date(document.getElementById('period-end').value);
         
         if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            alert('Please select valid start and end dates for the custom period.');
+            showToast('Please select valid start and end dates for the custom period.', 'warning');
             return;
         }
         
         if (startDate > endDate) {
-            alert('Start date must be before end date.');
+            showToast('Start date must be before end date.');
             return;
         }
     }
@@ -2500,7 +2889,7 @@ async function handleSelectiveReset() {
     
     confirmMessage += '\nThis action cannot be undone.';
     
-    if (!confirm(confirmMessage)) {
+    if (!(await showConfirm(confirmMessage))) {
         return;
     }
     
@@ -2532,10 +2921,10 @@ async function handleSelectiveReset() {
             successMessage += '• All people data cleared\n';
         }
         
-        alert(successMessage);
+        showToast(successMessage, 'success');
     } catch (error) {
         console.error('Reset error:', error);
-        alert('An error occurred while resetting data. Please try again.');
+        showToast('An error occurred while resetting data. Please try again.', 'error');
     }
 }
 
@@ -2561,7 +2950,7 @@ async function collectAR(id) {
         await refreshData();
     } catch (error) {
         console.error('Error collecting AR:', error);
-        alert('Error marking as collected: ' + error.message);
+        showToast('Error marking as collected: ' + error.message, 'error');
     }
 }
 
@@ -2577,7 +2966,7 @@ async function undoCollectAR(id) {
         await refreshData();
     } catch (error) {
         console.error('Error undoing AR collection:', error);
-        alert('Error undoing collection: ' + error.message);
+        showToast('Error undoing collection: ' + error.message, 'error');
     }
 }
 
