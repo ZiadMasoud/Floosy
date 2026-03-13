@@ -224,7 +224,7 @@ h1 {
     padding: 0.5rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     overflow-x: auto;
 }
 .filter-controls-group::-webkit-scrollbar {
@@ -284,6 +284,7 @@ h1 {
         align-items: stretch;
         gap: 0.75rem;
         padding: 0.75rem;
+        overflow-x: visible;
     }
     
     .filter-group {
@@ -311,6 +312,30 @@ h1 {
     .filter-label {
         font-size: 0.8rem;
         margin-bottom: 0.25rem;
+    }
+    
+    /* Actions bar header stacking */
+    .actions-bar .card-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+    
+    .actions-bar .card-header::-webkit-scrollbar {
+        display: none;
+    }
+    
+    #add-record-btn {
+        order: 1;
+        width: 100%;
+        justify-content: center;
+        white-space: normal;
+    }
+    
+    .filter-controls-group {
+        order: 2;
     }
 }
 
@@ -557,6 +582,26 @@ h1 {
 .table-responsive {
     overflow-x: auto;
     border-radius: var(--radius-sm);
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile table fixes */
+@media (max-width: 768px) {
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -0.5rem;
+        padding: 0 0.5rem;
+    }
+    
+    .table-responsive::-webkit-scrollbar {
+        height: 6px;
+    }
+    
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+    }
 }
 
 table {
@@ -1830,18 +1875,82 @@ tr:last-child td {
         font-size: 0.8rem;
         white-space: nowrap;
     }
-
-    /* Records table notes column */
+    
+    /* Make notes column wrap on mobile */
     .notes-cell {
+        max-width: 120px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+    
+    /* Item column wrapping */
+    .item-cell {
+        max-width: 150px;
+        white-space: normal;
+        word-wrap: break-word;
+    }
+    
+    /* Category badge smaller on mobile */
+    .category-badge {
         max-width: 100px;
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
     }
 
     /* Prevent horizontal overflow globally */
     .tab-content {
         overflow-x: hidden;
+        width: 100%;
+    }
+    
+    /* Ensure all cards respect container width */
+    .card {
+        overflow-x: hidden;
+        max-width: 100%;
+        word-wrap: break-word;
+    }
+    
+    /* Fix analytics filter controls */
+    #analytics .filter-controls-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        overflow-x: visible;
+    }
+    
+    #analytics .filter-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        width: 100%;
+    }
+    
+    #analytics .filter-group select {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    #analytics-clear-filters {
+        width: 100%;
+        justify-content: center;
     }
 
     .savings-card {
         overflow: hidden;
+    }
+    
+    /* Fix modal content overflow */
+    .modal-content {
+        overflow-x: hidden;
+        word-wrap: break-word;
+    }
+    
+    /* Fix form inputs overflow */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        max-width: 100%;
+        box-sizing: border-box;
     }
 }
