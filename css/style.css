@@ -260,7 +260,7 @@ h1 {
 }
 
 #filter-category, #analytics-filter-category {
-    max-width: 140px;
+    min-width: 140px;
     text-overflow: ellipsis;
 }
 

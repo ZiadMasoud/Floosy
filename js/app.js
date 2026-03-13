@@ -477,6 +477,32 @@ function initEventListeners() {
         if (e.target === categoryEditModal) closeCategoryEditModal();
     });
 
+    // Handle window resize for chart container
+    window.addEventListener('resize', () => {
+        if (chartCategoriesExpanded) {
+            const chartContainer = document.querySelector('#categoryChart')?.closest('.chart-container');
+            if (chartContainer) {
+                // Recalculate height on resize
+                const currentMonth = new Date().getMonth();
+                const currentYear = new Date().getFullYear();
+                const monthlyRecords = records.filter(r => {
+                    const recordDate = new Date(r.date);
+                    return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+                });
+                
+                const spendingByCategory = {};
+                const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
+                spendingRecords.forEach(r => {
+                    spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
+                });
+                
+                const categoryCount = Object.keys(spendingByCategory).length;
+                const neededHeight = Math.max(300, 250 + (categoryCount * 25));
+                chartContainer.style.height = neededHeight + 'px';
+            }
+        }
+    });
+
     // Record Details Modal
     if (closeDetailsModalBtn) {
         closeDetailsModalBtn.addEventListener('click', closeDetailsModal);
@@ -1100,6 +1126,21 @@ function renderCharts(monthlyRecords) {
             }
         }
 
+        // Adjust chart container height based on expansion state
+        const chartContainer = canvasCat.closest('.chart-container');
+        if (chartContainer) {
+            if (chartCategoriesExpanded) {
+                // Calculate needed height based on number of categories
+                const categoryCount = labels.length;
+                // Base height + extra height for legend items (approximately 25px per legend item)
+                const neededHeight = Math.max(300, 250 + (categoryCount * 25));
+                chartContainer.style.height = neededHeight + 'px';
+            } else {
+                // Reset to default height
+                chartContainer.style.height = '300px';
+            }
+        }
+
         if (labels.length > 0) {
             categoryChart = new Chart(ctxCat, {
                 type: 'doughnut',
@@ -1221,8 +1262,16 @@ function populateAnalyticsFilterDropdowns() {
     // Populate analytics category dropdown
     if (analyticsCategorySelect) {
         const currentValue = analyticsCategorySelect.value;
+        const incomeCategories = categories.filter(c => c.type === 'income');
+        const spendingCategories = categories.filter(c => c.type === 'spending');
+        
         analyticsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
-            categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            '<option value="all-income">All Income Categories</option>' +
+            '<option value="all-spending">All Spending Categories</option>' +
+            '<option value="" disabled>──────────</option>' +
+            incomeCategories.map(c => `<option value="${c.name}">${c.name} (Income)</option>`).join('') +
+            (incomeCategories.length > 0 && spendingCategories.length > 0 ? '<option value="" disabled>──────────</option>' : '') +
+            spendingCategories.map(c => `<option value="${c.name}">${c.name} (Spending)</option>`).join('');
         analyticsCategorySelect.value = currentValue;
     }
 
@@ -1237,8 +1286,16 @@ function populateAnalyticsFilterDropdowns() {
     // Populate records category dropdown
     if (recordsCategorySelect) {
         const currentValue = recordsCategorySelect.value;
+        const incomeCategories = categories.filter(c => c.type === 'income');
+        const spendingCategories = categories.filter(c => c.type === 'spending');
+        
         recordsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
-            categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            '<option value="all-income">All Income Categories</option>' +
+            '<option value="all-spending">All Spending Categories</option>' +
+            '<option value="" disabled>──────────</option>' +
+            incomeCategories.map(c => `<option value="${c.name}">${c.name} (Income)</option>`).join('') +
+            (incomeCategories.length > 0 && spendingCategories.length > 0 ? '<option value="" disabled>──────────</option>' : '') +
+            spendingCategories.map(c => `<option value="${c.name}">${c.name} (Spending)</option>`).join('');
         recordsCategorySelect.value = currentValue;
     }
 }
@@ -1262,7 +1319,18 @@ function renderRecords() {
         const yearMatch = !filterYear || new Date(r.date).getFullYear().toString() === filterYear;
         const monthMatch = !filterMonth || new Date(r.date).getMonth().toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
-        const categoryMatch = !filterCategory || r.category === filterCategory;
+        
+        let categoryMatch = !filterCategory;
+        if (filterCategory) {
+            if (filterCategory === 'all-income') {
+                categoryMatch = r.type === 'income';
+            } else if (filterCategory === 'all-spending') {
+                categoryMatch = r.type === 'spending' || r.type === 'account_receivable';
+            } else {
+                categoryMatch = r.category === filterCategory;
+            }
+        }
+        
         return typeMatch && yearMatch && monthMatch && personMatch && categoryMatch;
     });
 
@@ -1401,7 +1469,18 @@ function renderAnalytics() {
         const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
         const monthMatch = filterMonth === '' || recordDate.getMonth().toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
-        const categoryMatch = !filterCategory || r.category === filterCategory;
+        
+        let categoryMatch = !filterCategory;
+        if (filterCategory) {
+            if (filterCategory === 'all-income') {
+                categoryMatch = r.type === 'income';
+            } else if (filterCategory === 'all-spending') {
+                categoryMatch = r.type === 'spending' || r.type === 'account_receivable';
+            } else {
+                categoryMatch = r.category === filterCategory;
+            }
+        }
+        
         return typeMatch && yearMatch && monthMatch && personMatch && categoryMatch;
     });
 
@@ -2723,6 +2802,36 @@ function toggleChartCategoriesVisibility() {
     if (btn) {
         btn.textContent = chartCategoriesExpanded ? 'Show Less' : 'Show More';
     }
+    
+    // Adjust chart container height based on expansion state
+    const chartContainer = document.querySelector('#categoryChart').closest('.chart-container');
+    if (chartContainer) {
+        if (chartCategoriesExpanded) {
+            // Calculate needed height based on number of categories
+            const isMobile = window.innerWidth <= 768;
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            const monthlyRecords = records.filter(r => {
+                const recordDate = new Date(r.date);
+                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
+            });
+            
+            const spendingByCategory = {};
+            const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
+            spendingRecords.forEach(r => {
+                spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
+            });
+            
+            const categoryCount = Object.keys(spendingByCategory).length;
+            // Base height + extra height for legend items (approximately 25px per legend item)
+            const neededHeight = Math.max(300, 250 + (categoryCount * 25));
+            chartContainer.style.height = neededHeight + 'px';
+        } else {
+            // Reset to default height
+            chartContainer.style.height = '300px';
+        }
+    }
+    
     // Re-render charts with updated visibility
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
