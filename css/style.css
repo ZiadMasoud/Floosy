@@ -793,6 +793,18 @@ tr:last-child td {
     white-space: nowrap;
 }
 
+/* Savings transfer indicator */
+.savings-transfer-indicator {
+    color: var(--success);
+    font-weight: 600;
+    font-size: 0.8rem;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    margin-left: 0;
+    white-space: nowrap;
+}
+
 .category-badge {
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
@@ -1098,6 +1110,18 @@ tr:last-child td {
 
 .detail-value.spending {
     color: var(--danger);
+}
+
+#custom-confirm-modal .modal-content {
+    max-width: 400px;
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    #custom-confirm-modal .modal-content {
+        max-width: 90%;
+        padding: 1.5rem;
+    }
 }
 
 /* Table Row Clickable */

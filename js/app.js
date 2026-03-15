@@ -201,15 +201,6 @@ function initEventListeners() {
     addRecordBtn.addEventListener('click', () => openModal());
     cancelModalBtn.addEventListener('click', closeModal);
     recordForm.addEventListener('submit', handleRecordSubmit);
-    
-    // Backup: Add direct click listener to save button
-    const saveButton = recordForm.querySelector('button[type="submit"]');
-    if (saveButton) {
-        saveButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            handleRecordSubmit(e);
-        });
-    }
 
     const filterType = document.getElementById('filter-type');
     if (filterType) {
@@ -1015,16 +1006,26 @@ function renderDashboard() {
     let spending = 0;
     
     monthlyRecords.forEach(r => {
+        const amount = parseFloat(r.amount) || 0;
+        
+        if (r.isSavingsTransfer) {
+            // New logic:
+            // 1. Income to Savings: Treat as a budget outflow (increases spending)
+            // 2. Spending from Savings: Exclude from budget (already deducted when moved to savings)
+            if (r.type === 'income') {
+                spending += amount;
+            }
+            return;
+        }
+        
         if (r.type === 'income') {
-            income += parseFloat(r.amount);
+            income += amount;
         } else if (r.type === 'account_receivable') {
             if (!r.collected) {
-                // Pending AR adds to spending (money deducted but not yet received back)
-                spending += parseFloat(r.amount);
+                spending += amount;
             }
-            // Collected AR: neutral - no effect on spending (money recovered, as if never spent)
         } else {
-            spending += parseFloat(r.amount);
+            spending += amount;
         }
     });
     
@@ -1068,15 +1069,17 @@ function renderRecentRecords(monthlyRecords) {
         const tr = document.createElement('tr');
         const isCombined = r.formatType === 'combined';
         const isAR = r.type === 'account_receivable';
+        const isSavingsTransfer = r.isSavingsTransfer;
         const isCarriedForward = r.carriedForwardFrom;
         const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
         const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+        const savingsTransferText = isSavingsTransfer ? '<span class="savings-transfer-indicator">↗ Savings Transfer</span>' : '';
         const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
         
         tr.innerHTML = `
             <td>${r.date}</td>
-            <td class="item-cell">${r.item}${carriedForwardText}</td>
-            <td><span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span></td>
+            <td class="item-cell">${(isCombined ? r.item : (r.type === 'income' ? r.category : r.item)) + carriedForwardText}</td>
+            <td>${isSavingsTransfer ? savingsTransferText : `<span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span>`}</td>
             <td>${r.person || '-'}</td>
             <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
                 ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
@@ -1109,8 +1112,11 @@ function renderRecentRecords(monthlyRecords) {
 }
 
 function renderCharts(monthlyRecords) {
+    // Include all transactions in chart calculations
+    const nonSavingsRecords = monthlyRecords;
+    
     const spendingByCategory = {};
-    const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
+    const spendingRecords = nonSavingsRecords.filter(r => r.type === 'spending');
 
     spendingRecords.forEach(r => {
         spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
@@ -1205,8 +1211,8 @@ function renderCharts(monthlyRecords) {
         }
     }
 
-    const income = monthlyRecords.filter(r => r.type === 'income').reduce((sum, r) => sum + parseFloat(r.amount), 0);
-    const spending = monthlyRecords.filter(r => r.type === 'spending').reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    const income = nonSavingsRecords.filter(r => r.type === 'income').reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    const spending = nonSavingsRecords.filter(r => r.type === 'spending').reduce((sum, r) => sum + parseFloat(r.amount), 0);
 
     const canvasTrend = document.getElementById('trendChart');
     if (canvasTrend) {
@@ -1413,9 +1419,11 @@ function renderRecords() {
             const tr = document.createElement('tr');
             const isCombined = r.formatType === 'combined';
             const isAR = r.type === 'account_receivable';
+            const isSavingsTransfer = r.isSavingsTransfer;
             const isCarriedForward = r.carriedForwardFrom;
             const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
             const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+            const savingsTransferText = isSavingsTransfer ? '<span class="savings-transfer-indicator">↗ Savings Transfer</span>' : '';
             const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
             
             tr.innerHTML = `
@@ -1427,7 +1435,7 @@ function renderRecords() {
                     }
                     ${carriedForwardText}
                 </td>
-                <td><span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span></td>
+                <td>${isSavingsTransfer ? savingsTransferText : `<span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span>`}</td>
                 <td>${r.person || '-'}</td>
                 <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
                     ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
@@ -1528,8 +1536,17 @@ function renderAnalytics() {
             monthlyStats[monthKey] = { income: 0, spending: 0, arPending: 0, arCollected: 0, categories: {} };
         }
         
+        const amount = parseFloat(r.amount) || 0;
+        
+        if (r.isSavingsTransfer) {
+            if (r.type === 'income') {
+                monthlyStats[monthKey].spending += amount;
+            }
+            return;
+        }
+        
         if (r.type === 'income') {
-            monthlyStats[monthKey].income += parseFloat(r.amount);
+            monthlyStats[monthKey].income += amount;
         } else if (r.type === 'account_receivable') {
             if (r.collected) {
                 monthlyStats[monthKey].arCollected += parseFloat(r.amount);
@@ -1994,7 +2011,12 @@ function renderSavings() {
                 e.stopPropagation();
                 const txId = parseInt(btn.getAttribute('data-tx-id'));
                 if (await showConfirm('Delete this transaction?')) {
-                    remove(STORE_SAVINGS_TRANSACTIONS, txId).then(() => refreshData());
+                    const tx = savingsTransactions.find(t => t.id === txId);
+                    if (tx && tx.linkedRecordId) {
+                        await remove(STORE_RECORDS, tx.linkedRecordId);
+                    }
+                    await remove(STORE_SAVINGS_TRANSACTIONS, txId);
+                    await refreshData();
                 }
             });
         });
@@ -2147,23 +2169,28 @@ async function handleRecordSubmit(e) {
             notes: notes,
             savingsAccountId: savingsAccountId,
             combinedTransactions: validTransactions,
-            combinedTransactionName: combinedTransactionName
+            combinedTransactionName: combinedTransactionName,
+            // Mark as savings transfer if savings account is selected
+            isSavingsTransfer: savingsAccountId ? true : false,
+            savingsTransactionType: savingsAccountId ? 'mixed' : null
         };
         
         try {
+            let recordId;
             if (id) {
-                data.id = parseInt(id);
+                recordId = parseInt(id);
+                data.id = recordId;
                 await updateRecord(STORE_RECORDS, data);
             } else {
-                await add(STORE_RECORDS, data);
+                recordId = await add(STORE_RECORDS, data);
             }
             
             // Update savings account for each transaction
             if (savingsAccountId) {
-                await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId);
+                await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId, recordId);
             } else {
                 // Handle individual savings accounts for each transaction
-                await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date);
+                await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date, recordId);
             }
             
         } catch (error) {
@@ -2192,20 +2219,25 @@ async function handleRecordSubmit(e) {
             amount: amount,
             quantity: document.getElementById('record-quantity')?.value || '1',
             notes: notes,
-            savingsAccountId: savingsAccountId
+            savingsAccountId: savingsAccountId,
+            // Mark as savings transfer if savings account is selected
+            isSavingsTransfer: savingsAccountId ? true : false,
+            savingsTransactionType: savingsAccountId ? (type === 'income' ? 'deposit' : 'withdrawal') : null
         };
 
         try {
+            let recordId;
             if (id) {
-                data.id = parseInt(id);
+                recordId = parseInt(id);
+                data.id = recordId;
                 await updateRecord(STORE_RECORDS, data);
             } else {
-                await add(STORE_RECORDS, data);
+                recordId = await add(STORE_RECORDS, data);
             }
             
             // Update savings account if selected
             if (savingsAccountId) {
-                await updateSavingsAccountForSingleTransaction(data, savingsAccountId);
+                await updateSavingsAccountForSingleTransaction(data, savingsAccountId, recordId);
             }
         } catch (error) {
             console.error('Error saving single transaction:', error);
@@ -2218,7 +2250,7 @@ async function handleRecordSubmit(e) {
     await refreshData();
 }
 
-async function updateSavingsAccountForSingleTransaction(record, accountId) {
+async function updateSavingsAccountForSingleTransaction(record, accountId, linkedRecordId) {
     const account = savingsAccounts.find(acc => acc.id === parseInt(accountId));
     if (!account) return;
     
@@ -2228,13 +2260,17 @@ async function updateSavingsAccountForSingleTransaction(record, accountId) {
         type: transactionType,
         amount: record.amount,
         date: record.date,
-        notes: `${record.type === 'income' ? 'Income' : 'Spending'}: ${record.category}${record.item ? ' - ' + record.item : ''}`
+        notes: `${record.type === 'income' ? 'Income' : 'Spending'}: ${record.category}${record.item ? ' - ' + record.item : ''}`,
+        linkedRecordId: linkedRecordId
     };
     
     await add(STORE_SAVINGS_TRANSACTIONS, transaction);
+    
+    // Note: The record is already marked as savings transfer in the main data object
+    // So we don't need to update it again here
 }
 
-async function updateSavingsAccountForCombinedTransactions(transactions, date, accountId) {
+async function updateSavingsAccountForCombinedTransactions(transactions, date, accountId, linkedRecordId) {
     for (const transaction of transactions) {
         const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
         const savingsTransaction = {
@@ -2242,14 +2278,18 @@ async function updateSavingsAccountForCombinedTransactions(transactions, date, a
             type: transactionType,
             amount: parseFloat(transaction.amount),
             date: date,
-            notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`
+            notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`,
+            linkedRecordId: linkedRecordId
         };
         
         await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
     }
+    
+    // Note: The main record is already marked as savings transfer in the main data object
+    // So we don't need to update it again here
 }
 
-async function updateSavingsAccountForCombinedTransactionsIndividual(transactions, date) {
+async function updateSavingsAccountForCombinedTransactionsIndividual(transactions, date, linkedRecordId) {
     for (const transaction of transactions) {
         if (transaction.savingsAccountId) {
             const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
@@ -2258,7 +2298,8 @@ async function updateSavingsAccountForCombinedTransactionsIndividual(transaction
                 type: transactionType,
                 amount: parseFloat(transaction.amount),
                 date: date,
-                notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`
+                notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`,
+                linkedRecordId: linkedRecordId
             };
             
             await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
@@ -2273,6 +2314,12 @@ async function editRecord(id) {
 
 async function deleteRecord(id) {
     if (await showConfirm('Are you sure you want to delete this record?')) {
+        // Find and delete linked savings transactions
+        const linkedSavings = savingsTransactions.filter(t => t.linkedRecordId === parseInt(id));
+        for (const tx of linkedSavings) {
+            await remove(STORE_SAVINGS_TRANSACTIONS, tx.id);
+        }
+        
         await remove(STORE_RECORDS, id);
         await refreshData();
     }

@@ -176,6 +176,16 @@ class MonthlySummaryPDF {
             const amt = (parseFloat(r.amount) || 0) * (parseInt(r.quantity) || 1);
             const dateKey = r.date ? r.date.substring(0, 10) : '?';
 
+            if (r.isSavingsTransfer) {
+                if (r.type === 'income') {
+                    totalSpending += amt;
+                    const cat = r.category || 'Savings Transfer';
+                    catBreakdown[cat] = (catBreakdown[cat] || 0) + amt;
+                    dailySpending[dateKey] = (dailySpending[dateKey] || 0) + amt;
+                }
+                return;
+            }
+
             if (r.type === 'income') {
                 totalIncome += amt;
                 const cat = r.category || 'Other Income';
@@ -230,8 +240,8 @@ class MonthlySummaryPDF {
             catBreakdown, incomeBreakdown, peopleBreakdown, dailySpending,
             peakDay, avgDailySpending,
             transactionCount: recs.length,
-            incomeCount: recs.filter(r => r.type === 'income').length,
-            spendingCount: recs.filter(r => r.type === 'spending').length,
+            incomeCount: recs.filter(r => r.type === 'income' && !r.isSavingsTransfer).length,
+            spendingCount: recs.filter(r => r.type === 'spending' || (r.type === 'income' && r.isSavingsTransfer)).length,
         };
     }
 
