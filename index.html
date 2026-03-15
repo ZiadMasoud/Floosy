@@ -135,56 +135,59 @@
             <button class="btn btn-primary" id="add-record-btn">
               <i class="fas fa-plus"></i> Add Transaction
             </button>
-            <div class="filter-controls-group">
-              <div class="filter-group">
-                <label class="filter-label">Type:</label>
-                <select id="filter-type" class="btn btn-outline">
-                  <option value="all">All</option>
-                  <option value="spending">Spending</option>
-                  <option value="income">Income</option>
-                  <option value="account_receivable">Account Receivable</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Year:</label>
-                <select id="filter-year" class="btn btn-outline">
-                  <option value="">All Years</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Month:</label>
-                <select id="filter-month" class="btn btn-outline">
-                  <option value="">All Months</option>
-                  <option value="01">January</option>
-                  <option value="02">February</option>
-                  <option value="03">March</option>
-                  <option value="04">April</option>
-                  <option value="05">May</option>
-                  <option value="06">June</option>
-                  <option value="07">July</option>
-                  <option value="08">August</option>
-                  <option value="09">September</option>
-                  <option value="10">October</option>
-                  <option value="11">November</option>
-                  <option value="12">December</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Person:</label>
-                <select id="filter-person" class="btn btn-outline">
-                  <option value="">All People</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Category:</label>
-                <select id="filter-category" class="btn btn-outline">
-                  <option value="">All Categories</option>
-                </select>
-              </div>
-              <button class="btn btn-outline" id="clear-filters">
-                <i class="fas fa-times"></i> Clear
-              </button>
+            <button class="btn btn-outline filter-toggle-btn" id="records-filter-toggle">
+              <i class="fas fa-filter"></i> Filters
+            </button>
+          </div>
+          <div class="filter-controls-group" id="records-filter-controls" style="display: none;">
+            <div class="filter-group">
+              <label class="filter-label">Type:</label>
+              <select id="filter-type" class="btn btn-outline">
+                <option value="all">All</option>
+                <option value="spending">Spending</option>
+                <option value="income">Income</option>
+                <option value="account_receivable">Account Receivable</option>
+              </select>
             </div>
+            <div class="filter-group">
+              <label class="filter-label">Year:</label>
+              <select id="filter-year" class="btn btn-outline">
+                <option value="">All Years</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Month:</label>
+              <select id="filter-month" class="btn btn-outline">
+                <option value="">All Months</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Person:</label>
+              <select id="filter-person" class="btn btn-outline">
+                <option value="">All People</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Category:</label>
+              <select id="filter-category" class="btn btn-outline">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <button class="btn btn-outline" id="clear-filters">
+              <i class="fas fa-times"></i> Clear
+            </button>
           </div>
         </div>
 
@@ -214,7 +217,13 @@
       <!-- Analytics Tab -->
       <section id="analytics" class="tab-content">
         <div class="card">
-          <div class="filter-controls-group" style="margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <div class="card-header">
+            <h3>Analytics Filters</h3>
+            <button class="btn btn-outline filter-toggle-btn" id="analytics-filter-toggle">
+              <i class="fas fa-filter"></i> Filters
+            </button>
+          </div>
+          <div class="filter-controls-group" id="analytics-filter-controls" style="display: none;">
             <div class="filter-group">
               <label class="filter-label">Type:</label>
               <select id="analytics-filter-type" class="btn btn-outline">

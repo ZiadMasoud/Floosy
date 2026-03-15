@@ -146,6 +146,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Set default date in modal
         document.getElementById('record-date').valueAsDate = new Date();
         
+        // Check and carry forward uncollected Account Receivables
+        await checkAndCarryForwardAR();
+        
         // Initialize checkbox labels for custom checkboxes
         const checkboxLabels = document.querySelectorAll('.checkbox-label');
         checkboxLabels.forEach(label => {
@@ -213,6 +216,18 @@ function initEventListeners() {
         filterType.addEventListener('change', renderRecords);
     }
 
+    // Filter toggle functionality
+    const recordsFilterToggle = document.getElementById('records-filter-toggle');
+    const recordsFilterControls = document.getElementById('records-filter-controls');
+    
+    if (recordsFilterToggle && recordsFilterControls) {
+        recordsFilterToggle.addEventListener('click', () => {
+            const isVisible = recordsFilterControls.style.display !== 'none';
+            recordsFilterControls.style.display = isVisible ? 'none' : 'block';
+            recordsFilterToggle.classList.toggle('active', !isVisible);
+        });
+    }
+
     // Date filters
     const filterYear = document.getElementById('filter-year');
     const filterMonth = document.getElementById('filter-month');
@@ -254,6 +269,18 @@ function initEventListeners() {
     const analyticsFilterPerson = document.getElementById('analytics-filter-person');
     const analyticsFilterCategory = document.getElementById('analytics-filter-category');
     const analyticsClearFiltersBtn = document.getElementById('analytics-clear-filters');
+    
+    // Analytics filter toggle functionality
+    const analyticsFilterToggle = document.getElementById('analytics-filter-toggle');
+    const analyticsFilterControls = document.getElementById('analytics-filter-controls');
+    
+    if (analyticsFilterToggle && analyticsFilterControls) {
+        analyticsFilterToggle.addEventListener('click', () => {
+            const isVisible = analyticsFilterControls.style.display !== 'none';
+            analyticsFilterControls.style.display = isVisible ? 'none' : 'block';
+            analyticsFilterToggle.classList.toggle('active', !isVisible);
+        });
+    }
     
     if (analyticsFilterType) {
         analyticsFilterType.addEventListener('change', renderAnalytics);
@@ -1041,17 +1068,14 @@ function renderRecentRecords(monthlyRecords) {
         const tr = document.createElement('tr');
         const isCombined = r.formatType === 'combined';
         const isAR = r.type === 'account_receivable';
+        const isCarriedForward = r.carriedForwardFrom;
         const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
         const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+        const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
         
         tr.innerHTML = `
-            <td class="item-cell">${r.date}</td>
-            <td class="item-cell">
-                ${isCombined ? 
-                    `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
-                    (r.type === 'income' ? r.category : r.item)
-                }
-            </td>
+            <td>${r.date}</td>
+            <td class="item-cell">${r.item}${carriedForwardText}</td>
             <td><span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span></td>
             <td>${r.person || '-'}</td>
             <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
@@ -1060,14 +1084,22 @@ function renderRecentRecords(monthlyRecords) {
             </td>
             <td>
                 <div class="action-btns">
-                    ${isAR ? `
-                        <button class="btn-icon ${r.collected ? 'undo-btn' : 'collect-btn'}" 
-                                onclick="event.stopPropagation(); ${r.collected ? 'undoCollectAR' : 'collectAR'}(${r.id})" 
-                                title="${r.collected ? 'Undo Collection' : 'Mark as Collected'}">
-                            <i class="fas ${r.collected ? 'fa-undo' : 'fa-check'}"></i>
+                    <button class="btn-icon edit-btn" onclick="editRecord(${r.id})" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon delete-btn" onclick="deleteRecord(${r.id})" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    ${isAR && !r.collected ? `
+                        <button class="btn-icon collect-btn" onclick="collectAR(${r.id})" title="Mark as Collected">
+                            <i class="fas fa-check"></i>
                         </button>
                     ` : ''}
-                    <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
+                    ${isAR && r.collected ? `
+                        <button class="btn-icon undo-btn" onclick="undoCollectAR(${r.id})" title="Undo Collection">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    ` : ''}
                 </div>
             </td>
         `;
@@ -1381,8 +1413,10 @@ function renderRecords() {
             const tr = document.createElement('tr');
             const isCombined = r.formatType === 'combined';
             const isAR = r.type === 'account_receivable';
+            const isCarriedForward = r.carriedForwardFrom;
             const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
             const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+            const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
             
             tr.innerHTML = `
                 <td class="item-cell">${r.date}</td>
@@ -1391,6 +1425,7 @@ function renderRecords() {
                         `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
                         (r.type === 'income' ? r.category : r.item)
                     }
+                    ${carriedForwardText}
                 </td>
                 <td><span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span></td>
                 <td>${r.person || '-'}</td>
@@ -3082,3 +3117,73 @@ async function undoCollectAR(id) {
 // Make AR functions globally available
 window.collectAR = collectAR;
 window.undoCollectAR = undoCollectAR;
+
+// Account Receivables month transition function
+async function carryForwardUncollectedAR() {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Find uncollected AR records from previous months
+    const uncollectedAR = records.filter(r => {
+        if (r.type !== 'account_receivable' || r.collected) return false;
+        
+        const recordDate = new Date(r.date);
+        const recordMonth = recordDate.getMonth();
+        const recordYear = recordDate.getFullYear();
+        
+        // Check if record is from a previous month (not current month)
+        return (recordYear < currentYear) || 
+               (recordYear === currentYear && recordMonth < currentMonth);
+    });
+    
+    // Create new records for the current month for each uncollected AR
+    const newRecords = [];
+    for (const ar of uncollectedAR) {
+        // Check if we already have a carried forward version for this month
+        const alreadyExists = records.some(r => 
+            r.type === 'account_receivable' && 
+            r.carriedForwardFrom === ar.id &&
+            new Date(r.date).getMonth() === currentMonth &&
+            new Date(r.date).getFullYear() === currentYear
+        );
+        
+        if (!alreadyExists) {
+            const newRecord = {
+                ...ar,
+                id: generateId(),
+                date: new Date(currentYear, currentMonth, 1).toISOString().split('T')[0],
+                carriedForwardFrom: ar.id,
+                originalDate: ar.date,
+                notes: `${ar.notes || ''} [Carried forward from ${new Date(ar.date).toLocaleDateString()}]`
+            };
+            newRecords.push(newRecord);
+        }
+    }
+    
+    // Save the new records
+    if (newRecords.length > 0) {
+        for (const record of newRecords) {
+            await addRecord(STORE_RECORDS, record);
+        }
+        await refreshData();
+        showToast(`${newRecords.length} Account Receivable(s) carried forward to current month`, 'info');
+    }
+}
+
+// Function to generate unique ID
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Check and carry forward AR when app loads and when month changes
+async function checkAndCarryForwardAR() {
+    const lastCheck = localStorage.getItem('lastARCarryForwardCheck');
+    const now = new Date();
+    const currentMonthYear = `${now.getFullYear()}-${now.getMonth()}`;
+    
+    if (lastCheck !== currentMonthYear) {
+        await carryForwardUncollectedAR();
+        localStorage.setItem('lastARCarryForwardCheck', currentMonthYear);
+    }
+}
