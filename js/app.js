@@ -972,7 +972,7 @@ function renderDashboard() {
     records.forEach(r => {
         if (r.formatType === 'combined' && r.combinedTransactions) {
             // Expand combined transactions into individual components
-            r.combinedTransactions.forEach(ct => {
+            r.combinedTransactions.forEach((ct, index) => {
                 const amount = parseFloat(ct.amount) || 0;
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
@@ -980,13 +980,15 @@ function renderDashboard() {
                 expandedRecords.push({
                     ...r,
                     type: ct.type,
-                    category: ct.category,
+                    category: 'Combined',
+                    actualCategory: ct.category,
                     person: ct.person || r.person,
                     item: ct.item || r.item,
                     amount: totalAmount,
                     quantity: quantity,
                     originalId: r.id,
-                    isCombinedComponent: true
+                    isCombinedComponent: true,
+                    componentIndex: index
                 });
             });
         } else {
@@ -1069,44 +1071,56 @@ function renderRecentRecords(monthlyRecords) {
         const tr = document.createElement('tr');
         const isCombined = r.formatType === 'combined';
         const isAR = r.type === 'account_receivable';
-        const isSavingsTransfer = r.isSavingsTransfer;
+        const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
         const isCarriedForward = r.carriedForwardFrom;
         const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
-        const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
-        const savingsTransferText = isSavingsTransfer ? '<span class="savings-transfer-indicator">↗ Savings Transfer</span>' : '';
         const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
+        const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+        const savingsTransferText = `<span class="category-badge badge-savings">Savings Transfer</span>`;
         
+        let rowClass = (r.type || '');
+        if (r.isCombinedComponent) {
+            rowClass += ' sub-row';
+            if (r.componentIndex === 0) rowClass += ' group-start';
+            if (r.componentIndex === r.totalComponents - 1) rowClass += ' group-end';
+        }
+        tr.className = rowClass;
+        tr.onclick = () => openDetailsModal(r);
+
         tr.innerHTML = `
             <td>${r.date}</td>
-            <td class="item-cell">${(isCombined ? r.item : (r.type === 'income' ? r.category : r.item)) + carriedForwardText}</td>
-            <td>${isSavingsTransfer ? savingsTransferText : `<span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span>`}</td>
+            <td class="item-cell">${(r.isCombinedComponent ? (r.item || '-') : (isCombined ? r.item : (r.type === 'income' ? r.category : r.item))) + (r.isCombinedComponent ? '' : carriedForwardText)}</td>
+            <td>
+                ${isSavingsTransfer ? savingsTransferText : `
+                    <span class="category-badge badge-${r.type} ${arClass}">${r.isCombinedComponent ? r.actualCategory : r.category}${arStatusText}</span>
+                `}
+            </td>
             <td>${r.person || '-'}</td>
             <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
                 ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
-                ${isCombined ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
+                ${isCombined && !r.isCombinedComponent ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
             </td>
             <td>
                 <div class="action-btns">
-                    <button class="btn-icon edit-btn" onclick="editRecord(${r.id})" title="Edit">
+                    <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn-icon delete-btn" onclick="deleteRecord(${r.id})" title="Delete">
+                    <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                     ${isAR && !r.collected ? `
-                        <button class="btn-icon collect-btn" onclick="collectAR(${r.id})" title="Mark as Collected">
+                        <button class="btn-icon collect-btn" onclick="event.stopPropagation(); collectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark as Collected">
                             <i class="fas fa-check"></i>
                         </button>
                     ` : ''}
                     ${isAR && r.collected ? `
-                        <button class="btn-icon undo-btn" onclick="undoCollectAR(${r.id})" title="Undo Collection">
+                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoCollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Undo Collection">
                             <i class="fas fa-undo"></i>
                         </button>
                     ` : ''}
                 </div>
             </td>
         `;
-        tr.addEventListener('click', () => openDetailsModal(r));
         tbody.appendChild(tr);
     });
 }
@@ -1352,20 +1366,52 @@ function renderRecords() {
     const filterPerson = document.getElementById('filter-person')?.value;
     const filterCategory = document.getElementById('filter-category')?.value;
 
-    let filteredRecords = records.filter(r => {
+    // Expand combined transactions for rendering and filtering
+    const expandedRecords = [];
+    records.forEach(r => {
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            const total = r.combinedTransactions.length;
+            r.combinedTransactions.forEach((ct, index) => {
+                const amount = parseFloat(ct.amount) || 0;
+                const quantity = parseInt(ct.quantity) || 1;
+                const totalAmount = amount * quantity;
+                
+                expandedRecords.push({
+                    ...r,
+                    type: ct.type,
+                    category: 'Combined',
+                    actualCategory: ct.category, // Store for filtering
+                    person: ct.person || r.person,
+                    item: ct.item || r.item,
+                    amount: totalAmount,
+                    quantity: quantity,
+                    originalId: r.id,
+                    isCombinedComponent: true,
+                    componentIndex: index,
+                    totalComponents: total,
+                    notes: r.notes // Keep parent notes or use component notes if added later
+                });
+            });
+        } else {
+            expandedRecords.push(r);
+        }
+    });
+
+    let filteredRecords = expandedRecords.filter(r => {
         const typeMatch = filterType === 'all' || r.type === filterType;
         const yearMatch = !filterYear || new Date(r.date).getFullYear().toString() === filterYear;
-        const monthMatch = !filterMonth || new Date(r.date).getMonth().toString() === filterMonth;
+        const monthMatch = !filterMonth || (new Date(r.date).getMonth() + 1).toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
         
         let categoryMatch = !filterCategory;
         if (filterCategory) {
+            const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
             if (filterCategory === 'all-income') {
                 categoryMatch = r.type === 'income';
             } else if (filterCategory === 'all-spending') {
                 categoryMatch = r.type === 'spending' || r.type === 'account_receivable';
             } else {
-                categoryMatch = r.category === filterCategory;
+                categoryMatch = catToMatch === filterCategory;
             }
         }
         
@@ -1377,9 +1423,35 @@ function renderRecords() {
         return;
     }
 
+    // Insert parent rows for grouped transactions if not filtering heavily
+    const recordsWithParents = [];
+    let lastOriginalId = null;
+    const isFiltering = filterType !== 'all' || filterYear || filterMonth || filterPerson || filterCategory;
+
+    filteredRecords.forEach(r => {
+        if (!isFiltering && r.isCombinedComponent) {
+            if (r.originalId !== lastOriginalId) {
+                // Find original record to get total amount and name
+                const parent = records.find(p => p.id === r.originalId);
+                if (parent) {
+                    recordsWithParents.push({
+                        ...parent,
+                        isParentGroupHeader: true
+                    });
+                }
+                lastOriginalId = r.originalId;
+            }
+        } else if (!r.isCombinedComponent) {
+            lastOriginalId = null;
+        }
+        recordsWithParents.push(r);
+    });
+
+    const finalRecords = isFiltering ? filteredRecords : recordsWithParents;
+
     // Group by month and sort by date (newest first within each month)
     const grouped = {};
-    filteredRecords.forEach(r => {
+    finalRecords.forEach(r => {
         const date = new Date(r.date);
         const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
         if (!grouped[monthKey]) grouped[monthKey] = [];
@@ -1399,7 +1471,9 @@ function renderRecords() {
         monthRecords.sort((a, b) => {
             const dateCompare = new Date(b.date) - new Date(a.date);
             if (dateCompare !== 0) return dateCompare;
-            return b.id - a.id; // If same date, newer ID (newer record) first
+            const idCompare = (b.originalId || b.id) - (a.originalId || a.id);
+            if (idCompare !== 0) return idCompare;
+            return (a.componentIndex || 0) - (b.componentIndex || 0); // Keep sub-transactions in original order
         });
 
         const [year, month] = monthKey.split('-').map(Number);
@@ -1418,48 +1492,59 @@ function renderRecords() {
         monthRecords.forEach(r => {
             const tr = document.createElement('tr');
             const isCombined = r.formatType === 'combined';
-            const isAR = r.type === 'account_receivable';
-            const isSavingsTransfer = r.isSavingsTransfer;
             const isCarriedForward = r.carriedForwardFrom;
-            const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
-            const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
-            const savingsTransferText = isSavingsTransfer ? '<span class="savings-transfer-indicator">↗ Savings Transfer</span>' : '';
             const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
             
+            let rowClass = (r.type || '');
+            if (r.isCombinedComponent) {
+                rowClass += ' sub-row';
+                if (r.componentIndex === 0) rowClass += ' group-start';
+                if (r.componentIndex === r.totalComponents - 1) rowClass += ' group-end';
+            } else if (r.isParentGroupHeader) {
+                rowClass += ' parent-group-row';
+            }
+
+            tr.className = rowClass;
+            tr.onclick = () => openDetailsModal(r);
+            
+            const isAR = r.type === 'account_receivable';
+            const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
+            const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+            const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
+            const savingsTransferText = `<span class="category-badge badge-savings">Savings Transfer</span>`;
+
             tr.innerHTML = `
-                <td class="item-cell">${r.date}</td>
-                <td class="item-cell">
-                    ${isCombined ? 
-                        `<span style="color: var(--primary-color); font-weight: 600;">📦 ${r.item}</span>` : 
-                        (r.type === 'income' ? r.category : r.item)
-                    }
-                    ${carriedForwardText}
+                <td>${r.isParentGroupHeader ? '' : r.date}</td>
+                <td class="item-cell">${(r.isCombinedComponent ? (r.item || '-') : (isCombined ? r.item : (r.type === 'income' ? r.category : r.item))) + (r.isCombinedComponent ? '' : carriedForwardText)}</td>
+                <td>
+                    ${r.isParentGroupHeader ? '' : (isSavingsTransfer ? savingsTransferText : `
+                        <span class="category-badge badge-${r.type} ${arClass}">${r.isCombinedComponent ? r.actualCategory : r.category}${arStatusText}</span>
+                    `)}
                 </td>
-                <td>${isSavingsTransfer ? savingsTransferText : `<span class="category-badge badge-${r.type} ${arClass}">${r.category}${arStatusText}</span>`}</td>
-                <td>${r.person || '-'}</td>
+                <td>${r.isParentGroupHeader ? '' : (r.person || '-')}</td>
                 <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
                     ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
-                    ${isCombined ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
+                    ${isCombined && !r.isCombinedComponent && !r.isParentGroupHeader ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
                 </td>
-                <td>${r.quantity || '-'}</td>
-                <td><div class="notes-cell">${r.notes || '-'}</div></td>
+                <td>${r.isParentGroupHeader ? '' : (r.quantity || '-')}</td>
+                <td><div class="notes-cell">${r.isParentGroupHeader ? '' : (r.notes || '-')}</div></td>
                 <td>
                     <div class="action-btns">
-                        ${isAR ? `
-                            <button class="btn-icon ${r.collected ? 'undo-btn' : 'collect-btn'}" 
-                                    onclick="event.stopPropagation(); ${r.collected ? 'undoCollectAR' : 'collectAR'}(${r.id})" 
-                                    title="${r.collected ? 'Undo Collection' : 'Mark as Collected'}">
-                                <i class="fas ${r.collected ? 'fa-undo' : 'fa-check'}"></i>
+                        ${isAR && !r.collected && !r.isParentGroupHeader ? `
+                            <button class="btn-icon collect-btn" onclick="event.stopPropagation(); collectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Collected">
+                                <i class="fas fa-check"></i>
                             </button>
                         ` : ''}
-                        <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.id})"><i class="fas fa-edit"></i></button>
-                        <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.id})"><i class="fas fa-trash"></i></button>
+                        ${isAR && r.collected && !r.isParentGroupHeader ? `
+                            <button class="btn-icon uncollect-btn" onclick="event.stopPropagation(); uncollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Pending">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : (r.isParentGroupHeader ? r.id : r.id)})"><i class="fas fa-edit"></i></button>
+                        <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.isCombinedComponent ? r.originalId : (r.isParentGroupHeader ? r.id : r.id)})"><i class="fas fa-trash"></i></button>
                     </div>
                 </td>
             `;
-            
-            // Add click handler to show details
-            tr.addEventListener('click', () => openDetailsModal(r));
             tbody.appendChild(tr);
         });
     });
@@ -1510,7 +1595,7 @@ function renderAnalytics() {
         const recordDate = new Date(r.date);
         const typeMatch = filterType === 'all' || r.type === filterType;
         const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
-        const monthMatch = filterMonth === '' || recordDate.getMonth().toString() === filterMonth;
+        const monthMatch = filterMonth === '' || (recordDate.getMonth() + 1).toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
         
         let categoryMatch = !filterCategory;
@@ -2155,7 +2240,7 @@ async function handleRecordSubmit(e) {
         
         // Get combined transaction name and category
         const combinedTransactionName = document.getElementById('combined-transaction-name')?.value || '';
-        const combinedTransactionCategory = document.getElementById('combined-transaction-category')?.value || 'Combined';
+        const combinedTransactionCategory = 'Combined'; // Forced category for combined transactions
         
         const data = {
             formatType: 'combined',
@@ -2328,6 +2413,14 @@ async function deleteRecord(id) {
 // Record Details Modal Functions
 function openDetailsModal(record) {
     if (!recordDetailsModal || !recordDetailsContent) return;
+
+    // If it's a sub-transaction component, show the parent record instead
+    if (record.isCombinedComponent) {
+        const parentRecord = records.find(r => r.id === record.originalId);
+        if (parentRecord) {
+            record = parentRecord;
+        }
+    }
 
     currentDetailRecordId = record.id;
     const isCombined = record.formatType === 'combined';

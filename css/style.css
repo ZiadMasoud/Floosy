@@ -756,6 +756,95 @@ tr:last-child td {
     border-bottom: none;
 }
 
+/* Sub-row Grouping Styles */
+.sub-row td {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    font-size: 0.875rem !important;
+    border-bottom: none !important;
+}
+
+.sub-row.group-end td {
+    border-bottom: 2px solid var(--primary-color) !important;
+}
+
+.sub-row.spending td {
+    background-color: rgba(239, 68, 68, 0.08) !important;
+}
+
+.sub-row.income td {
+    background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+.sub-row.account_receivable td {
+    background-color: rgba(245, 158, 11, 0.08) !important;
+}
+
+.sub-row .item-cell {
+    padding-left: 3rem !important;
+    position: relative;
+}
+
+.sub-row .item-cell::before {
+    content: '';
+    position: absolute;
+    left: 1.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: currentColor;
+    opacity: 0.3;
+}
+
+.sub-row .item-cell::after {
+    content: '';
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    width: 1rem;
+    height: 2px;
+    background: currentColor;
+    opacity: 0.3;
+    transform: translateY(-50%);
+    border-radius: 0 2px 2px 0;
+}
+
+.sub-row.group-start .item-cell::before {
+    top: 50%;
+}
+
+.sub-row.group-end .item-cell::before {
+    bottom: 50%;
+}
+
+/* Branch pip */
+.sub-row.spending .item-cell::after, .sub-row.spending .item-cell::before { color: var(--danger); }
+.sub-row.income .item-cell::after, .sub-row.income .item-cell::before { color: var(--success); }
+.sub-row.account_receivable .item-cell::after, .sub-row.account_receivable .item-cell::before { color: var(--warning); }
+
+.parent-group-row {
+    font-weight: 700;
+}
+
+.parent-group-row td { 
+    background-color: rgba(79, 70, 229, 0.05) !important; 
+    border-top: 2px solid var(--primary-color) !important;
+    border-bottom: none !important;
+    padding-top: 1.25rem !important;
+    padding-bottom: 1.25rem !important;
+}
+
+.parent-group-row .item-cell {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--primary-color) !important;
+}
+
+
+.sub-category-label {
+    display: none; /* Hidden because we show actual category now */
+}
+
 .amount-income {
     color: var(--success);
     font-weight: 700;
