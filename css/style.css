@@ -168,6 +168,24 @@ h1 {
     font-size: 0.875rem;
 }
 
+.header-filters-btn {
+    border: 1px solid var(--border-color);
+    background: #fff;
+    color: var(--text-muted);
+}
+
+.header-filters-btn:hover {
+    color: var(--primary-color);
+    background: rgba(79, 70, 229, 0.05);
+    border-color: rgba(79, 70, 229, 0.25);
+}
+
+.header-filters-btn.active {
+    color: var(--primary-color);
+    background: rgba(79, 70, 229, 0.08);
+    border-color: rgba(79, 70, 229, 0.35);
+}
+
 #privacy-toggle {
     background: none;
     border: none;
@@ -288,6 +306,93 @@ body.privacy-mode .chart-container canvas {
     background: var(--primary-hover);
     border-color: var(--primary-hover);
     color: white;
+}
+
+/* Floating action buttons (Records / Analytics) */
+.fab {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 950;
+    box-shadow: var(--shadow-lg);
+    border-radius: 999px;
+    padding: 0.6rem 0.85rem;
+    min-height: 44px;
+    transform: translateZ(0);
+    width: auto;
+    max-width: calc(100vw - 48px);
+    overflow: hidden;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.fab .fab-label {
+    white-space: nowrap;
+    display: inline;
+}
+
+.fab i {
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
+    line-height: 1;
+    display: none; /* Hide icon in desktop view */
+}
+
+/* Font Awesome glyph centering inside its box */
+.fab i::before {
+    display: block;
+    line-height: 1;
+}
+
+/* second FAB stacks above the primary */
+.fab-secondary {
+    bottom: 92px;
+}
+
+.tab-content:not(.active) .fab {
+    display: none;
+}
+
+/* Filter panel displayed when Filters toggled */
+.filter-panel {
+    position: fixed;
+    left: auto;
+    right: 16px;
+    top: 96px;
+    z-index: 940;
+    display: none;
+    width: min(560px, calc(100vw - 32px));
+}
+
+.filter-panel .filter-controls-group {
+    margin-top: 0;
+}
+
+/* Filter options in one column */
+.filter-panel .filter-controls-group {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.75rem;
+}
+
+.filter-panel .filter-group {
+    min-width: 0;
+    width: 100%;
+    flex: 0 0 auto;
+}
+
+.filter-panel #clear-filters,
+.filter-panel #analytics-clear-filters {
+    width: 100%;
+    margin-top: 0;
 }
 
 /* Floating Filter Card Styles */
@@ -509,6 +614,123 @@ body.privacy-mode .chart-container canvas {
     
     .filter-controls-group {
         order: 3;
+    }
+
+    /* FABs: keep above bottom nav, larger tap targets */
+    .fab {
+        right: 16px !important;
+        bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+        width: 56px;
+        height: 56px;
+        min-height: 56px;
+        min-width: 56px;
+        padding: 0;
+        margin: 0 !important;
+        border-radius: 14px;
+    }
+
+    .fab-secondary {
+        bottom: calc(156px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Keep FAB icon-only on mobile too */
+    .fab .fab-label {
+        display: none;
+    }
+
+    .fab i {
+        font-size: 1.35rem;
+        display: flex; /* Show icon in mobile view */
+    }
+
+    .filter-panel {
+        left: 12px;
+        right: 12px;
+        top: 86px;
+        width: auto;
+    }
+}
+
+/* Add Transaction modal layout (better sticky header/footer UX) */
+#record-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    padding: 0;
+    overflow: hidden;
+}
+
+#record-modal .modal-content h2 {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #ffffff;
+    padding: 1.25rem 1.5rem 1rem;
+    margin: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#record-modal #record-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+}
+
+/* Scrollable form body; footer stays pinned */
+#record-modal #record-form .record-form-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem 1.5rem 1rem;
+}
+
+#record-modal .modal-actions {
+    flex: 0 0 auto;
+    z-index: 3;
+    background: #ffffff;
+    padding: 0.75rem 1.5rem 1rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 0;
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Keep action buttons aligned nicely (and override global mobile full-width button rules) */
+#record-modal .modal-actions .btn {
+    flex: 1 1 0;
+    width: auto !important;
+    margin: 0 !important;
+    white-space: nowrap;
+}
+
+/* Mobile: prevent global button rules from affecting FABs */
+@media (max-width: 768px) {
+    .btn.fab {
+        width: 56px !important;
+        height: 56px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+}
+
+@media (max-width: 768px) {
+    #record-modal #record-form .record-form-body {
+        padding: 1rem 1rem 1rem;
+    }
+
+    #record-modal .modal-content h2 {
+        padding: 1.1rem 1rem 0.9rem;
+    }
+
+    #record-modal .modal-actions {
+        padding: 0.75rem 1rem 1rem;
     }
 }
 

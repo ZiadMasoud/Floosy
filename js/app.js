@@ -221,17 +221,9 @@ function initEventListeners() {
         filterType.addEventListener('change', renderRecords);
     }
 
-    // Filter toggle functionality
-    const recordsFilterToggle = document.getElementById('records-filter-toggle');
+    // Filter panels (opened via header button)
     const recordsFilterControls = document.getElementById('records-filter-controls');
-    
-    if (recordsFilterToggle && recordsFilterControls) {
-        recordsFilterToggle.addEventListener('click', () => {
-            const isVisible = recordsFilterControls.style.display !== 'none';
-            recordsFilterControls.style.display = isVisible ? 'none' : 'block';
-            recordsFilterToggle.classList.toggle('active', !isVisible);
-        });
-    }
+    const recordsFilterPanel = document.getElementById('records-filter-panel');
 
     // Date filters
     const filterYear = document.getElementById('filter-year');
@@ -275,15 +267,27 @@ function initEventListeners() {
     const analyticsFilterCategory = document.getElementById('analytics-filter-category');
     const analyticsClearFiltersBtn = document.getElementById('analytics-clear-filters');
     
-    // Analytics filter toggle functionality
-    const analyticsFilterToggle = document.getElementById('analytics-filter-toggle');
     const analyticsFilterControls = document.getElementById('analytics-filter-controls');
-    
-    if (analyticsFilterToggle && analyticsFilterControls) {
-        analyticsFilterToggle.addEventListener('click', () => {
-            const isVisible = analyticsFilterControls.style.display !== 'none';
-            analyticsFilterControls.style.display = isVisible ? 'none' : 'block';
-            analyticsFilterToggle.classList.toggle('active', !isVisible);
+    const analyticsFilterPanel = document.getElementById('analytics-filter-panel');
+
+    function togglePanel(panelEl, controlsEl) {
+        if (!panelEl || !controlsEl) return;
+        const isVisible = controlsEl.style.display !== 'none';
+        controlsEl.style.display = isVisible ? 'none' : 'flex';
+        panelEl.style.display = isVisible ? 'none' : 'block';
+    }
+
+    // Header Filters button (next to month)
+    const headerFiltersBtn = document.getElementById('header-filters-btn');
+    if (headerFiltersBtn) {
+        headerFiltersBtn.addEventListener('click', () => {
+            if (currentTab === 'records') togglePanel(recordsFilterPanel, recordsFilterControls);
+            if (currentTab === 'analytics') togglePanel(analyticsFilterPanel, analyticsFilterControls);
+
+            const isOpen =
+                (currentTab === 'records' && recordsFilterControls && recordsFilterControls.style.display !== 'none') ||
+                (currentTab === 'analytics' && analyticsFilterControls && analyticsFilterControls.style.display !== 'none');
+            headerFiltersBtn.classList.toggle('active', !!isOpen);
         });
     }
     
@@ -959,6 +963,25 @@ function switchTab(tabId) {
         content.classList.toggle('active', content.id === tabId);
     });
     tabTitle.textContent = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+
+    const headerFiltersBtn = document.getElementById('header-filters-btn');
+    if (headerFiltersBtn) {
+        headerFiltersBtn.style.display = (tabId === 'records' || tabId === 'analytics') ? '' : 'none';
+        headerFiltersBtn.classList.remove('active');
+    }
+
+    // Close any open filter panels when switching tabs
+    const idsToHide = [
+        'records-filter-controls',
+        'records-filter-panel',
+        'analytics-filter-controls',
+        'analytics-filter-panel'
+    ];
+    idsToHide.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
     renderAll();
 }
 
@@ -2587,7 +2610,6 @@ function openDetailsModal(record) {
             <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}</span>
         </div>
         <div class="detail-row" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: var(--radius-sm); margin: 0.5rem 0;">
-            <span class="detail-label" style="font-weight: 600; color: #1e40af; font-size: 1rem;">Balance Analysis</span>
             <div style="font-size: 0.875rem; line-height: 1.6;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
                     <div><strong>Opening Balance:</strong></div>
