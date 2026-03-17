@@ -156,6 +156,9 @@ h1 {
 }
 
 .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     font-weight: 600;
     color: var(--text-muted);
     background: white;
@@ -164,6 +167,56 @@ h1 {
     border: 1px solid var(--border-color);
     font-size: 0.875rem;
 }
+
+#privacy-toggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    border-radius: 50%;
+}
+
+#privacy-toggle:hover {
+    color: var(--primary-color);
+    background: rgba(79, 70, 229, 0.05);
+}
+
+body.privacy-mode #privacy-toggle {
+    color: var(--primary-color);
+}
+
+/* Privacy Mode Blurring */
+body.privacy-mode #total-income,
+body.privacy-mode #total-spending,
+body.privacy-mode #total-balance,
+body.privacy-mode #total-ar,
+body.privacy-mode .amount-income,
+body.privacy-mode .amount-spending,
+body.privacy-mode .amount-account_receivable,
+body.privacy-mode [class*="amount-"],
+body.privacy-mode #records-table td:nth-child(5),
+body.privacy-mode #records-table td:nth-child(6),
+body.privacy-mode #recent-records-table td:nth-child(5),
+body.privacy-mode .savings-records-table td:nth-child(3),
+body.privacy-mode #stats-table td:nth-child(2),
+body.privacy-mode #stats-table td:nth-child(3),
+body.privacy-mode #stats-table td:nth-child(4),
+body.privacy-mode .kpi-card p,
+body.privacy-mode .kpi-details p,
+body.privacy-mode .savings-kpis p,
+body.privacy-mode .chart-container canvas {
+    filter: blur(10px) !important;
+    color: transparent !important;
+    text-shadow: 0 0 10px rgba(30, 41, 59, 0.8) !important;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
 
 /* Cards & Components */
 .card {
@@ -1156,8 +1209,32 @@ tr:last-child td {
 }
 
 /* Record Details Modal */
+#record-details-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+}
+
+#record-details-modal .modal-content h2 {
+    padding: 1.5rem 2rem 1rem;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
 .details-content {
-    margin-bottom: 1.5rem;
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 2rem;
+    margin-bottom: 0;
+}
+
+#record-details-modal .modal-actions {
+    padding: 1.25rem 2rem 1.5rem;
+    margin-top: 0;
+    border-top: 1px solid var(--border-color);
+    background: #f8fafc;
+    border-radius: 0 0 var(--radius) var(--radius);
 }
 
 .detail-row {

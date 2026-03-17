@@ -62,7 +62,9 @@ const recordDetailsModal = document.getElementById('record-details-modal');
 const recordDetailsContent = document.getElementById('record-details-content');
 const closeDetailsModalBtn = document.getElementById('close-details-modal');
 const editDetailsBtn = document.getElementById('edit-details-btn');
+const privacyToggle = document.getElementById('privacy-toggle');
 let currentDetailRecordId = null;
+let isPrivacyMode = false;
 
 // Category Edit Modal Elements
 const categoryEditModal = document.getElementById('category-edit-modal');
@@ -140,6 +142,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initDB();
         await seedDefaultCategories();
+        
+        // Initialize Privacy Mode
+        isPrivacyMode = localStorage.getItem('floosy_privacy_mode') === 'true';
+        if (isPrivacyMode) {
+            document.body.classList.add('privacy-mode');
+            updatePrivacyIcon();
+        }
+
         initEventListeners();
         await refreshData();
 
@@ -195,6 +205,11 @@ function initEventListeners() {
 
     if (viewAllRecordsBtn) {
         viewAllRecordsBtn.addEventListener('click', () => switchTab('records'));
+    }
+
+    // Privacy Toggle
+    if (privacyToggle) {
+        privacyToggle.addEventListener('click', togglePrivacyMode);
     }
 
     // Records
@@ -3327,3 +3342,22 @@ async function checkAndCarryForwardAR() {
         localStorage.setItem('lastARCarryForwardCheck', currentMonthYear);
     }
 }
+
+// Privacy Mode Functions
+function togglePrivacyMode() {
+    isPrivacyMode = !isPrivacyMode;
+    document.body.classList.toggle('privacy-mode', isPrivacyMode);
+    localStorage.setItem('floosy_privacy_mode', isPrivacyMode);
+    updatePrivacyIcon();
+    
+    showToast(isPrivacyMode ? 'Privacy Mode Enabled' : 'Privacy Mode Disabled', 'info');
+}
+
+function updatePrivacyIcon() {
+    if (!privacyToggle) return;
+    const icon = privacyToggle.querySelector('i');
+    if (icon) {
+        icon.className = isPrivacyMode ? 'fas fa-eye-slash' : 'fas fa-eye';
+    }
+}
+
