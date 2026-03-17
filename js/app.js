@@ -155,9 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Set default date in modal
         document.getElementById('record-date').valueAsDate = new Date();
-        
-        // Check and carry forward uncollected Account Receivables
-        await checkAndCarryForwardAR();
+        // Note: Accounts Receivable are no longer duplicated month-to-month.
+        // Pending A/R are treated as outstanding until collected, regardless of month.
         
         // Initialize checkbox labels for custom checkboxes
         const checkboxLabels = document.querySelectorAll('.checkbox-label');
@@ -1007,7 +1006,10 @@ function renderDashboard() {
                 });
             });
         } else {
-            expandedRecords.push(r);
+            // Ignore legacy carried-forward A/R duplicates (we keep the original record as the source of truth)
+            if (!(r.type === 'account_receivable' && r.carriedForwardFrom)) {
+                expandedRecords.push(r);
+            }
         }
     });
 
@@ -1015,6 +1017,16 @@ function renderDashboard() {
         const d = new Date(r.date);
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
+
+    // Outstanding A/R should carry forward into the current month for visibility,
+    // but should NOT be re-applied to this month's spending.
+    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
+    const outstandingAR = expandedRecords.filter(r => {
+        if (r.type !== 'account_receivable' || r.collected) return false;
+        const d = new Date(r.date);
+        return d < startOfCurrentMonth;
+    });
+    const dashboardDisplayRecords = [...monthlyRecords, ...outstandingAR];
 
     // Calculate income, spending, and balance with AR logic
     // Pending AR counts as spending (money deducted now)
@@ -1048,8 +1060,10 @@ function renderDashboard() {
     
     const balance = income - spending;
     
-    // Calculate Accounts Receivable (pending AR records only for KPI display)
-    const arPending = monthlyRecords.filter(r => r.type === 'account_receivable' && !r.collected).reduce((sum, r) => sum + parseFloat(r.amount), 0);
+    // Calculate Accounts Receivable (all outstanding A/R, regardless of month)
+    const arPending = expandedRecords
+        .filter(r => r.type === 'account_receivable' && !r.collected)
+        .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
 
     const incomeEl = document.getElementById('total-income');
     const spendingEl = document.getElementById('total-spending');
@@ -1061,7 +1075,7 @@ function renderDashboard() {
     if (balanceEl) balanceEl.textContent = `$${formatCurrency(balance)}`;
     if (arEl) arEl.textContent = `$${formatCurrency(arPending)}`;
 
-    renderRecentRecords(monthlyRecords);
+    renderRecentRecords(dashboardDisplayRecords);
     renderCharts(monthlyRecords);
 }
 
@@ -1091,7 +1105,7 @@ function renderRecentRecords(monthlyRecords) {
         const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
         const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
         const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
-        const savingsTransferText = `<span class="category-badge badge-savings">Savings Transfer</span>`;
+        const savingsTransferText = `<span class="category-badge badge-savings">Saving</span>`;
         
         let rowClass = (r.type || '');
         if (r.isCombinedComponent) {
@@ -1408,23 +1422,51 @@ function renderRecords() {
                 });
             });
         } else {
-            expandedRecords.push(r);
+            // Ignore legacy carried-forward A/R duplicates (we keep the original record as the source of truth)
+            if (!(r.type === 'account_receivable' && r.carriedForwardFrom)) {
+                expandedRecords.push(r);
+            }
         }
     });
 
+    // If month+year filters are set, pending A/R should "carry forward" into that month.
+    // Example: viewing March 2026 should still show A/R from Feb 2026 if still pending.
+    let filterMonthEnd = null;
+    if (filterYear && filterMonth) {
+        const y = parseInt(filterYear, 10);
+        const m = parseInt(filterMonth, 10); // 1-12
+        if (!Number.isNaN(y) && !Number.isNaN(m)) {
+            // last millisecond of the filtered month
+            filterMonthEnd = new Date(y, m, 0, 23, 59, 59, 999);
+        }
+    }
+
     let filteredRecords = expandedRecords.filter(r => {
-        const typeMatch = filterType === 'all' || r.type === filterType;
-        const yearMatch = !filterYear || new Date(r.date).getFullYear().toString() === filterYear;
-        const monthMatch = !filterMonth || (new Date(r.date).getMonth() + 1).toString() === filterMonth;
+        const isSavings = !!r.isSavingsTransfer;
+        const typeMatch =
+            filterType === 'all' ||
+            (filterType === 'savings' ? isSavings : (r.type === filterType && !isSavings));
+        const recordDate = new Date(r.date);
+        const isPendingAR = r.type === 'account_receivable' && !r.collected;
+
+        // Default year/month match behavior
+        let yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
+        let monthMatch = !filterMonth || (recordDate.getMonth() + 1).toString() === filterMonth;
+
+        // Carry-forward behavior for pending A/R when filtering by a specific month+year
+        if (filterMonthEnd && isPendingAR) {
+            yearMatch = true;
+            monthMatch = recordDate <= filterMonthEnd;
+        }
         const personMatch = !filterPerson || r.person === filterPerson;
         
         let categoryMatch = !filterCategory;
         if (filterCategory) {
             const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
             if (filterCategory === 'all-income') {
-                categoryMatch = r.type === 'income';
+                categoryMatch = r.type === 'income' && !isSavings;
             } else if (filterCategory === 'all-spending') {
-                categoryMatch = r.type === 'spending' || r.type === 'account_receivable';
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
             } else {
                 categoryMatch = catToMatch === filterCategory;
             }
@@ -1518,6 +1560,9 @@ function renderRecords() {
             } else if (r.isParentGroupHeader) {
                 rowClass += ' parent-group-row';
             }
+            if (r.isSavingsTransfer) {
+                rowClass += ' savings-transfer-row';
+            }
 
             tr.className = rowClass;
             tr.onclick = () => openDetailsModal(r);
@@ -1525,8 +1570,8 @@ function renderRecords() {
             const isAR = r.type === 'account_receivable';
             const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
             const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
-            const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
-            const savingsTransferText = `<span class="category-badge badge-savings">Savings Transfer</span>`;
+            const isSavingsTransfer = !!r.isSavingsTransfer || r.category === 'Savings Transfer' || r.type === 'savings_transfer';
+            const savingsTransferText = `<span class="category-badge badge-savings">Saving</span>`;
 
             tr.innerHTML = `
                 <td>${r.isParentGroupHeader ? '' : r.date}</td>
@@ -1601,14 +1646,20 @@ function renderAnalytics() {
                 });
             });
         } else {
-            expandedRecords.push(r);
+            // Ignore legacy carried-forward A/R duplicates (use the original record only)
+            if (!(r.type === 'account_receivable' && r.carriedForwardFrom)) {
+                expandedRecords.push(r);
+            }
         }
     });
 
     // Apply filters
     const filteredRecords = expandedRecords.filter(r => {
         const recordDate = new Date(r.date);
-        const typeMatch = filterType === 'all' || r.type === filterType;
+        const isSavings = !!r.isSavingsTransfer;
+        const typeMatch =
+            filterType === 'all' ||
+            (filterType === 'savings' ? isSavings : (r.type === filterType && !isSavings));
         const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
         const monthMatch = filterMonth === '' || (recordDate.getMonth() + 1).toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
@@ -1616,9 +1667,9 @@ function renderAnalytics() {
         let categoryMatch = !filterCategory;
         if (filterCategory) {
             if (filterCategory === 'all-income') {
-                categoryMatch = r.type === 'income';
+                categoryMatch = r.type === 'income' && !isSavings;
             } else if (filterCategory === 'all-spending') {
-                categoryMatch = r.type === 'spending' || r.type === 'account_receivable';
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
             } else {
                 categoryMatch = r.category === filterCategory;
             }
@@ -1698,30 +1749,81 @@ function renderAnalytics() {
         statsBody.appendChild(tr);
     });
 
-    renderMonthlyTrendChart(monthlyStats);
+    // If a specific month is selected, show daily trend when year is known.
+    // If year isn't selected but the chosen month is the current month, assume current year (common "this month" workflow).
+    const now = new Date();
+    const effectiveYear =
+        filterYear ? parseInt(filterYear, 10)
+            : (filterMonth && parseInt(filterMonth, 10) === (now.getMonth() + 1) ? now.getFullYear() : null);
+
+    if (filterMonth && effectiveYear) {
+        const monthIndex = parseInt(filterMonth, 10) - 1; // 0-based
+        const yearNum = effectiveYear;
+        renderMonthlyTrendChart(monthlyStats, {
+            mode: 'daily',
+            year: yearNum,
+            monthIndex
+        }, filteredRecords);
+    } else {
+        renderMonthlyTrendChart(monthlyStats, { mode: 'monthly' });
+    }
     renderPersonChart(filteredRecords);
 }
 
-function renderMonthlyTrendChart(monthlyStats) {
+function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filteredRecordsForDaily = null) {
     const canvas = document.getElementById('monthlyTrendChart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (monthlyTrendChart) monthlyTrendChart.destroy();
 
-    const months = Object.keys(monthlyStats).sort();
-    // Calculate total income and spending including AR logic
-    const incomeData = months.map(m => {
-        const stats = monthlyStats[m];
-        return stats.income; // Collected AR is neutral, not income
-    });
-    const spendingData = months.map(m => {
-        const stats = monthlyStats[m];
-        return stats.spending + stats.arPending; // Include pending AR in spending
-    });
-    const labels = months.map(m => {
-        const [year, month] = m.split('-');
-        return new Date(year, month - 1).toLocaleString('default', { month: 'short' });
-    });
+    let labels = [];
+    let incomeData = [];
+    let spendingData = [];
+
+    if (view?.mode === 'daily' && filteredRecordsForDaily && Number.isFinite(view.year) && Number.isFinite(view.monthIndex)) {
+        const daysInMonth = new Date(view.year, view.monthIndex + 1, 0).getDate();
+        labels = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
+        incomeData = Array.from({ length: daysInMonth }, () => 0);
+        spendingData = Array.from({ length: daysInMonth }, () => 0);
+
+        filteredRecordsForDaily.forEach(r => {
+            const d = new Date(r.date);
+            if (d.getFullYear() !== view.year || d.getMonth() !== view.monthIndex) return;
+            const dayIdx = d.getDate() - 1;
+            const amount = parseFloat(r.amount) || 0;
+
+            // Savings transfer records should not count as income/spending here (they are "savings" type),
+            // BUT existing analytics logic treats income+savingsTransfer as spending. Keep that behavior.
+            if (r.isSavingsTransfer) {
+                if (r.type === 'income') spendingData[dayIdx] += amount;
+                return;
+            }
+
+            if (r.type === 'income') {
+                incomeData[dayIdx] += amount;
+            } else if (r.type === 'account_receivable') {
+                // Pending AR counts as spending (money deducted now)
+                if (!r.collected) spendingData[dayIdx] += amount;
+            } else if (r.type === 'spending') {
+                spendingData[dayIdx] += amount;
+            }
+        });
+    } else {
+        const months = Object.keys(monthlyStats).sort();
+        // Calculate total income and spending including AR logic
+        incomeData = months.map(m => {
+            const stats = monthlyStats[m];
+            return stats.income; // Collected AR is neutral, not income
+        });
+        spendingData = months.map(m => {
+            const stats = monthlyStats[m];
+            return stats.spending + stats.arPending; // Include pending AR in spending
+        });
+        labels = months.map(m => {
+            const [year, month] = m.split('-');
+            return new Date(year, month - 1).toLocaleString('default', { month: 'short' });
+        });
+    }
 
     monthlyTrendChart = new Chart(ctx, {
         type: 'line',
@@ -3082,10 +3184,6 @@ async function handleImport(e) {
                     await clearStore(STORE_RECORDS);
                     await clearStore(STORE_CATEGORIES);
                     await clearStore(STORE_PEOPLE);
-                    for (const r of data.records) {
-                        delete r.id;
-                        await add(STORE_RECORDS, r);
-                    }
                     for (const c of data.categories) {
                         delete c.id;
                         await add(STORE_CATEGORIES, c);
@@ -3097,22 +3195,46 @@ async function handleImport(e) {
                         }
                     }
                     // import savings
+                    const savingsAccountIdMap = new Map();
                     if (data.savingsAccounts) {
                         await clearStore(STORE_SAVINGS_ACCOUNTS);
                         for (const a of data.savingsAccounts) {
+                            const oldId = a.id;
                             delete a.id;
-                            await add(STORE_SAVINGS_ACCOUNTS, a);
+                            const newId = await add(STORE_SAVINGS_ACCOUNTS, a);
+                            if (oldId !== undefined && oldId !== null) {
+                                savingsAccountIdMap.set(String(oldId), newId);
+                                savingsAccountIdMap.set(Number(oldId), newId);
+                            }
+                        }
+                    }
+                    // import records AFTER savings accounts to remap savingsAccountId
+                    if (data.records) {
+                        for (const r of data.records) {
+                            const oldSavingsAccountId = r.savingsAccountId;
+                            if (oldSavingsAccountId !== undefined && oldSavingsAccountId !== null && String(oldSavingsAccountId).trim() !== '') {
+                                const mapped = savingsAccountIdMap.get(oldSavingsAccountId) ?? savingsAccountIdMap.get(String(oldSavingsAccountId));
+                                if (mapped) r.savingsAccountId = String(mapped);
+                            }
+                            delete r.id;
+                            await add(STORE_RECORDS, r);
                         }
                     }
                     if (data.savingsTransactions) {
                         await clearStore(STORE_SAVINGS_TRANSACTIONS);
                         for (const t of data.savingsTransactions) {
+                            const oldAccId = t.accountId;
+                            const mapped = savingsAccountIdMap.get(oldAccId) ?? savingsAccountIdMap.get(String(oldAccId));
+                            if (mapped) t.accountId = mapped;
                             delete t.id;
                             await add(STORE_SAVINGS_TRANSACTIONS, t);
                         }
                     }
                     showToast('Import successful!', 'success');
                     await refreshData();
+                    // Force AR carry-forward after import so KPIs reflect pending AR from previous months
+                    localStorage.removeItem('lastARCarryForwardCheck');
+                    await checkAndCarryForwardAR();
                 }
             } else {
                 showToast('Invalid file format.', 'warning');
@@ -3237,15 +3359,41 @@ window.removeCombinedTransaction = removeCombinedTransaction;
 window.updateCombinedTransaction = updateCombinedTransaction;
 
 // Accounts Receivable functions
+function getARRootId(record) {
+    if (!record) return null;
+    let current = record;
+    const seen = new Set();
+    while (current && current.type === 'account_receivable' && current.carriedForwardFrom) {
+        if (seen.has(current.id)) break;
+        seen.add(current.id);
+        const parent = records.find(r => r.id === current.carriedForwardFrom);
+        if (!parent) return current.carriedForwardFrom;
+        current = parent;
+    }
+    return current?.id ?? record.id;
+}
+
+function getARGroupRecords(rootId) {
+    if (rootId == null) return [];
+    return records.filter(r => r.type === 'account_receivable' && getARRootId(r) === rootId);
+}
+
 async function collectAR(id) {
     const record = records.find(r => r.id === id);
     if (!record) return;
-    
-    record.collected = true;
-    record.collectedDate = new Date().toISOString().split('T')[0];
+
+    const rootId = getARRootId(record);
+    const group = getARGroupRecords(rootId);
+    const collectedDate = new Date().toISOString().split('T')[0];
+    group.forEach(r => {
+        r.collected = true;
+        r.collectedDate = collectedDate;
+    });
     
     try {
-        await updateRecord(STORE_RECORDS, record);
+        for (const r of group) {
+            await updateRecord(STORE_RECORDS, r);
+        }
         await refreshData();
     } catch (error) {
         console.error('Error collecting AR:', error);
@@ -3256,12 +3404,18 @@ async function collectAR(id) {
 async function undoCollectAR(id) {
     const record = records.find(r => r.id === id);
     if (!record) return;
-    
-    record.collected = false;
-    delete record.collectedDate;
+
+    const rootId = getARRootId(record);
+    const group = getARGroupRecords(rootId);
+    group.forEach(r => {
+        r.collected = false;
+        delete r.collectedDate;
+    });
     
     try {
-        await updateRecord(STORE_RECORDS, record);
+        for (const r of group) {
+            await updateRecord(STORE_RECORDS, r);
+        }
         await refreshData();
     } catch (error) {
         console.error('Error undoing AR collection:', error);
@@ -3272,76 +3426,17 @@ async function undoCollectAR(id) {
 // Make AR functions globally available
 window.collectAR = collectAR;
 window.undoCollectAR = undoCollectAR;
-
-// Account Receivables month transition function
-async function carryForwardUncollectedAR() {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    
-    // Find uncollected AR records from previous months
-    const uncollectedAR = records.filter(r => {
-        if (r.type !== 'account_receivable' || r.collected) return false;
-        
-        const recordDate = new Date(r.date);
-        const recordMonth = recordDate.getMonth();
-        const recordYear = recordDate.getFullYear();
-        
-        // Check if record is from a previous month (not current month)
-        return (recordYear < currentYear) || 
-               (recordYear === currentYear && recordMonth < currentMonth);
-    });
-    
-    // Create new records for the current month for each uncollected AR
-    const newRecords = [];
-    for (const ar of uncollectedAR) {
-        // Check if we already have a carried forward version for this month
-        const alreadyExists = records.some(r => 
-            r.type === 'account_receivable' && 
-            r.carriedForwardFrom === ar.id &&
-            new Date(r.date).getMonth() === currentMonth &&
-            new Date(r.date).getFullYear() === currentYear
-        );
-        
-        if (!alreadyExists) {
-            const newRecord = {
-                ...ar,
-                id: generateId(),
-                date: new Date(currentYear, currentMonth, 1).toISOString().split('T')[0],
-                carriedForwardFrom: ar.id,
-                originalDate: ar.date,
-                notes: `${ar.notes || ''} [Carried forward from ${new Date(ar.date).toLocaleDateString()}]`
-            };
-            newRecords.push(newRecord);
-        }
-    }
-    
-    // Save the new records
-    if (newRecords.length > 0) {
-        for (const record of newRecords) {
-            await addRecord(STORE_RECORDS, record);
-        }
-        await refreshData();
-        showToast(`${newRecords.length} Account Receivable(s) carried forward to current month`, 'info');
-    }
-}
+// Records tab uses uncollectAR; keep it as an alias to undo collection.
+window.uncollectAR = undoCollectAR;
 
 // Function to generate unique ID
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Check and carry forward AR when app loads and when month changes
-async function checkAndCarryForwardAR() {
-    const lastCheck = localStorage.getItem('lastARCarryForwardCheck');
-    const now = new Date();
-    const currentMonthYear = `${now.getFullYear()}-${now.getMonth()}`;
-    
-    if (lastCheck !== currentMonthYear) {
-        await carryForwardUncollectedAR();
-        localStorage.setItem('lastARCarryForwardCheck', currentMonthYear);
-    }
-}
+// Legacy: month-to-month A/R duplication was removed. Keep a no-op to avoid runtime errors
+// if older code paths call it.
+async function checkAndCarryForwardAR() { /* no-op */ }
 
 // Privacy Mode Functions
 function togglePrivacyMode() {

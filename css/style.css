@@ -811,8 +811,8 @@ tr:last-child td {
 
 /* Sub-row Grouping Styles */
 .sub-row td {
-    padding-top: 0.6rem !important;
-    padding-bottom: 0.6rem !important;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
     font-size: 0.875rem !important;
     border-bottom: none !important;
 }
@@ -883,13 +883,13 @@ tr:last-child td {
     background-color: rgba(79, 70, 229, 0.05) !important; 
     border-top: 2px solid var(--primary-color) !important;
     border-bottom: none !important;
-    padding-top: 1.25rem !important;
-    padding-bottom: 1.25rem !important;
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
 }
 
 .parent-group-row .item-cell {
-    font-size: 1rem;
-    font-weight: 800;
+    font-size: 0.9375rem;
+    font-weight: 700;
     color: var(--primary-color) !important;
 }
 
@@ -983,6 +983,25 @@ tr:last-child td {
 .badge-account_receivable.pending {
     background: #fef3c7;
     color: #d97706;
+}
+
+.badge-savings {
+    background: rgba(79, 70, 229, 0.12);
+    color: var(--primary-color);
+    border: 1px solid rgba(79, 70, 229, 0.25);
+}
+
+.savings-transfer-row td {
+    background-color: rgba(79, 70, 229, 0.10) !important;
+    border-bottom-color: rgba(79, 70, 229, 0.18) !important;
+}
+
+.sub-row.savings-transfer-row td {
+    background-color: rgba(79, 70, 229, 0.10) !important;
+}
+
+#records-body tr.savings-transfer-row:hover td {
+    background-color: rgba(79, 70, 229, 0.16) !important;
 }
 
 .notes-cell {
