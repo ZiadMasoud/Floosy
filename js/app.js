@@ -94,7 +94,7 @@ function showToast(message, type = 'info') {
     if (type === 'error') backgroundColor = "#ef4444";
     if (type === 'success') backgroundColor = "#10b981";
     if (type === 'warning') backgroundColor = "#f59e0b";
-    
+
     Toastify({
         text: message,
         duration: 3000,
@@ -119,19 +119,19 @@ function showConfirm(message) {
         const msgEl = document.getElementById('custom-confirm-message');
         const okBtn = document.getElementById('custom-confirm-ok');
         const cancelBtn = document.getElementById('custom-confirm-cancel');
-        
+
         msgEl.textContent = message;
         modal.classList.add('active');
-        
+
         const cleanup = () => {
             modal.classList.remove('active');
             okBtn.removeEventListener('click', onOk);
             cancelBtn.removeEventListener('click', onCancel);
         };
-        
+
         const onOk = () => { cleanup(); resolve(true); };
         const onCancel = () => { cleanup(); resolve(false); };
-        
+
         okBtn.addEventListener('click', onOk);
         cancelBtn.addEventListener('click', onCancel);
     });
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initDB();
         await seedDefaultCategories();
-        
+
         // Initialize Privacy Mode
         isPrivacyMode = localStorage.getItem('floosy_privacy_mode') === 'true';
         if (isPrivacyMode) {
@@ -157,17 +157,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('record-date').valueAsDate = new Date();
         // Note: Accounts Receivable are no longer duplicated month-to-month.
         // Pending A/R are treated as outstanding until collected, regardless of month.
-        
+
         // Initialize checkbox labels for custom checkboxes
         const checkboxLabels = document.querySelectorAll('.checkbox-label');
         checkboxLabels.forEach(label => {
-            label.addEventListener('click', function(e) {
+            label.addEventListener('click', function (e) {
                 e.preventDefault();
                 const checkbox = this.querySelector('input[type="checkbox"]');
                 if (checkbox) {
                     checkbox.checked = !checkbox.checked;
                     checkbox.dispatchEvent(new Event('change'));
-                    
+
                     // Update visual state
                     if (checkbox.checked) {
                         this.classList.add('checked');
@@ -176,19 +176,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
             });
-            
+
             // Initialize visual state based on current checked status
             const checkbox = label.querySelector('input[type="checkbox"]');
             if (checkbox && checkbox.checked) {
                 label.classList.add('checked');
             }
         });
-        
+
         switchTab('dashboard');
-        
+
         // Test monthly balance reset functionality
         testMonthlyBalanceReset();
-        
+
     } catch (error) {
         console.error('Error initializing app:', error);
     }
@@ -231,11 +231,11 @@ function initEventListeners() {
     const filterPerson = document.getElementById('filter-person');
     const filterCategory = document.getElementById('filter-category');
     const clearFiltersBtn = document.getElementById('clear-filters');
-    
+
     if (filterYear) {
         filterYear.addEventListener('change', renderRecords);
     }
-    
+
     if (filterMonth) {
         filterMonth.addEventListener('change', renderRecords);
     }
@@ -247,7 +247,7 @@ function initEventListeners() {
     if (filterCategory) {
         filterCategory.addEventListener('change', renderRecords);
     }
-    
+
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener('click', () => {
             if (filterType) filterType.value = 'all';
@@ -266,7 +266,7 @@ function initEventListeners() {
     const analyticsFilterPerson = document.getElementById('analytics-filter-person');
     const analyticsFilterCategory = document.getElementById('analytics-filter-category');
     const analyticsClearFiltersBtn = document.getElementById('analytics-clear-filters');
-    
+
     const analyticsFilterControls = document.getElementById('analytics-filter-controls');
     const analyticsFilterPanel = document.getElementById('analytics-filter-panel');
 
@@ -274,7 +274,7 @@ function initEventListeners() {
         if (!panelEl || !controlsEl) return;
         const isMobile = window.innerWidth <= 480;
         const isVisible = isMobile ? panelEl.classList.contains('active') : controlsEl.style.display !== 'none';
-        
+
         if (isMobile) {
             // Mobile: use class-based toggle with body scroll lock
             if (isVisible) {
@@ -297,12 +297,12 @@ function initEventListeners() {
     const closeFilterOnBackdropClick = (e) => {
         const isMobile = window.innerWidth <= 480;
         if (!isMobile) return;
-        
+
         const recordsPanel = document.getElementById('records-filter-panel');
         const analyticsPanel = document.getElementById('analytics-filter-panel');
         const recordsControls = document.getElementById('records-filter-controls');
         const analyticsControls = document.getElementById('analytics-filter-controls');
-        
+
         if (e.target === recordsPanel && recordsPanel?.classList.contains('active')) {
             recordsPanel.classList.remove('active');
             if (recordsControls) recordsControls.style.display = 'none';
@@ -316,7 +316,7 @@ function initEventListeners() {
             headerFiltersBtn?.classList.remove('active');
         }
     };
-    
+
     window.addEventListener('click', closeFilterOnBackdropClick);
 
     // Header Filters button (next to month)
@@ -332,7 +332,7 @@ function initEventListeners() {
             headerFiltersBtn.classList.toggle('active', !!isOpen);
         });
     }
-    
+
     if (analyticsFilterType) {
         analyticsFilterType.addEventListener('change', renderAnalytics);
     }
@@ -389,7 +389,7 @@ function initEventListeners() {
     } else {
         console.error('reset-btn not found');
     }
-    
+
     // Selective Reset
     if (selectiveResetBtn) {
         selectiveResetBtn.addEventListener('click', handleSelectiveReset);
@@ -428,7 +428,7 @@ function initEventListeners() {
     if (accountFormEl) {
         accountFormEl.addEventListener('submit', handleAccountSubmit);
     }
-    
+
     const cancelAccountBtnEl = document.getElementById('cancel-account-modal');
     if (cancelAccountBtnEl) {
         cancelAccountBtnEl.addEventListener('click', closeAccountModal);
@@ -567,13 +567,13 @@ function initEventListeners() {
                     const recordDate = new Date(r.date);
                     return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
                 });
-                
+
                 const spendingByCategory = {};
                 const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
                 spendingRecords.forEach(r => {
                     spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
                 });
-                
+
                 const categoryCount = Object.keys(spendingByCategory).length;
                 const neededHeight = Math.max(300, 250 + (categoryCount * 25));
                 chartContainer.style.height = neededHeight + 'px';
@@ -607,7 +607,7 @@ function toggleItemField() {
     const recordItem = document.getElementById('record-item');
     const formatType = recordFormatTypeSelect?.value || 'single';
     const recordType = recordTypeSelect?.value || 'spending';
-    
+
     if (recordType === 'income') {
         itemFieldContainer.style.display = 'none';
         recordItem.removeAttribute('required');
@@ -624,46 +624,46 @@ function toggleItemField() {
 function updateCombinedTransactionCategoryDropdown() {
     const combinedCategorySelect = document.getElementById('combined-transaction-category');
     if (!combinedCategorySelect) return;
-    
+
     const selectedValue = combinedCategorySelect.value;
-    
+
     // Show all categories for combined transactions (both income and spending)
     combinedCategorySelect.innerHTML = '<option value="">Select Category (Optional)</option>' +
         categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
-    
+
     combinedCategorySelect.value = selectedValue;
 }
 
 function getCombinedTransactionNetType() {
     if (combinedTransactions.length === 0) return 'spending';
-    
+
     let totalIncome = 0;
     let totalSpending = 0;
-    
+
     combinedTransactions.forEach(t => {
         const amount = parseFloat(t.amount) || 0;
         const quantity = parseInt(t.quantity) || 1;
         const totalAmount = amount * quantity;
-        
+
         if (t.type === 'income') {
             totalIncome += totalAmount;
         } else {
             totalSpending += totalAmount;
         }
     });
-    
+
     return totalIncome >= totalSpending ? 'income' : 'spending';
 }
 
 function toggleRecordFormat() {
     const formatType = recordFormatTypeSelect.value;
     const isCombined = formatType === 'combined';
-    
+
     // Show/hide combined transactions section
     if (combinedTransactionsSection) {
         combinedTransactionsSection.style.display = isCombined ? 'block' : 'none';
     }
-    
+
     // For combined transactions, hide individual transaction fields and remove required
     const individualFields = [
         { element: document.getElementById('record-item'), container: document.getElementById('item-field-container') },
@@ -672,7 +672,7 @@ function toggleRecordFormat() {
         { element: document.getElementById('record-category'), container: document.getElementById('record-category')?.closest('.form-group') },
         { element: document.getElementById('record-person'), container: document.getElementById('record-person')?.closest('.form-group') }
     ];
-    
+
     individualFields.forEach(({ element, container }) => {
         if (element && container) {
             if (isCombined) {
@@ -690,12 +690,12 @@ function toggleRecordFormat() {
             }
         }
     });
-    
+
     // Update combined transaction category dropdown when switching to combined format
     if (isCombined) {
         updateCombinedTransactionCategoryDropdown();
     }
-    
+
     // Reset combined transactions when switching format
     if (!isCombined) {
         combinedTransactions = [];
@@ -725,7 +725,7 @@ function addCombinedTransaction() {
         quantity: '1',
         savingsAccountId: ''
     };
-    
+
     // Add to beginning of array so new transactions appear at top
     combinedTransactions.unshift(transaction);
     renderCombinedTransactions();
@@ -743,16 +743,16 @@ function removeCombinedTransaction(id) {
 
 function renderCombinedTransactions() {
     if (!combinedTransactionsList) return;
-    
+
     combinedTransactionsList.innerHTML = '';
-    
+
     // Get the total element
     const totalElement = document.getElementById('combined-transactions-total');
-    
+
     combinedTransactions.forEach((transaction, index) => {
         // Display number in reverse order (newest gets highest number)
         const displayNumber = combinedTransactions.length - index;
-        
+
         const div = document.createElement('div');
         div.className = 'combined-transaction-item';
         div.innerHTML = `
@@ -775,9 +775,9 @@ function renderCombinedTransactions() {
                         <label>Category</label>
                         <select onchange="updateCombinedTransaction(${transaction.id}, 'category', this.value)">
                             <option value="">Select Category</option>
-                            ${categories.filter(c => c.type === transaction.type).map(c => 
-                                `<option value="${c.name}" ${transaction.category === c.name ? 'selected' : ''}>${c.name}</option>`
-                            ).join('')}
+                            ${categories.filter(c => c.type === transaction.type).map(c =>
+            `<option value="${c.name}" ${transaction.category === c.name ? 'selected' : ''}>${c.name}</option>`
+        ).join('')}
                         </select>
                     </div>
                 </div>
@@ -800,9 +800,9 @@ function renderCombinedTransactions() {
                         <label>Person</label>
                         <select onchange="updateCombinedTransaction(${transaction.id}, 'person', this.value)">
                             <option value="">Select Person (Optional)</option>
-                            ${people.map(p => 
-                                `<option value="${p.name}" ${transaction.person === p.name ? 'selected' : ''}>${p.name}</option>`
-                            ).join('')}
+                            ${people.map(p =>
+            `<option value="${p.name}" ${transaction.person === p.name ? 'selected' : ''}>${p.name}</option>`
+        ).join('')}
                         </select>
                     </div>
                     <div class="form-group">
@@ -817,9 +817,9 @@ function renderCombinedTransactions() {
                         <label>Savings Account (Optional)</label>
                         <select onchange="updateCombinedTransaction(${transaction.id}, 'savingsAccountId', this.value)">
                             <option value="">No Savings Account</option>
-                            ${savingsAccounts.map(acc => 
-                                `<option value="${acc.id}" ${transaction.savingsAccountId == acc.id ? 'selected' : ''}>${acc.name}</option>`
-                            ).join('')}
+                            ${savingsAccounts.map(acc =>
+            `<option value="${acc.id}" ${transaction.savingsAccountId == acc.id ? 'selected' : ''}>${acc.name}</option>`
+        ).join('')}
                         </select>
                     </div>
                     <div class="form-group">
@@ -830,32 +830,32 @@ function renderCombinedTransactions() {
         `;
         combinedTransactionsList.appendChild(div);
     });
-    
+
     // Update total display in header
     if (totalElement) {
         if (combinedTransactions.length > 0) {
             let totalIncome = 0;
             let totalSpending = 0;
-            
+
             combinedTransactions.forEach(t => {
                 const amount = parseFloat(t.amount) || 0;
                 const quantity = parseInt(t.quantity) || 1;
                 const totalAmount = amount * quantity;
-                
+
                 if (t.type === 'income') {
                     totalIncome += totalAmount;
                 } else {
                     totalSpending += totalAmount;
                 }
             });
-            
+
             const netAmount = totalIncome - totalSpending;
             const incomeCount = combinedTransactions.filter(t => t.type === 'income').length;
             const spendingCount = combinedTransactions.filter(t => t.type === 'spending').length;
-            
+
             totalElement.innerHTML = `Total: ${netAmount >= 0 ? '+' : ''}$${formatCurrency(Math.abs(netAmount))} (${incomeCount} income, ${spendingCount} spending)`;
             totalElement.style.display = 'block';
-            
+
             // Update combined transaction category dropdown when transactions change
             updateCombinedTransactionCategoryDropdown();
         } else {
@@ -868,7 +868,7 @@ function updateCombinedTransaction(id, field, value) {
     const transaction = combinedTransactions.find(t => t.id === id);
     if (transaction) {
         transaction[field] = value;
-        
+
         // If type changed, update category options and item field visibility
         if (field === 'type') {
             transaction.category = '';
@@ -882,26 +882,26 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
     const targetDate = new Date(recordDate);
     const targetMonth = targetDate.getMonth();
     const targetYear = targetDate.getFullYear();
-    
+
     // Get all records before the transaction date within the same month only
     const recordsBeforeDate = records.filter(r => {
         const recordDateTime = new Date(r.date);
         const recordMonth = recordDateTime.getMonth();
         const recordYear = recordDateTime.getFullYear();
-        
+
         // Only include records from the same month and year
         if (recordMonth !== targetMonth || recordYear !== targetYear) {
             return false;
         }
-        
+
         // If same date, only include records with earlier ID (assuming sequential IDs)
         if (recordDateTime.getTime() === targetDate.getTime()) {
             return r.id !== excludeRecordId && r.id < excludeRecordId;
         }
-        
+
         return recordDateTime < targetDate;
     });
-    
+
     // Sort records by date and ID to ensure proper order
     recordsBeforeDate.sort((a, b) => {
         const dateA = new Date(a.date);
@@ -911,7 +911,7 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
         }
         return a.id - b.id; // Sort by ID if same date
     });
-    
+
     // Expand combined transactions for accurate balance calculation
     const expandedRecords = [];
     recordsBeforeDate.forEach(r => {
@@ -927,7 +927,7 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
             expandedRecords.push(r);
         }
     });
-    
+
     // Calculate balance
     let balance = 0;
     expandedRecords.forEach(r => {
@@ -938,7 +938,7 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
             balance -= amount;
         }
     });
-    
+
     return balance;
 }
 
@@ -956,26 +956,26 @@ function testMonthlyBalanceReset() {
         { id: 4, date: '2026-03-05', type: 'spending', amount: 100, formatType: 'single' },
         { id: 5, date: '2026-03-10', type: 'income', amount: 300, formatType: 'single' }
     ];
-    
+
     // Temporarily replace records with test data
     const originalRecords = records;
     records = testRecords;
-    
+
     // Test February transaction (should have opening balance of 0)
     const febBalance = calculateBalanceAtTransaction('2026-02-20', 2);
     console.log('February transaction opening balance:', febBalance); // Should be 1000
-    
+
     // Test March transaction (should have opening balance of 0, ignoring February)
     const marchBalance = calculateBalanceAtTransaction('2026-03-05', 4);
     console.log('March transaction opening balance:', marchBalance); // Should be 500
-    
+
     // Test later March transaction (should include earlier March transactions)
     const lateMarchBalance = calculateBalanceAtTransaction('2026-03-10', 5);
     console.log('Late March transaction opening balance:', lateMarchBalance); // Should be 500 + (-100) = 400
-    
+
     // Restore original records
     records = originalRecords;
-    
+
     console.log('Monthly balance reset test completed');
 }
 
@@ -1026,7 +1026,7 @@ function switchTab(tabId) {
             el.classList?.remove('active');
         }
     });
-    
+
     // Remove body scroll lock class when switching tabs
     document.body.classList.remove('filter-open');
 
@@ -1061,7 +1061,7 @@ function renderDashboard() {
                 const amount = parseFloat(ct.amount) || 0;
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
-                
+
                 expandedRecords.push({
                     ...r,
                     type: ct.type,
@@ -1104,10 +1104,10 @@ function renderDashboard() {
     // Collected AR counts as income (money received)
     let income = 0;
     let spending = 0;
-    
+
     monthlyRecords.forEach(r => {
         const amount = parseFloat(r.amount) || 0;
-        
+
         if (r.isSavingsTransfer) {
             // New logic:
             // 1. Income to Savings: Treat as a budget outflow (increases spending)
@@ -1117,7 +1117,7 @@ function renderDashboard() {
             }
             return;
         }
-        
+
         if (r.type === 'income') {
             income += amount;
         } else if (r.type === 'account_receivable') {
@@ -1128,9 +1128,9 @@ function renderDashboard() {
             spending += amount;
         }
     });
-    
+
     const balance = income - spending;
-    
+
     // Calculate Accounts Receivable (all outstanding A/R, regardless of month)
     const arPending = expandedRecords
         .filter(r => r.type === 'account_receivable' && !r.collected)
@@ -1177,7 +1177,7 @@ function renderRecentRecords(monthlyRecords) {
         const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
         const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
         const savingsTransferText = `<span class="category-badge badge-savings">Saving</span>`;
-        
+
         let rowClass = (r.type || '');
         if (r.isCombinedComponent) {
             rowClass += ' sub-row';
@@ -1228,7 +1228,7 @@ function renderRecentRecords(monthlyRecords) {
 function renderCharts(monthlyRecords) {
     // Include all transactions in chart calculations
     const nonSavingsRecords = monthlyRecords;
-    
+
     const spendingByCategory = {};
     const spendingRecords = nonSavingsRecords.filter(r => r.type === 'spending');
 
@@ -1243,30 +1243,30 @@ function renderCharts(monthlyRecords) {
 
         let labels = Object.keys(spendingByCategory);
         let data = Object.values(spendingByCategory);
-        
+
         // Check if we're on mobile and need to limit categories
         const isMobile = window.innerWidth <= 768;
         const showMoreBtn = document.getElementById('show-more-chart-categories');
-        
+
         if (isMobile && !chartCategoriesExpanded && labels.length > chartCategoriesVisible) {
             // Limit categories and create "Other" category for the rest
             const sortedCategories = labels
                 .map((label, index) => ({ label, value: data[index] }))
                 .sort((a, b) => b.value - a.value);
-            
+
             const visibleCategories = sortedCategories.slice(0, chartCategoriesVisible);
             const otherCategories = sortedCategories.slice(chartCategoriesVisible);
-            
+
             labels = visibleCategories.map(cat => cat.label);
             data = visibleCategories.map(cat => cat.value);
-            
+
             // Add "Other" category if there are remaining items
             if (otherCategories.length > 0) {
                 const otherTotal = otherCategories.reduce((sum, cat) => sum + cat.value, 0);
                 labels.push('Other');
                 data.push(otherTotal);
             }
-            
+
             // Show the show more button
             if (showMoreBtn) {
                 showMoreBtn.style.display = 'block';
@@ -1367,12 +1367,12 @@ function renderCharts(monthlyRecords) {
 function populateYearFilter() {
     const yearSelect = document.getElementById('filter-year');
     const analyticsYearSelect = document.getElementById('analytics-filter-year');
-    
+
     if (!records || records.length === 0) return;
-    
+
     // Get unique years from records
     const years = [...new Set(records.map(r => r.date.substring(0, 4)))].sort().reverse();
-    
+
     // Populate records filter
     if (yearSelect) {
         yearSelect.innerHTML = '<option value="">All Years</option>';
@@ -1383,7 +1383,7 @@ function populateYearFilter() {
             yearSelect.appendChild(option);
         });
     }
-    
+
     // Populate analytics filter
     if (analyticsYearSelect) {
         analyticsYearSelect.innerHTML = '<option value="">All Years</option>';
@@ -1402,7 +1402,7 @@ function populateAnalyticsFilterDropdowns() {
     const analyticsCategorySelect = document.getElementById('analytics-filter-category');
     const recordsPersonSelect = document.getElementById('filter-person');
     const recordsCategorySelect = document.getElementById('filter-category');
-    
+
     // Populate analytics person dropdown
     if (analyticsPersonSelect) {
         const currentValue = analyticsPersonSelect.value;
@@ -1410,13 +1410,13 @@ function populateAnalyticsFilterDropdowns() {
             people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         analyticsPersonSelect.value = currentValue;
     }
-    
+
     // Populate analytics category dropdown
     if (analyticsCategorySelect) {
         const currentValue = analyticsCategorySelect.value;
         const incomeCategories = categories.filter(c => c.type === 'income');
         const spendingCategories = categories.filter(c => c.type === 'spending');
-        
+
         analyticsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
             '<option value="all-income">All Income Categories</option>' +
             '<option value="all-spending">All Spending Categories</option>' +
@@ -1440,7 +1440,7 @@ function populateAnalyticsFilterDropdowns() {
         const currentValue = recordsCategorySelect.value;
         const incomeCategories = categories.filter(c => c.type === 'income');
         const spendingCategories = categories.filter(c => c.type === 'spending');
-        
+
         recordsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
             '<option value="all-income">All Income Categories</option>' +
             '<option value="all-spending">All Spending Categories</option>' +
@@ -1475,7 +1475,7 @@ function renderRecords() {
                 const amount = parseFloat(ct.amount) || 0;
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
-                
+
                 expandedRecords.push({
                     ...r,
                     type: ct.type,
@@ -1530,7 +1530,7 @@ function renderRecords() {
             monthMatch = recordDate <= filterMonthEnd;
         }
         const personMatch = !filterPerson || r.person === filterPerson;
-        
+
         let categoryMatch = !filterCategory;
         if (filterCategory) {
             const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
@@ -1542,7 +1542,7 @@ function renderRecords() {
                 categoryMatch = catToMatch === filterCategory;
             }
         }
-        
+
         return typeMatch && yearMatch && monthMatch && personMatch && categoryMatch;
     });
 
@@ -1615,14 +1615,14 @@ function renderRecords() {
             </td>
         `;
         tbody.appendChild(separatorRow);
-        
+
         // Add records for this month
         monthRecords.forEach(r => {
             const tr = document.createElement('tr');
             const isCombined = r.formatType === 'combined';
             const isCarriedForward = r.carriedForwardFrom;
             const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
-            
+
             let rowClass = (r.type || '');
             if (r.isCombinedComponent) {
                 rowClass += ' sub-row';
@@ -1637,7 +1637,7 @@ function renderRecords() {
 
             tr.className = rowClass;
             tr.onclick = () => openDetailsModal(r);
-            
+
             const isAR = r.type === 'account_receivable';
             const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
             const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
@@ -1703,7 +1703,7 @@ function renderAnalytics() {
                 const amount = parseFloat(ct.amount) || 0;
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
-                
+
                 expandedRecords.push({
                     ...r,
                     type: ct.type,
@@ -1734,7 +1734,7 @@ function renderAnalytics() {
         const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
         const monthMatch = filterMonth === '' || (recordDate.getMonth() + 1).toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
-        
+
         let categoryMatch = !filterCategory;
         if (filterCategory) {
             if (filterCategory === 'all-income') {
@@ -1745,7 +1745,7 @@ function renderAnalytics() {
                 categoryMatch = r.category === filterCategory;
             }
         }
-        
+
         return typeMatch && yearMatch && monthMatch && personMatch && categoryMatch;
     });
 
@@ -1757,16 +1757,16 @@ function renderAnalytics() {
         if (!monthlyStats[monthKey]) {
             monthlyStats[monthKey] = { income: 0, spending: 0, arPending: 0, arCollected: 0, categories: {} };
         }
-        
+
         const amount = parseFloat(r.amount) || 0;
-        
+
         if (r.isSavingsTransfer) {
             if (r.type === 'income') {
                 monthlyStats[monthKey].spending += amount;
             }
             return;
         }
-        
+
         if (r.type === 'income') {
             monthlyStats[monthKey].income += amount;
         } else if (r.type === 'account_receivable') {
@@ -2175,15 +2175,15 @@ function closeAccountModal() {
 
 async function handleAccountSubmit(e) {
     e.preventDefault();
-    
+
     // Get the form element from the event target
     const form = e.target.closest('form');
     if (!form) return;
-    
+
     const id = form.elements['account-id'].value;
     const name = form.elements['account-name'].value.trim();
     const initial = parseFloat(form.elements['account-initial'].value) || 0;
-    
+
     if (!name) {
         showToast('Please enter an account name', 'warning');
         return;
@@ -2202,7 +2202,7 @@ async function handleAccountSubmit(e) {
             const newId = await add(STORE_SAVINGS_ACCOUNTS, newAcc);
             newAcc.id = newId;
             savingsAccounts.push(newAcc);
-            
+
             // if initial deposit provided, add transaction (allow 0)
             if (initial >= 0) {
                 const tx = {
@@ -2216,7 +2216,7 @@ async function handleAccountSubmit(e) {
                 savingsTransactions.push(tx);
             }
         }
-        
+
         closeAccountModal();
         await refreshData();
     } catch (error) {
@@ -2280,18 +2280,18 @@ async function handleTransactionSubmit(e) {
         savingsTransactions.push(newTx);
     }
     closeTransactionModal();
-    
+
     // Calculate which page the transaction would be on after sorting
     // Reload transactions to include the new one
     savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
     const txs = savingsTransactions
         .filter(t => t.accountId === accountId)
         .sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
-    
+
     // Find the index of the transaction we just added/edited
     const targetId = id ? parseInt(id) : newId;
     const txIndex = txs.findIndex(t => t.id === targetId);
-    
+
     // Calculate which page this transaction is on
     const perPage = 4;
     if (txIndex !== -1) {
@@ -2299,7 +2299,7 @@ async function handleTransactionSubmit(e) {
     } else {
         savingsPage[accountId] = 0;
     }
-    
+
     await refreshData();
 }
 
@@ -2501,7 +2501,7 @@ function openModal(record = null) {
         if (record.formatType === 'combined' && record.combinedTransactions) {
             combinedTransactions = [...record.combinedTransactions];
             combinedTransactionIdCounter = Math.max(...combinedTransactions.map(t => t.id)) + 1;
-            
+
             // Load combined transaction name and category
             const combinedNameField = document.getElementById('combined-transaction-name');
             const combinedCategoryField = document.getElementById('combined-transaction-category');
@@ -2525,15 +2525,15 @@ function openModal(record = null) {
         recordFormatTypeSelect.value = 'single';
         updateCategoryDropdowns();
     }
-    
+
     toggleRecordFormat();
     toggleItemField();
-    
+
     // Render combined transactions if applicable
     if (recordFormatTypeSelect.value === 'combined') {
         renderCombinedTransactions();
     }
-    
+
     recordModal.classList.add('active');
 }
 
@@ -2543,27 +2543,27 @@ function closeModal() {
 
 async function handleRecordSubmit(e) {
     e.preventDefault();
-    
+
     // Check if required elements exist
     if (!recordFormatTypeSelect) {
         console.error('recordFormatTypeSelect not found');
         showToast('Error: recordFormatTypeSelect not found', 'error');
         return;
     }
-    
+
     const id = document.getElementById('record-id').value;
     const formatType = recordFormatTypeSelect.value;
     const savingsAccountId = document.getElementById('record-savings-account')?.value || '';
     const date = document.getElementById('record-date')?.value || '';
     const notes = document.getElementById('record-notes')?.value || '';
-    
+
     if (formatType === 'combined') {
         // Handle combined transactions
         if (combinedTransactions.length === 0) {
             showToast('Please add at least one transaction to the combined record.', 'warning');
             return;
         }
-        
+
         // Validate all combined transactions - be more lenient
         let hasValidTransaction = false;
         for (const transaction of combinedTransactions) {
@@ -2572,39 +2572,39 @@ async function handleRecordSubmit(e) {
                 break;
             }
         }
-        
+
         if (!hasValidTransaction) {
             showToast('Please fill in category and a valid amount for at least one transaction.', 'warning');
             return;
         }
-        
+
         // Filter out invalid transactions
-        const validTransactions = combinedTransactions.filter(t => 
+        const validTransactions = combinedTransactions.filter(t =>
             t.category && t.amount && parseFloat(t.amount) > 0
         );
-        
+
         // Create main record
         let totalIncome = 0;
         let totalSpending = 0;
-        
+
         validTransactions.forEach(t => {
             const amount = parseFloat(t.amount) || 0;
             const quantity = parseInt(t.quantity) || 1;
             const totalAmount = amount * quantity;
-            
+
             if (t.type === 'income') {
                 totalIncome += totalAmount;
             } else {
                 totalSpending += totalAmount;
             }
         });
-        
+
         const netAmount = totalIncome - totalSpending;
-        
+
         // Get combined transaction name and category
         const combinedTransactionName = document.getElementById('combined-transaction-name')?.value || '';
         const combinedTransactionCategory = 'Combined'; // Forced category for combined transactions
-        
+
         const data = {
             formatType: 'combined',
             type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
@@ -2622,7 +2622,7 @@ async function handleRecordSubmit(e) {
             isSavingsTransfer: savingsAccountId ? true : false,
             savingsTransactionType: savingsAccountId ? 'mixed' : null
         };
-        
+
         try {
             let recordId;
             if (id) {
@@ -2632,7 +2632,7 @@ async function handleRecordSubmit(e) {
             } else {
                 recordId = await add(STORE_RECORDS, data);
             }
-            
+
             // Update savings account for each transaction
             if (savingsAccountId) {
                 await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId, recordId);
@@ -2640,23 +2640,23 @@ async function handleRecordSubmit(e) {
                 // Handle individual savings accounts for each transaction
                 await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date, recordId);
             }
-            
+
         } catch (error) {
             console.error('Error saving combined transaction:', error);
             showToast('Error saving combined transaction: ' + error.message, 'error');
             return;
         }
-        
+
     } else {
         // Handle single transaction
         const type = recordTypeSelect?.value || 'spending';
         const amount = parseFloat(document.getElementById('record-amount')?.value || 0);
-        
+
         if (amount <= 0) {
             showToast('Please enter a valid amount.', 'warning');
             return;
         }
-        
+
         const data = {
             formatType: 'single',
             type: type,
@@ -2682,7 +2682,7 @@ async function handleRecordSubmit(e) {
             } else {
                 recordId = await add(STORE_RECORDS, data);
             }
-            
+
             // Update savings account if selected
             if (savingsAccountId) {
                 await updateSavingsAccountForSingleTransaction(data, savingsAccountId, recordId);
@@ -2701,7 +2701,7 @@ async function handleRecordSubmit(e) {
 async function updateSavingsAccountForSingleTransaction(record, accountId, linkedRecordId) {
     const account = savingsAccounts.find(acc => acc.id === parseInt(accountId));
     if (!account) return;
-    
+
     const transactionType = record.type === 'income' ? 'deposit' : 'withdrawal';
     const transaction = {
         accountId: parseInt(accountId),
@@ -2711,9 +2711,9 @@ async function updateSavingsAccountForSingleTransaction(record, accountId, linke
         notes: `${record.type === 'income' ? 'Income' : 'Spending'}: ${record.category}${record.item ? ' - ' + record.item : ''}`,
         linkedRecordId: linkedRecordId
     };
-    
+
     await add(STORE_SAVINGS_TRANSACTIONS, transaction);
-    
+
     // Note: The record is already marked as savings transfer in the main data object
     // So we don't need to update it again here
 }
@@ -2729,10 +2729,10 @@ async function updateSavingsAccountForCombinedTransactions(transactions, date, a
             notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`,
             linkedRecordId: linkedRecordId
         };
-        
+
         await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
     }
-    
+
     // Note: The main record is already marked as savings transfer in the main data object
     // So we don't need to update it again here
 }
@@ -2749,7 +2749,7 @@ async function updateSavingsAccountForCombinedTransactionsIndividual(transaction
                 notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`,
                 linkedRecordId: linkedRecordId
             };
-            
+
             await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
         }
     }
@@ -2767,7 +2767,7 @@ async function deleteRecord(id) {
         for (const tx of linkedSavings) {
             await remove(STORE_SAVINGS_TRANSACTIONS, tx.id);
         }
-        
+
         await remove(STORE_RECORDS, id);
         await refreshData();
     }
@@ -2848,10 +2848,10 @@ function openDetailsModal(record) {
                     <div style="grid-column: 1 / -1; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
                         <div style="font-weight: 600; margin-bottom: 0.25rem; color: #6b7280; font-size: 0.85rem;">Breakdown:</div>
                         ${record.combinedTransactions.map((transaction, index) => {
-                            const amount = parseFloat(transaction.amount) || 0;
-                            const quantity = parseInt(transaction.quantity) || 1;
-                            const totalAmount = amount * quantity;
-                            return `
+        const amount = parseFloat(transaction.amount) || 0;
+        const quantity = parseInt(transaction.quantity) || 1;
+        const totalAmount = amount * quantity;
+        return `
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; font-size: 0.8rem; margin-bottom: 0.25rem;">
                                 <div style="color: ${transaction.type === 'income' ? '#059669' : '#dc2626'};">
                                     ${transaction.item || transaction.category} ${transaction.quantity && transaction.quantity !== '1' ? `(${transaction.quantity})` : ''}:
@@ -2861,7 +2861,7 @@ function openDetailsModal(record) {
                                 </div>
                             </div>
                             `;
-                        }).join('')}
+    }).join('')}
                     </div>
                     ` : ''}
                 </div>
@@ -2915,11 +2915,11 @@ function openDetailsModal(record) {
             <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                 <h4 style="margin-bottom: 1rem; color: var(--primary-color);">📦 Combined Transactions Details</h4>
                 ${record.combinedTransactions.map((transaction, index) => {
-                    const savingsAccount = transaction.savingsAccountId ? 
-                        savingsAccounts.find(acc => acc.id === parseInt(transaction.savingsAccountId))?.name || 'Unknown' : 
-                        'None';
-                    
-                    return `
+            const savingsAccount = transaction.savingsAccountId ?
+                savingsAccounts.find(acc => acc.id === parseInt(transaction.savingsAccountId))?.name || 'Unknown' :
+                'None';
+
+            return `
                     <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 0.75rem;">
                         <div style="font-weight: 600; margin-bottom: 0.5rem; color: var(--primary-color);">
                             Transaction #${index + 1}
@@ -2935,7 +2935,7 @@ function openDetailsModal(record) {
                         </div>
                     </div>
                 `;
-                }).join('')}
+        }).join('')}
             </div>
         `;
     }
@@ -2956,16 +2956,16 @@ function compareStringsAlphabetically(a, b) {
     // Check if strings contain Arabic characters
     const isArabicA = /[\u0600-\u06FF]/.test(a);
     const isArabicB = /[\u0600-\u06FF]/.test(b);
-    
+
     // If one is Arabic and one is not, prioritize non-Arabic first
     if (isArabicA && !isArabicB) return 1;
     if (!isArabicA && isArabicB) return -1;
-    
+
     // If both are Arabic, use localeCompare with Arabic locale
     if (isArabicA && isArabicB) {
         return a.localeCompare(b, 'ar', { numeric: true, sensitivity: 'base' });
     }
-    
+
     // If neither are Arabic, use standard comparison
     return a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' });
 }
@@ -2973,10 +2973,10 @@ function compareStringsAlphabetically(a, b) {
 // Category Edit Functions
 function openCategoryEditModal(category) {
     if (!categoryEditModal || !editCategoryIdInput || !editCategoryNameInput || !editCategoryTypeSelect) return;
-    
+
     const editTargetTypeInput = document.getElementById('edit-target-type');
     if (editTargetTypeInput) editTargetTypeInput.value = 'category';
-    
+
     editCategoryIdInput.value = category.id;
     editCategoryNameInput.value = category.name;
     editCategoryTypeSelect.value = category.type;
@@ -2987,14 +2987,14 @@ function openCategoryEditModal(category) {
 function closeCategoryEditModal() {
     if (categoryEditModal) {
         categoryEditModal.classList.remove('active');
-        
+
         // Reset person edit modal state
         const modalTitle = categoryEditModal.querySelector('h2');
         if (modalTitle) modalTitle.textContent = 'Edit Category';
-        
+
         const nameLabel = editCategoryNameInput.parentElement.querySelector('label');
         if (nameLabel) nameLabel.textContent = 'Category Name';
-        
+
         // Show type select and label again
         const typeContainer = editCategoryTypeSelect.parentElement;
         const typeLabel = typeContainer.querySelector('label');
@@ -3015,39 +3015,39 @@ async function handleEditSubmit(e) {
 
 async function handleCategoryEdit(e) {
     e.preventDefault();
-    
+
     const id = parseInt(editCategoryIdInput.value);
     const name = editCategoryNameInput.value.trim();
     const type = editCategoryTypeSelect.value;
-    
+
     if (!name) {
         showToast('Please enter a category name', 'warning');
         return;
     }
-    
+
     try {
         // Get the old category before updating
         const oldCategory = categories.find(c => c.id === id);
-        
+
         // Update the category
         await updateRecord(STORE_CATEGORIES, { id, name, type });
-        
+
         // Update all records that reference the old category name
         if (oldCategory && oldCategory.name !== name) {
             // Update regular records
             const recordsToUpdate = records.filter(r => r.category === oldCategory.name);
             for (const record of recordsToUpdate) {
-                await updateRecord(STORE_RECORDS, { 
-                    ...record, 
-                    category: name 
+                await updateRecord(STORE_RECORDS, {
+                    ...record,
+                    category: name
                 });
             }
-            
+
             // Update combined transactions
-            const combinedRecordsToUpdate = records.filter(r => 
+            const combinedRecordsToUpdate = records.filter(r =>
                 r.formatType === 'combined' && r.combinedTransactions
             );
-            
+
             for (const record of combinedRecordsToUpdate) {
                 let updated = false;
                 // Update combined transaction categories
@@ -3058,24 +3058,24 @@ async function handleCategoryEdit(e) {
                     }
                     return ct;
                 });
-                
+
                 let parentUpdated = false;
                 let updatedParentCategory = record.category;
                 if (record.category === oldCategory.name) {
                     updatedParentCategory = name;
                     parentUpdated = true;
                 }
-                
+
                 if (updated || parentUpdated) {
-                    await updateRecord(STORE_RECORDS, { 
-                        ...record, 
+                    await updateRecord(STORE_RECORDS, {
+                        ...record,
                         category: updatedParentCategory,
-                        combinedTransactions: updatedCombinedTransactions 
+                        combinedTransactions: updatedCombinedTransactions
                     });
                 }
             }
         }
-        
+
         closeCategoryEditModal();
         await refreshData();
     } catch (error) {
@@ -3095,10 +3095,10 @@ async function editCategory(id) {
 function openPersonEditModal(person) {
     // Reuse the category edit modal for person editing
     if (!categoryEditModal || !editCategoryIdInput || !editCategoryNameInput) return;
-    
+
     const editTargetTypeInput = document.getElementById('edit-target-type');
     if (editTargetTypeInput) editTargetTypeInput.value = 'person';
-    
+
     editCategoryIdInput.value = person.id;
     editCategoryNameInput.value = person.name;
     // Hide type select for people (they don't have types)
@@ -3106,52 +3106,52 @@ function openPersonEditModal(person) {
     const typeLabel = typeContainer.querySelector('label');
     if (typeLabel) typeLabel.style.display = 'none';
     editCategoryTypeSelect.style.display = 'none';
-    
+
     // Update modal title
     const modalTitle = categoryEditModal.querySelector('h2');
     if (modalTitle) modalTitle.textContent = 'Edit Person';
 
     const nameLabel = editCategoryNameInput.parentElement.querySelector('label');
     if (nameLabel) nameLabel.textContent = 'Person Name';
-    
+
     categoryEditModal.classList.add('active');
     editCategoryNameInput.focus();
 }
 
 async function handlePersonEdit(e) {
     e.preventDefault();
-    
+
     const id = parseInt(editCategoryIdInput.value);
     const name = editCategoryNameInput.value.trim();
-    
+
     if (!name) {
         showToast('Please enter a person name', 'warning');
         return;
     }
-    
+
     try {
         // Get the old person before updating
         const oldPerson = people.find(p => p.id === id);
-        
+
         // Update the person
         await updateRecord(STORE_PEOPLE, { id, name });
-        
+
         // Update all records that reference the old person name
         if (oldPerson && oldPerson.name !== name) {
             // Update regular records
             const recordsToUpdate = records.filter(r => r.person === oldPerson.name);
             for (const record of recordsToUpdate) {
-                await updateRecord(STORE_RECORDS, { 
-                    ...record, 
-                    person: name 
+                await updateRecord(STORE_RECORDS, {
+                    ...record,
+                    person: name
                 });
             }
-            
+
             // Update combined transactions
-            const combinedRecordsToUpdate = records.filter(r => 
+            const combinedRecordsToUpdate = records.filter(r =>
                 r.formatType === 'combined' && r.combinedTransactions
             );
-            
+
             for (const record of combinedRecordsToUpdate) {
                 let updated = false;
                 const updatedCombinedTransactions = record.combinedTransactions.map(ct => {
@@ -3161,24 +3161,24 @@ async function handlePersonEdit(e) {
                     }
                     return ct;
                 });
-                
+
                 let parentUpdated = false;
                 let updatedParentPerson = record.person;
                 if (record.person === oldPerson.name) {
                     updatedParentPerson = name;
                     parentUpdated = true;
                 }
-                
+
                 if (updated || parentUpdated) {
-                    await updateRecord(STORE_RECORDS, { 
-                        ...record, 
+                    await updateRecord(STORE_RECORDS, {
+                        ...record,
                         person: updatedParentPerson,
-                        combinedTransactions: updatedCombinedTransactions 
+                        combinedTransactions: updatedCombinedTransactions
                     });
                 }
             }
         }
-        
+
         closeCategoryEditModal();
         await refreshData();
     } catch (error) {
@@ -3206,7 +3206,7 @@ function renderSettings() {
         const sortedCategories = [...categories].sort((a, b) => {
             return compareStringsAlphabetically(a.name, b.name);
         });
-        
+
         const visibleCategories = categoriesExpanded ? sortedCategories : sortedCategories.slice(0, categoriesVisible);
         visibleCategories.forEach(cat => {
             const div = document.createElement('div');
@@ -3249,7 +3249,7 @@ function renderSettings() {
             const sortedPeople = [...people].sort((a, b) => {
                 return compareStringsAlphabetically(a.name, b.name);
             });
-            
+
             const visiblePeople = peopleExpanded ? sortedPeople : sortedPeople.slice(0, peopleVisible);
             visiblePeople.forEach(person => {
                 const div = document.createElement('div');
@@ -3341,7 +3341,7 @@ function toggleChartCategoriesVisibility() {
     if (btn) {
         btn.textContent = chartCategoriesExpanded ? 'Show Less' : 'Show More';
     }
-    
+
     // Adjust chart container height based on expansion state
     const chartContainer = document.querySelector('#categoryChart').closest('.chart-container');
     if (chartContainer) {
@@ -3354,13 +3354,13 @@ function toggleChartCategoriesVisibility() {
                 const recordDate = new Date(r.date);
                 return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
             });
-            
+
             const spendingByCategory = {};
             const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
             spendingRecords.forEach(r => {
                 spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
             });
-            
+
             const categoryCount = Object.keys(spendingByCategory).length;
             // Base height + extra height for legend items (approximately 25px per legend item)
             const neededHeight = Math.max(300, 250 + (categoryCount * 25));
@@ -3370,7 +3370,7 @@ function toggleChartCategoriesVisibility() {
             chartContainer.style.height = '300px';
         }
     }
-    
+
     // Re-render charts with updated visibility
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
@@ -3515,31 +3515,31 @@ async function handleSelectiveReset() {
     const resetSavings = document.getElementById('reset-savings')?.checked || false;
     const resetCategories = document.getElementById('reset-categories')?.checked || false;
     const resetPeople = document.getElementById('reset-people')?.checked || false;
-    
+
     // Validate at least one option is selected
     if (!resetRecords && !resetSavings && !resetCategories && !resetPeople) {
         showToast('Please select at least one type of data to reset.', 'warning');
         return;
     }
-    
+
     // Validate period dates if period is selected
     let startDate = null;
     let endDate = null;
     if (resetType === 'period') {
         startDate = new Date(document.getElementById('period-start').value);
         endDate = new Date(document.getElementById('period-end').value);
-        
+
         if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             showToast('Please select valid start and end dates for the custom period.', 'warning');
             return;
         }
-        
+
         if (startDate > endDate) {
             showToast('Start date must be before end date.');
             return;
         }
     }
-    
+
     // Create confirmation message
     let confirmMessage = 'Are you sure you want to reset the following data:\n\n';
     if (resetRecords) {
@@ -3554,13 +3554,13 @@ async function handleSelectiveReset() {
     if (resetPeople) {
         confirmMessage += '• People\n';
     }
-    
+
     confirmMessage += '\nThis action cannot be undone.';
-    
+
     if (!(await showConfirm(confirmMessage))) {
         return;
     }
-    
+
     try {
         const result = await selectiveReset({
             resetType,
@@ -3571,9 +3571,9 @@ async function handleSelectiveReset() {
             resetCategories,
             resetPeople
         });
-        
+
         await refreshData();
-        
+
         // Create success message
         let successMessage = 'Data reset complete!\n\n';
         if (result.recordsDeleted > 0) {
@@ -3588,7 +3588,7 @@ async function handleSelectiveReset() {
         if (resetPeople) {
             successMessage += '• All people data cleared\n';
         }
-        
+
         showToast(successMessage, 'success');
     } catch (error) {
         console.error('Reset error:', error);
@@ -3636,7 +3636,7 @@ async function collectAR(id) {
         r.collected = true;
         r.collectedDate = collectedDate;
     });
-    
+
     try {
         for (const r of group) {
             await updateRecord(STORE_RECORDS, r);
@@ -3658,7 +3658,7 @@ async function undoCollectAR(id) {
         r.collected = false;
         delete r.collectedDate;
     });
-    
+
     try {
         for (const r of group) {
             await updateRecord(STORE_RECORDS, r);
@@ -3691,7 +3691,7 @@ function togglePrivacyMode() {
     document.body.classList.toggle('privacy-mode', isPrivacyMode);
     localStorage.setItem('floosy_privacy_mode', isPrivacyMode);
     updatePrivacyIcon();
-    
+
     showToast(isPrivacyMode ? 'Privacy Mode Enabled' : 'Privacy Mode Disabled', 'info');
 }
 
