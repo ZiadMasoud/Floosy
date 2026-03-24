@@ -651,6 +651,107 @@ body.privacy-mode .chart-container canvas {
     }
 }
 
+/* Mobile filter panel modal behavior */
+@media (max-width: 480px) {
+    .filter-panel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 950;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        padding: 0 0 16px 0;
+        overflow: hidden;
+    }
+    
+    .filter-panel.active {
+        display: flex !important;
+    }
+    
+    .filter-panel .filter-controls-group {
+        width: 100%;
+        max-height: 80vh;
+        margin: 0 12px;
+        border-radius: var(--radius);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        animation: slideUp 0.3s ease-out;
+        padding: 1rem 1.25rem 1.25rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+    
+    @keyframes slideUp {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    /* Close button for mobile filter */
+    .filter-panel .filter-controls-group::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        background: var(--border-color);
+        border-radius: 2px;
+        margin: 0 auto 0.75rem;
+        flex-shrink: 0;
+    }
+    
+    .filter-panel .filter-group {
+        width: 100%;
+        min-width: 0;
+        flex: 0 0 auto;
+    }
+    
+    .filter-panel .filter-group select,
+    .filter-panel .filter-group input {
+        width: 100%;
+        min-width: 0;
+    }
+    
+    /* Clear button distinct styling */
+    .filter-panel #clear-filters,
+    .filter-panel #analytics-clear-filters {
+        background: #f8fafc;
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        margin-top: 0.5rem;
+        flex-shrink: 0;
+    }
+    
+    .filter-panel #clear-filters:hover,
+    .filter-panel #analytics-clear-filters:hover {
+        background: #f1f5f9;
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+    }
+    
+    /* Body scroll lock when filter is open */
+    body.filter-open {
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
+}
+
 /* Add Transaction modal layout (better sticky header/footer UX) */
 #record-modal .modal-content {
     display: flex;
@@ -1484,6 +1585,26 @@ tr:last-child td {
     align-items: center;
     padding: 0.75rem 0;
     border-bottom: 1px solid var(--border-color);
+}
+
+/* Full width balance calculation section in details modal */
+.detail-row[style*="background: #f8fafc"] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    margin: 0.5rem 0;
+}
+
+.detail-row[style*="background: #f8fafc"] .detail-label,
+.detail-row[style*="background: #f8fafc"] .detail-value {
+    max-width: 100%;
+    text-align: left;
+}
+
+.detail-row[style*="background: #f8fafc"] > div[style*="display: grid"] {
+    width: 100%;
 }
 
 .detail-row:last-child {
@@ -2471,7 +2592,18 @@ tr:last-child td {
         align-items: stretch;
         gap: 0.75rem;
         padding: 0.75rem;
-        overflow-x: visible;
+        overflow-x: hidden;
+        overflow-y: visible;
+        margin-bottom: 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    #analytics .filter-panel .filter-controls-group {
+        margin: 0 12px 16px;
+        padding: 1rem 1.25rem 1.25rem;
+        overflow-x: hidden;
+        max-width: calc(100% - 24px);
     }
     
     #analytics .filter-group {
@@ -2494,6 +2626,7 @@ tr:last-child td {
         justify-content: center;
         height: 40px;
         font-size: 0.875rem;
+        margin-top: 0.5rem;
     }
 
     .savings-card {

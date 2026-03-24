@@ -272,10 +272,52 @@ function initEventListeners() {
 
     function togglePanel(panelEl, controlsEl) {
         if (!panelEl || !controlsEl) return;
-        const isVisible = controlsEl.style.display !== 'none';
-        controlsEl.style.display = isVisible ? 'none' : 'flex';
-        panelEl.style.display = isVisible ? 'none' : 'block';
+        const isMobile = window.innerWidth <= 480;
+        const isVisible = isMobile ? panelEl.classList.contains('active') : controlsEl.style.display !== 'none';
+        
+        if (isMobile) {
+            // Mobile: use class-based toggle with body scroll lock
+            if (isVisible) {
+                panelEl.classList.remove('active');
+                document.body.classList.remove('filter-open');
+            } else {
+                panelEl.classList.add('active');
+                document.body.classList.add('filter-open');
+            }
+            // Keep controls visible when panel is active on mobile
+            controlsEl.style.display = isVisible ? 'none' : 'flex';
+        } else {
+            // Desktop: use display toggle
+            controlsEl.style.display = isVisible ? 'none' : 'flex';
+            panelEl.style.display = isVisible ? 'none' : 'block';
+        }
     }
+
+    // Close filter panel when clicking outside on mobile
+    const closeFilterOnBackdropClick = (e) => {
+        const isMobile = window.innerWidth <= 480;
+        if (!isMobile) return;
+        
+        const recordsPanel = document.getElementById('records-filter-panel');
+        const analyticsPanel = document.getElementById('analytics-filter-panel');
+        const recordsControls = document.getElementById('records-filter-controls');
+        const analyticsControls = document.getElementById('analytics-filter-controls');
+        
+        if (e.target === recordsPanel && recordsPanel?.classList.contains('active')) {
+            recordsPanel.classList.remove('active');
+            if (recordsControls) recordsControls.style.display = 'none';
+            document.body.classList.remove('filter-open');
+            headerFiltersBtn?.classList.remove('active');
+        }
+        if (e.target === analyticsPanel && analyticsPanel?.classList.contains('active')) {
+            analyticsPanel.classList.remove('active');
+            if (analyticsControls) analyticsControls.style.display = 'none';
+            document.body.classList.remove('filter-open');
+            headerFiltersBtn?.classList.remove('active');
+        }
+    };
+    
+    window.addEventListener('click', closeFilterOnBackdropClick);
 
     // Header Filters button (next to month)
     const headerFiltersBtn = document.getElementById('header-filters-btn');
@@ -979,8 +1021,14 @@ function switchTab(tabId) {
     ];
     idsToHide.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) {
+            el.style.display = 'none';
+            el.classList?.remove('active');
+        }
     });
+    
+    // Remove body scroll lock class when switching tabs
+    document.body.classList.remove('filter-open');
 
     renderAll();
 }
@@ -1790,7 +1838,161 @@ function renderAnalytics() {
     } else {
         renderMonthlyTrendChart(monthlyStats, { mode: 'monthly' });
     }
+    // Render filter-specific KPIs
+    renderFilterKPIs(filteredRecords, filterCategory, filterPerson);
+
     renderPersonChart(filteredRecords);
+}
+
+// Render filter-specific KPIs for analytics
+function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
+    const kpiContainer = document.getElementById('filter-kpi-container');
+    const kpiCard = document.getElementById('analytics-filter-kpis');
+    if (!kpiContainer || !kpiCard) return;
+
+    // Always show KPIs
+    kpiCard.style.display = 'block';
+
+    // Calculate totals for filtered category
+    let categoryIncome = 0;
+    let categorySpending = 0;
+    let topCategory = { name: 'N/A', amount: 0 };
+    const categoryTotals = {};
+
+    // Calculate totals for filtered person
+    let personIncome = 0;
+    let personSpending = 0;
+    let topPerson = { name: 'N/A', amount: 0 };
+    const personTotals = {};
+
+    filteredRecords.forEach(r => {
+        const amount = parseFloat(r.amount) || 0;
+        const isSavings = !!r.isSavingsTransfer;
+
+        // Category calculations
+        if (r.category) {
+            if (!categoryTotals[r.category]) {
+                categoryTotals[r.category] = { income: 0, spending: 0 };
+            }
+            if (r.type === 'income' && !isSavings) {
+                categoryTotals[r.category].income += amount;
+                if (filterCategory && r.category === filterCategory) {
+                    categoryIncome += amount;
+                }
+            } else if ((r.type === 'spending' || (r.type === 'account_receivable' && !r.collected)) && !isSavings) {
+                categoryTotals[r.category].spending += amount;
+                if (filterCategory && r.category === filterCategory) {
+                    categorySpending += amount;
+                }
+            }
+        }
+
+        // Person calculations
+        if (r.person) {
+            if (!personTotals[r.person]) {
+                personTotals[r.person] = { income: 0, spending: 0 };
+            }
+            if (r.type === 'income' && !isSavings) {
+                personTotals[r.person].income += amount;
+                if (filterPerson && r.person === filterPerson) {
+                    personIncome += amount;
+                }
+            } else if ((r.type === 'spending' || (r.type === 'account_receivable' && !r.collected)) && !isSavings) {
+                personTotals[r.person].spending += amount;
+                if (filterPerson && r.person === filterPerson) {
+                    personSpending += amount;
+                }
+            }
+        }
+    });
+
+    // Find top spending category and person
+    let maxCategorySpending = 0;
+    for (const [cat, totals] of Object.entries(categoryTotals)) {
+        if (totals.spending > maxCategorySpending) {
+            maxCategorySpending = totals.spending;
+            topCategory = { name: cat, amount: totals.spending };
+        }
+    }
+
+    let maxPersonSpending = 0;
+    for (const [person, totals] of Object.entries(personTotals)) {
+        if (totals.spending > maxPersonSpending) {
+            maxPersonSpending = totals.spending;
+            topPerson = { name: person, amount: totals.spending };
+        }
+    }
+
+    // Build KPI HTML
+    let kpiHTML = '';
+
+    // Filtered Category KPI
+    if (filterCategory) {
+        const catTotal = categoryIncome - categorySpending;
+        const catType = catTotal >= 0 ? 'income' : 'spending';
+        kpiHTML += `
+            <div class="kpi-card ${catType}">
+                <div class="kpi-icon"><i class="fas fa-tag"></i></div>
+                <div class="kpi-details">
+                    <h3>${filterCategory}</h3>
+                    <p>${catTotal >= 0 ? '+' : ''}$${formatCurrency(Math.abs(catTotal))}</p>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">
+                        ${categoryIncome > 0 ? `Income: $${formatCurrency(categoryIncome)}` : ''}
+                        ${categorySpending > 0 ? `Spending: $${formatCurrency(categorySpending)}` : ''}
+                    </small>
+                </div>
+            </div>
+        `;
+    }
+
+    // Filtered Person KPI
+    if (filterPerson) {
+        const personTotal = personIncome - personSpending;
+        const personType = personTotal >= 0 ? 'income' : 'spending';
+        kpiHTML += `
+            <div class="kpi-card ${personType}">
+                <div class="kpi-icon"><i class="fas fa-user"></i></div>
+                <div class="kpi-details">
+                    <h3>${filterPerson}</h3>
+                    <p>${personTotal >= 0 ? '+' : ''}$${formatCurrency(Math.abs(personTotal))}</p>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">
+                        ${personIncome > 0 ? `Income: $${formatCurrency(personIncome)}` : ''}
+                        ${personSpending > 0 ? `Spending: $${formatCurrency(personSpending)}` : ''}
+                    </small>
+                </div>
+            </div>
+        `;
+    }
+
+    // Top Category KPI (always show when filter is active)
+    if (topCategory.amount > 0) {
+        kpiHTML += `
+            <div class="kpi-card spending">
+                <div class="kpi-icon"><i class="fas fa-chart-pie"></i></div>
+                <div class="kpi-details">
+                    <h3>Top Category</h3>
+                    <p>$${formatCurrency(topCategory.amount)}</p>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">${topCategory.name}</small>
+                </div>
+            </div>
+        `;
+    }
+
+    // Top Person KPI (always show when filter is active)
+    if (topPerson.amount > 0) {
+        kpiHTML += `
+            <div class="kpi-card spending">
+                <div class="kpi-icon"><i class="fas fa-users"></i></div>
+                <div class="kpi-details">
+                    <h3>Top Person</h3>
+                    <p>$${formatCurrency(topPerson.amount)}</p>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">${topPerson.name}</small>
+                </div>
+            </div>
+        `;
+    }
+
+    kpiContainer.innerHTML = kpiHTML || '<p style="text-align:center; color: var(--text-muted);">No data available for selected filters</p>';
 }
 
 function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filteredRecordsForDaily = null) {
@@ -2078,7 +2280,26 @@ async function handleTransactionSubmit(e) {
         savingsTransactions.push(newTx);
     }
     closeTransactionModal();
-    savingsPage[accountId] = 0; // reset to first page so newest shows
+    
+    // Calculate which page the transaction would be on after sorting
+    // Reload transactions to include the new one
+    savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
+    const txs = savingsTransactions
+        .filter(t => t.accountId === accountId)
+        .sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
+    
+    // Find the index of the transaction we just added/edited
+    const targetId = id ? parseInt(id) : newId;
+    const txIndex = txs.findIndex(t => t.id === targetId);
+    
+    // Calculate which page this transaction is on
+    const perPage = 4;
+    if (txIndex !== -1) {
+        savingsPage[accountId] = Math.floor(txIndex / perPage);
+    } else {
+        savingsPage[accountId] = 0;
+    }
+    
     await refreshData();
 }
 
@@ -2117,7 +2338,7 @@ function renderSavings() {
             return t.type === 'withdrawal' && d.getMonth() === curMonth && d.getFullYear() === curYear;
         }).reduce((s, t) => s + t.amount, 0);
 
-        const perPage = 3;
+        const perPage = 4;
         const totalPages = Math.ceil(txs.length / perPage) || 1;
         let page = savingsPage[acc.id] || 0;
         // ensure current page is within bounds
@@ -2150,15 +2371,15 @@ function renderSavings() {
                 <div class="kpi-card month">
                     <div class="kpi-icon"><i class="fas fa-calendar-alt"></i></div>
                     <div class="kpi-details">
-                        <h4>Saved This Month</h4>
-                        <p>$${formatCurrency(monthDeposit - monthWithdraw)}</p>
+                        <h4>Deposits This Month</h4>
+                        <p>$${formatCurrency(monthDeposit)}</p>
                     </div>
                 </div>
                 <div class="kpi-card withdrawal">
                     <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
                     <div class="kpi-details">
-                        <h4>Total Withdrawn</h4>
-                        <p>$${formatCurrency(totalWithdraw)}</p>
+                        <h4>Withdrawn This Month</h4>
+                        <p>$${formatCurrency(monthWithdraw)}</p>
                     </div>
                 </div>
             </div>
@@ -2294,6 +2515,8 @@ function openModal(record = null) {
 
         updateCategoryDropdowns();
         recordCategory.value = record.category;
+        updatePersonDropdown();
+        recordPersonSelect.value = record.person || '';
     } else {
         modalTitle.textContent = 'Add Transaction';
         recordForm.reset();
@@ -3086,7 +3309,9 @@ function updateCategoryDropdowns() {
     // For account_receivable, use spending categories
     const categoryType = type === 'account_receivable' ? 'spending' : type;
     const filtered = categories.filter(c => c.type === categoryType);
+    const currentValue = recordCategorySelect.value;
     recordCategorySelect.innerHTML = filtered.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    recordCategorySelect.value = currentValue;
 }
 
 function updatePersonDropdown() {
