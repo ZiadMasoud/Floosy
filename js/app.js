@@ -1117,11 +1117,13 @@ function switchTab(tabId) {
     }
     const headerFiltersBtn = document.getElementById('header-filters-btn');
     const userInfo = document.querySelector('.user-info');
+    // Show floating user-info on analytics, savings, and settings only
+    const showUserInfoTabs = ['analytics', 'savings', 'settings'];
     if (userInfo) {
-        userInfo.style.display = tabId === 'dashboard' ? 'none' : 'flex';
+        userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
     }
     if (headerFiltersBtn) {
-        headerFiltersBtn.style.display = (tabId === 'records' || tabId === 'analytics') ? '' : 'none';
+        headerFiltersBtn.style.display = tabId === 'analytics' ? '' : 'none';
         headerFiltersBtn.classList.remove('active');
     }
 
