@@ -24,10 +24,6 @@
           <i class="fas fa-th-large"></i>
           <span>Dashboard</span>
         </li>
-        <li data-tab="records">
-          <i class="fas fa-list"></i>
-          <span>Records</span>
-        </li>
         <li data-tab="analytics">
           <i class="fas fa-chart-line"></i>
           <span>Analytics</span>
@@ -45,11 +41,11 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
-      <header>
+      <header style="display: none;">
         <h1 id="tab-title">Dashboard</h1>
         <div class="user-info">
           <span id="current-month-display">...</span>
-          <button id="header-filters-btn" title="Filters" class="btn-icon header-filters-btn" style="display: none;">
+          <button id="header-filters-btn" title="Filters" class="btn-icon header-filters-btn">
             <i class="fas fa-filter"></i>
           </button>
           <button id="privacy-toggle" title="Toggle Privacy Mode" class="btn-icon">
@@ -57,9 +53,43 @@
           </button>
         </div>
       </header>
-
       <!-- Dashboard Tab -->
       <section id="dashboard" class="tab-content active">
+
+        <!-- Mobile Summary Hero (Visible only on mobile) -->
+        <div class="mobile-summary-hero" id="mobile-hero">
+          <div class="hero-header">
+            <div class="hero-month-selector">
+              <span id="hero-month-display">April 2027</span>
+              <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+            </div>
+            <button id="hero-privacy-toggle" title="Toggle Privacy Mode" class="hero-eye-icon">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+
+          <div class="hero-metrics">
+            <div class="hero-metric-box">
+              <div class="hero-metric-label">Spent</div>
+              <div class="hero-metric-value" id="hero-spending"><span class="dollar-icon spending-icon">$</span><span class="amount-num">0.00</span></div>
+            </div>
+            <div class="hero-metric-divider"></div>
+            <div class="hero-metric-box">
+              <div class="hero-metric-label">Income</div>
+              <div class="hero-metric-value" id="hero-income"><span class="dollar-icon income-icon">$</span><span class="amount-num">0.00</span></div>
+            </div>
+          </div>
+
+          <div class="hero-this-month">
+            CURRENT BALANCE <span id="hero-this-month-val">$0.00</span>
+            <i class="fas fa-arrow-trend-down trend-down" id="hero-trend-icon"></i>
+          </div>
+
+          <div class="hero-ar" id="hero-ar-display" style="display: none;">
+            Accounts Receivable: <span class="dollar-icon ar-icon">$</span><span class="amount-num">0.00</span>
+          </div>
+        </div>
+
         <div class="kpi-container">
           <div class="kpi-card income">
             <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
@@ -91,133 +121,94 @@
           </div>
         </div>
 
-        <div class="charts-row">
-          <div class="card">
-            <h3>Spending by Category</h3>
-            <div class="chart-container">
-              <canvas id="categoryChart"></canvas>
+        <!-- Records Section integrated into Dashboard -->
+        <div class="records-section card">
+          <div class="records-header">
+            <div class="records-title-row">
+              <h3>Recent Transactions</h3>
+              <div class="records-actions">
+                <button class="btn-icon filter-btn" id="dashboard-filter-btn" title="Filter">
+                  <i class="fas fa-filter"></i>
+                </button>
+                <button class="btn btn-primary add-transaction-btn" id="add-record-btn">
+                  <i class="fas fa-plus"></i>
+                  <span>Add Transaction</span>
+                </button>
+              </div>
             </div>
-            <button class="btn btn-outline show-more-categories" id="show-more-chart-categories"
-              style="display: none; margin-top: 1rem; width: 100%">
-              Show More
-            </button>
           </div>
-          <div class="card">
-            <h3>Income vs Spending</h3>
-            <div class="chart-container">
-              <canvas id="trendChart"></canvas>
-            </div>
-          </div>
-        </div>
 
-        <div class="recent-records card">
-          <div class="card-header">
-            <h3>Recent Transactions</h3>
-            <button class="btn-text" id="view-all-records">View All</button>
+          <!-- Filter Panel for Dashboard -->
+          <div class="filter-panel" id="dashboard-filter-panel" style="display: none;">
+            <div class="filter-controls-group" id="dashboard-filter-controls" style="display: none;">
+              <div class="filter-group">
+                <label class="filter-label">Type:</label>
+                <select id="dashboard-filter-type" class="btn btn-outline">
+                  <option value="all">All</option>
+                  <option value="spending">Spending</option>
+                  <option value="income">Income</option>
+                  <option value="savings">Savings</option>
+                  <option value="account_receivable">Account Receivable</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Year:</label>
+                <select id="dashboard-filter-year" class="btn btn-outline">
+                  <option value="">All Years</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Month:</label>
+                <select id="dashboard-filter-month" class="btn btn-outline">
+                  <option value="">All Months</option>
+                  <option value="01">January</option>
+                  <option value="02">February</option>
+                  <option value="03">March</option>
+                  <option value="04">April</option>
+                  <option value="05">May</option>
+                  <option value="06">June</option>
+                  <option value="07">July</option>
+                  <option value="08">August</option>
+                  <option value="09">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Person:</label>
+                <select id="dashboard-filter-person" class="btn btn-outline">
+                  <option value="">All People</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Category:</label>
+                <select id="dashboard-filter-category" class="btn btn-outline">
+                  <option value="">All Categories</option>
+                </select>
+              </div>
+              <button class="btn btn-outline" id="dashboard-clear-filters">
+                <i class="fas fa-times"></i> Clear
+              </button>
+              <button class="btn btn-secondary filter-close-btn" id="dashboard-filter-close"
+                style="width: 100%; margin-top: 0.5rem;">
+                <i class="fas fa-times"></i> Close
+              </button>
+            </div>
           </div>
-          <div class="table-responsive">
-            <table id="recent-records-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Item</th>
-                  <th>Category</th>
-                  <th>Person</th>
-                  <th>Amount</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="recent-records-body">
-                <!-- Data will be injected here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
 
-      <!-- Records Tab -->
-      <section id="records" class="tab-content">
-        <button class="btn btn-primary fab fab-primary" id="add-record-btn" title="Add Transaction">
-          <i class="fas fa-plus"></i>
-          <span class="fab-label">Add Transaction</span>
-        </button>
-
-        <div class="filter-panel" id="records-filter-panel" style="display: none;">
-          <div class="filter-controls-group" id="records-filter-controls" style="display: none;">
-            <div class="filter-group">
-              <label class="filter-label">Type:</label>
-              <select id="filter-type" class="btn btn-outline">
-                <option value="all">All</option>
-                <option value="spending">Spending</option>
-                <option value="income">Income</option>
-                <option value="savings">Savings</option>
-                <option value="account_receivable">Account Receivable</option>
-              </select>
+          <!-- New Card-based Records List -->
+          <div id="dashboard-records-list" class="dashboard-records-list">
+            <!-- Records will be injected here as cards -->
+            <div class="empty-state">
+              <i class="fas fa-receipt"></i>
+              <p>No transactions yet</p>
+              <span>Your transactions will appear here. Tap the button above to add your first one!</span>
             </div>
-            <div class="filter-group">
-              <label class="filter-label">Year:</label>
-              <select id="filter-year" class="btn btn-outline">
-                <option value="">All Years</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label class="filter-label">Month:</label>
-              <select id="filter-month" class="btn btn-outline">
-                <option value="">All Months</option>
-                <option value="01">January</option>
-                <option value="02">February</option>
-                <option value="03">March</option>
-                <option value="04">April</option>
-                <option value="05">May</option>
-                <option value="06">June</option>
-                <option value="07">July</option>
-                <option value="08">August</option>
-                <option value="09">September</option>
-                <option value="10">October</option>
-                <option value="11">November</option>
-                <option value="12">December</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label class="filter-label">Person:</label>
-              <select id="filter-person" class="btn btn-outline">
-                <option value="">All People</option>
-              </select>
-            </div>
-            <div class="filter-group">
-              <label class="filter-label">Category:</label>
-              <select id="filter-category" class="btn btn-outline">
-                <option value="">All Categories</option>
-              </select>
-            </div>
-            <button class="btn btn-outline" id="clear-filters">
-              <i class="fas fa-times"></i> Clear
-            </button>
-          </div>
-        </div>
-
-        <div class="records-list card">
-          <div class="table-responsive">
-            <table id="records-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Item</th>
-                  <th>Category</th>
-                  <th>Person</th>
-                  <th>Amount</th>
-                  <th>Qty</th>
-                  <th>Notes</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="records-body">
-                <!-- Data will be injected here -->
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
+
 
       <!-- Analytics Tab -->
       <section id="analytics" class="tab-content">
@@ -272,14 +263,38 @@
             <button class="btn btn-outline" id="analytics-clear-filters">
               <i class="fas fa-times"></i> Clear
             </button>
+            <button class="btn btn-secondary filter-close-btn" id="analytics-filter-close"
+              style="width: 100%; margin-top: 0.5rem;">
+              <i class="fas fa-times"></i> Close
+            </button>
           </div>
         </div>
 
         <div class="card" id="analytics-filter-kpis"
           style="background: transparent; box-shadow: none; border: none; padding: 0;">
-          <h3 style="padding: 0 0.5rem;">Filter Insights</h3>
+          <h3 style="padding: 0 0.5rem;">Insights</h3>
           <div class="kpi-container" id="filter-kpi-container">
             <!-- Filter-specific KPIs will be injected here -->
+          </div>
+        </div>
+
+        <!-- Charts moved from Dashboard -->
+        <div class="charts-row">
+          <div class="card">
+            <h3>Spending by Category</h3>
+            <div class="chart-container">
+              <canvas id="categoryChart"></canvas>
+            </div>
+            <button class="btn btn-outline show-more-categories" id="show-more-chart-categories"
+              style="display: none; margin-top: 1rem; width: 100%">
+              Show More
+            </button>
+          </div>
+          <div class="card">
+            <h3>Income vs Spending</h3>
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
           </div>
         </div>
 
@@ -380,7 +395,7 @@
             <h3>Monthly Summary</h3>
             <p style="
                   color: var(--text-muted);
-                  margin-bottom: 1.5rem;
+                  margin-bottom: 0.75rem;
                   font-size: 0.875rem;
                 ">
               Generate and download a beautiful PDF summary of your monthly financial performance.
@@ -390,34 +405,33 @@
             <div class="monthly-summary-controls">
               <div class="form-row">
                 <div class="form-group">
-                  <label>Select Month</label>
-                  <select id="summary-month-select" class="btn btn-outline">
-                    <!-- Options will be populated dynamically -->
-                  </select>
+                  <label>Select Period</label>
+                  <div style="display: flex; gap: 0.6rem;">
+                    <select id="summary-month-select" class="btn btn-outline" style="flex: 1;">
+                      <!-- Options populated dynamically -->
+                    </select>
+                    <select id="summary-year-select" class="btn btn-outline" style="flex: 1;">
+                      <!-- Options populated dynamically -->
+                    </select>
+                  </div>
                 </div>
+
                 <div class="form-group">
-                  <label>Select Year</label>
-                  <select id="summary-year-select" class="btn btn-outline">
-                    <!-- Options will be populated dynamically -->
-                  </select>
-                </div>
-              </div>
-
-              <div class="summary-options" style="margin: 1.5rem 0;">
-                <div class="checkbox-group">
-
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="include-categories" checked>
-                    <span class="checkbox-text">Category Breakdown</span>
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="include-people" checked>
-                    <span class="checkbox-text">People Summary</span>
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="include-savings" checked>
-                    <span class="checkbox-text">Savings Overview</span>
-                  </label>
+                  <label>Summary Options</label>
+                  <div class="checkbox-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="include-categories" checked>
+                      <span class="checkbox-text">Categories</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="include-people" checked>
+                      <span class="checkbox-text">People</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="include-savings" checked>
+                      <span class="checkbox-text">Savings</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -431,7 +445,7 @@
             <h3>Data Management</h3>
             <p style="
                   color: var(--text-muted);
-                  margin-bottom: 1.5rem;
+                  margin-bottom: 0.75rem;
                   font-size: 0.875rem;
                 ">
               Export your data to a JSON file for backup or import it to
@@ -450,57 +464,58 @@
               </button>
             </div>
 
-            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Selective Data Reset</h3>
+            <h3 style="margin-top: 1rem; margin-bottom: 0.5rem;">Selective Data Reset</h3>
             <p style="
                   color: var(--text-muted);
-                  margin-bottom: 1.5rem;
+                  margin-bottom: 0.75rem;
                   font-size: 0.875rem;
                 ">
               Choose specific data to reset instead of clearing everything.
             </p>
 
             <div class="reset-options">
-              <div class="form-group">
-                <label>Reset Type</label>
-                <select id="reset-type" class="btn btn-outline" style="width: 100%">
-                  <option value="all">All Data</option>
-                  <option value="month">Current Month Only</option>
-                  <option value="period">Custom Period</option>
-                </select>
-              </div>
-
-              <div id="period-options" style="display: none;">
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>From Date</label>
-                    <input type="date" id="period-start" />
-                  </div>
-                  <div class="form-group">
-                    <label>To Date</label>
-                    <input type="date" id="period-end" />
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Reset Type</label>
+                  <select id="reset-type" class="btn btn-outline" style="width: 100%">
+                    <option value="all">All Data</option>
+                    <option value="month">Current Month Only</option>
+                    <option value="period">Custom Period</option>
+                  </select>
+                  <div id="period-options" style="display: none; margin-top: 1rem;">
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label>From Date</label>
+                        <input type="date" id="period-start" />
+                      </div>
+                      <div class="form-group">
+                        <label>To Date</label>
+                        <input type="date" id="period-end" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label>Data to Reset</label>
-                <div class="checkbox-group">
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="reset-records" checked>
-                    <span class="checkbox-text">Transaction Records</span>
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="reset-savings" checked>
-                    <span class="checkbox-text">Savings Data</span>
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="reset-categories">
-                    <span class="checkbox-text">Categories (will restore defaults)</span>
-                  </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="reset-people">
-                    <span class="checkbox-text">People</span>
-                  </label>
+                <div class="form-group">
+                  <label>Data to Reset</label>
+                  <div class="checkbox-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="reset-records" checked>
+                      <span class="checkbox-text">Records</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="reset-savings" checked>
+                      <span class="checkbox-text">Savings</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="reset-categories">
+                      <span class="checkbox-text">Categories</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="reset-people">
+                      <span class="checkbox-text">People</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 

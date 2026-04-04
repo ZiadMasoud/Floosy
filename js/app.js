@@ -90,7 +90,7 @@ let chartCategoriesExpanded = false;
 
 // Utility Notification Functions
 function showToast(message, type = 'info') {
-    let backgroundColor = "#3b82f6"; // default blue
+    let backgroundColor = "#355872"; // default navy
     if (type === 'error') backgroundColor = "#ef4444";
     if (type === 'success') backgroundColor = "#10b981";
     if (type === 'warning') backgroundColor = "#f59e0b";
@@ -210,6 +210,10 @@ function initEventListeners() {
     if (privacyToggle) {
         privacyToggle.addEventListener('click', togglePrivacyMode);
     }
+    const heroPrivacyToggle = document.getElementById('hero-privacy-toggle');
+    if (heroPrivacyToggle) {
+        heroPrivacyToggle.addEventListener('click', togglePrivacyMode);
+    }
 
     // Records
     addRecordBtn.addEventListener('click', () => openModal());
@@ -259,6 +263,89 @@ function initEventListeners() {
         });
     }
 
+    // Dashboard Filters
+    const dashboardFilterType = document.getElementById('dashboard-filter-type');
+    const dashboardFilterYear = document.getElementById('dashboard-filter-year');
+    const dashboardFilterMonth = document.getElementById('dashboard-filter-month');
+    const dashboardFilterPerson = document.getElementById('dashboard-filter-person');
+    const dashboardFilterCategory = document.getElementById('dashboard-filter-category');
+    const dashboardClearFiltersBtn = document.getElementById('dashboard-clear-filters');
+    const dashboardFilterBtn = document.getElementById('dashboard-filter-btn');
+    const dashboardFilterPanel = document.getElementById('dashboard-filter-panel');
+    const dashboardFilterControls = document.getElementById('dashboard-filter-controls');
+
+    if (dashboardFilterType) {
+        dashboardFilterType.addEventListener('change', () => {
+            renderDashboard();
+        });
+    }
+    if (dashboardFilterYear) {
+        dashboardFilterYear.addEventListener('change', () => {
+            renderDashboard();
+        });
+    }
+    if (dashboardFilterMonth) {
+        dashboardFilterMonth.addEventListener('change', () => {
+            renderDashboard();
+        });
+    }
+    if (dashboardFilterPerson) {
+        dashboardFilterPerson.addEventListener('change', () => {
+            renderDashboard();
+        });
+    }
+    if (dashboardFilterCategory) {
+        dashboardFilterCategory.addEventListener('change', () => {
+            renderDashboard();
+        });
+    }
+    if (dashboardClearFiltersBtn) {
+        dashboardClearFiltersBtn.addEventListener('click', () => {
+            if (dashboardFilterType) dashboardFilterType.value = 'all';
+            if (dashboardFilterYear) dashboardFilterYear.value = '';
+            if (dashboardFilterMonth) dashboardFilterMonth.value = '';
+            if (dashboardFilterPerson) dashboardFilterPerson.value = '';
+            if (dashboardFilterCategory) dashboardFilterCategory.value = '';
+            renderDashboard();
+        });
+    }
+
+    // Dashboard filter button toggle
+    if (dashboardFilterBtn && dashboardFilterPanel && dashboardFilterControls) {
+        dashboardFilterBtn.addEventListener('click', () => {
+            const isVisible = dashboardFilterPanel.style.display !== 'none';
+            dashboardFilterPanel.style.display = isVisible ? 'none' : 'block';
+            dashboardFilterControls.style.display = isVisible ? 'none' : 'flex';
+            dashboardFilterBtn.classList.toggle('active', !isVisible);
+        });
+
+        const dashboardFilterClose = document.getElementById('dashboard-filter-close');
+        if (dashboardFilterClose) {
+            dashboardFilterClose.addEventListener('click', () => {
+                const isMobile = window.innerWidth <= 480;
+                if (isMobile) {
+                    dashboardFilterPanel.classList.remove('active');
+                    document.body.classList.remove('filter-open');
+                }
+                dashboardFilterPanel.style.display = 'none';
+                dashboardFilterControls.style.display = 'none';
+                dashboardFilterBtn.classList.remove('active');
+            });
+        }
+    }
+
+    // Hero month selector click handler - open filter panel
+    const heroMonthSelector = document.querySelector('.hero-month-selector');
+    if (heroMonthSelector) {
+        heroMonthSelector.addEventListener('click', () => {
+            const dashboardFilterBtn = document.getElementById('dashboard-filter-btn');
+            if (dashboardFilterBtn) {
+                dashboardFilterBtn.click();
+            }
+        });
+    }
+
+    
     // Analytics Filters
     const analyticsFilterType = document.getElementById('analytics-filter-type');
     const analyticsFilterYear = document.getElementById('analytics-filter-year');
@@ -323,13 +410,27 @@ function initEventListeners() {
     const headerFiltersBtn = document.getElementById('header-filters-btn');
     if (headerFiltersBtn) {
         headerFiltersBtn.addEventListener('click', () => {
-            if (currentTab === 'records') togglePanel(recordsFilterPanel, recordsFilterControls);
+            if (currentTab === 'dashboard') togglePanel(dashboardFilterPanel, dashboardFilterControls);
             if (currentTab === 'analytics') togglePanel(analyticsFilterPanel, analyticsFilterControls);
 
             const isOpen =
-                (currentTab === 'records' && recordsFilterControls && recordsFilterControls.style.display !== 'none') ||
-                (currentTab === 'analytics' && analyticsFilterControls && analyticsFilterControls.style.display !== 'none');
-            headerFiltersBtn.classList.toggle('active', !!isOpen);
+                (currentTab === 'dashboard' && dashboardFilterPanel.style.display !== 'none') ||
+                (currentTab === 'analytics' && analyticsFilterPanel.style.display !== 'none');
+            headerFiltersBtn.classList.toggle('active', isOpen);
+        });
+    }
+
+    const analyticsFilterClose = document.getElementById('analytics-filter-close');
+    if (analyticsFilterClose) {
+        analyticsFilterClose.addEventListener('click', () => {
+            const isMobile = window.innerWidth <= 480;
+            if (isMobile) {
+                analyticsFilterPanel.classList.remove('active');
+                document.body.classList.remove('filter-open');
+            }
+            analyticsFilterPanel.style.display = 'none';
+            analyticsFilterControls.style.display = 'none';
+            headerFiltersBtn.classList.remove('active');
         });
     }
 
@@ -946,15 +1047,19 @@ function formatCurrency(amount) {
     return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function formatCurrencyNoDecimals(amount) {
+    return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 // Test function for monthly balance reset
 function testMonthlyBalanceReset() {
     // Create test records spanning multiple months
     const testRecords = [
-        { id: 1, date: '2026-02-15', type: 'income', amount: 1000, formatType: 'single' },
-        { id: 2, date: '2026-02-20', type: 'spending', amount: 200, formatType: 'single' },
-        { id: 3, date: '2026-03-01', type: 'income', amount: 500, formatType: 'single' },
-        { id: 4, date: '2026-03-05', type: 'spending', amount: 100, formatType: 'single' },
-        { id: 5, date: '2026-03-10', type: 'income', amount: 300, formatType: 'single' }
+        { id: 1, date: '2027-02-15', type: 'income', amount: 1000, formatType: 'single' },
+        { id: 2, date: '2027-02-20', type: 'spending', amount: 200, formatType: 'single' },
+        { id: 3, date: '2027-03-01', type: 'income', amount: 500, formatType: 'single' },
+        { id: 4, date: '2027-03-05', type: 'spending', amount: 100, formatType: 'single' },
+        { id: 5, date: '2027-03-10', type: 'income', amount: 300, formatType: 'single' }
     ];
 
     // Temporarily replace records with test data
@@ -962,15 +1067,15 @@ function testMonthlyBalanceReset() {
     records = testRecords;
 
     // Test February transaction (should have opening balance of 0)
-    const febBalance = calculateBalanceAtTransaction('2026-02-20', 2);
+    const febBalance = calculateBalanceAtTransaction('2027-02-20', 2);
     console.log('February transaction opening balance:', febBalance); // Should be 1000
 
     // Test March transaction (should have opening balance of 0, ignoring February)
-    const marchBalance = calculateBalanceAtTransaction('2026-03-05', 4);
+    const marchBalance = calculateBalanceAtTransaction('2027-03-05', 4);
     console.log('March transaction opening balance:', marchBalance); // Should be 500
 
     // Test later March transaction (should include earlier March transactions)
-    const lateMarchBalance = calculateBalanceAtTransaction('2026-03-10', 5);
+    const lateMarchBalance = calculateBalanceAtTransaction('2027-03-10', 5);
     console.log('Late March transaction opening balance:', lateMarchBalance); // Should be 500 + (-100) = 400
 
     // Restore original records
@@ -1006,7 +1111,15 @@ function switchTab(tabId) {
     });
     tabTitle.textContent = tabId.charAt(0).toUpperCase() + tabId.slice(1);
 
+    const header = document.querySelector('header');
+    if (header) {
+        header.classList.toggle('dashboard-header-hide', tabId === 'dashboard');
+    }
     const headerFiltersBtn = document.getElementById('header-filters-btn');
+    const userInfo = document.querySelector('.user-info');
+    if (userInfo) {
+        userInfo.style.display = tabId === 'dashboard' ? 'none' : 'flex';
+    }
     if (headerFiltersBtn) {
         headerFiltersBtn.style.display = (tabId === 'records' || tabId === 'analytics') ? '' : 'none';
         headerFiltersBtn.classList.remove('active');
@@ -1031,11 +1144,13 @@ function switchTab(tabId) {
     document.body.classList.remove('filter-open');
 
     renderAll();
+
+    // Scroll to top on tab switch
+    window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 function renderAll() {
     if (currentTab === 'dashboard') renderDashboard();
-    else if (currentTab === 'records') renderRecords();
     else if (currentTab === 'analytics') renderAnalytics();
     else if (currentTab === 'settings') renderSettings();
     else if (currentTab === 'savings') renderSavings();
@@ -1043,14 +1158,37 @@ function renderAll() {
 
 // Dashboard Functions
 function renderDashboard() {
+    // Get filter values
+    const filterType = document.getElementById('dashboard-filter-type')?.value || 'all';
+    const filterYearValue = document.getElementById('dashboard-filter-year')?.value;
+    const filterMonthValue = document.getElementById('dashboard-filter-month')?.value;
+    const filterPerson = document.getElementById('dashboard-filter-person')?.value;
+    const filterCategoryValue = document.getElementById('dashboard-filter-category')?.value;
+
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
+    // Default context is current month/year
+    const currentMonth = filterMonthValue ? (parseInt(filterMonthValue) - 1) : now.getMonth();
+    const currentYear = filterYearValue ? parseInt(filterYearValue) : now.getFullYear();
 
     const monthDisplay = document.getElementById('current-month-display');
-    if (monthDisplay) {
-        monthDisplay.textContent = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const heroMonthEl = document.getElementById('hero-month-display');
+
+    // Update labels to reflect filtered month/year
+    const displayDate = new Date(currentYear, currentMonth);
+    let displayLabel = "";
+    if (filterMonthValue && filterYearValue) {
+        displayLabel = displayDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    } else if (filterMonthValue) {
+        displayLabel = displayDate.toLocaleString('default', { month: 'long' });
+    } else if (filterYearValue) {
+        displayLabel = filterYearValue;
+    } else {
+        displayLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
     }
+
+    if (monthDisplay) monthDisplay.textContent = displayLabel;
+    if (heroMonthEl) heroMonthEl.textContent = displayLabel;
+
 
     // Process records to expand combined transactions for KPI calculations
     const expandedRecords = [];
@@ -1084,20 +1222,51 @@ function renderDashboard() {
         }
     });
 
-    const monthlyRecords = expandedRecords.filter(r => {
+    // Filter records for KPI calculation based on ALL active filters
+    const kpiFilteredRecords = expandedRecords.filter(r => {
+        const isSavings = !!r.isSavingsTransfer;
+
+        // Type filter
+        let typeMatch = true;
+        if (filterType !== 'all') {
+            if (filterType === 'savings') typeMatch = isSavings;
+            else if (filterType === 'spending') typeMatch = r.type === 'spending' && !isSavings;
+            else if (filterType === 'income') typeMatch = r.type === 'income' && !isSavings;
+            else if (filterType === 'account_receivable') typeMatch = r.type === 'account_receivable';
+        }
+
+        // Person/Category filters
+        const personMatch = !filterPerson || r.person === filterPerson;
+        let categoryMatch = !filterCategoryValue;
+        if (filterCategoryValue) {
+            const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
+            if (filterCategoryValue === 'all-income') {
+                categoryMatch = r.type === 'income' && !isSavings;
+            } else if (filterCategoryValue === 'all-spending') {
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
+            } else {
+                categoryMatch = catToMatch === filterCategoryValue;
+            }
+        }
+
         const d = new Date(r.date);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        const yearMatch = !filterYearValue || d.getFullYear().toString() === filterYearValue;
+        const monthMatch = !filterMonthValue || (d.getMonth() + 1).toString().padStart(2, '0') === filterMonthValue;
+
+        let isInPeriod = false;
+        if (!filterYearValue && !filterMonthValue) {
+            // Default: current month
+            isInPeriod = (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear());
+        } else {
+            // Filtered period
+            isInPeriod = yearMatch && monthMatch;
+        }
+
+        return typeMatch && isInPeriod && personMatch && categoryMatch;
     });
 
-    // Outstanding A/R should carry forward into the current month for visibility,
-    // but should NOT be re-applied to this month's spending.
-    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
-    const outstandingAR = expandedRecords.filter(r => {
-        if (r.type !== 'account_receivable' || r.collected) return false;
-        const d = new Date(r.date);
-        return d < startOfCurrentMonth;
-    });
-    const dashboardDisplayRecords = [...monthlyRecords, ...outstandingAR];
+    const monthlyRecords = kpiFilteredRecords;
+
 
     // Calculate income, spending, and balance with AR logic
     // Pending AR counts as spending (money deducted now)
@@ -1131,10 +1300,18 @@ function renderDashboard() {
 
     const balance = income - spending;
 
-    // Calculate Accounts Receivable (all outstanding A/R, regardless of month)
+    // Calculate Accounts Receivable (filter by selected person/category if applicable)
     const arPending = expandedRecords
-        .filter(r => r.type === 'account_receivable' && !r.collected)
+        .filter(r => {
+            if (r.type !== 'account_receivable' || r.collected) return false;
+
+            const personMatch = !filterPerson || r.person === filterPerson;
+            const categoryMatch = !filterCategoryValue || (r.isCombinedComponent ? r.actualCategory : r.category) === filterCategoryValue;
+
+            return personMatch && categoryMatch;
+        })
         .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+
 
     const incomeEl = document.getElementById('total-income');
     const spendingEl = document.getElementById('total-spending');
@@ -1146,82 +1323,367 @@ function renderDashboard() {
     if (balanceEl) balanceEl.textContent = `$${formatCurrency(balance)}`;
     if (arEl) arEl.textContent = `$${formatCurrency(arPending)}`;
 
-    renderRecentRecords(dashboardDisplayRecords);
-    renderCharts(monthlyRecords);
+    // Update Mobile Hero Metrics
+    // heroMonthEl update already handled above
+
+
+    const heroSpendingEl = document.getElementById('hero-spending');
+    const heroIncomeEl = document.getElementById('hero-income');
+    const heroThisMonthValEl = document.getElementById('hero-this-month-val');
+    const heroTrendIconEl = document.getElementById('hero-trend-icon');
+    const heroArDisplayEl = document.getElementById('hero-ar-display');
+
+    if (heroSpendingEl) heroSpendingEl.querySelector('.amount-num').textContent = formatCurrencyNoDecimals(spending);
+    if (heroIncomeEl) heroIncomeEl.querySelector('.amount-num').textContent = formatCurrencyNoDecimals(income);
+    if (heroThisMonthValEl) heroThisMonthValEl.textContent = `$${formatCurrencyNoDecimals(balance)}`;
+    if (heroTrendIconEl) {
+        // Trend based on balance (positive = up/green, negative = down/red)
+        if (balance >= 0) {
+            heroTrendIconEl.className = 'fas fa-arrow-trend-up trend-up';
+        } else {
+            heroTrendIconEl.className = 'fas fa-arrow-trend-down trend-down';
+        }
+    }
+    if (heroArDisplayEl) {
+        heroArDisplayEl.style.display = 'block';
+        heroArDisplayEl.querySelector('.amount-num').textContent = formatCurrency(arPending);
+    }
+
+    // Render records - pass ORIGINAL records (not expanded) so combined transactions appear as single entries
+    // Only expand for the dashboard display list, not for KPI calculations which need to count each component
+    const originalNonCarriedRecords = records.filter(r => !(r.type === 'account_receivable' && r.carriedForwardFrom));
+    renderDashboardRecords(originalNonCarriedRecords);
 }
 
-function renderRecentRecords(monthlyRecords) {
-    const tbody = document.getElementById('recent-records-body');
-    if (!tbody) return;
-    tbody.innerHTML = '';
 
-    // Sort by date and ID (newest first)
-    const sorted = [...monthlyRecords].sort((a, b) => {
+// Dashboard Records - Card Based Layout (matching mobile app screenshots)
+function renderDashboardRecords(recordsToRender) {
+    const container = document.getElementById('dashboard-records-list');
+    if (!container) return;
+
+    // Get filter values
+    const filterType = document.getElementById('dashboard-filter-type')?.value || 'all';
+    const filterYear = document.getElementById('dashboard-filter-year')?.value;
+    const filterMonth = document.getElementById('dashboard-filter-month')?.value;
+    const filterPerson = document.getElementById('dashboard-filter-person')?.value;
+    const filterCategory = document.getElementById('dashboard-filter-category')?.value;
+
+    // Apply filters
+    let filteredRecords = recordsToRender.filter(r => {
+        const isSavings = !!r.isSavingsTransfer;
+
+        // Correct type matching:
+        // if filterType is 'income', match r.type === 'income' AND NOT savings
+        // if filterType is 'spending', match r.type === 'spending' AND NOT savings
+        // if filterType is 'savings', match isSavings === true
+        // if filterType is 'account_receivable', match r.type === 'account_receivable'
+
+        let typeMatch = false;
+        if (filterType === 'all') {
+            typeMatch = true;
+        } else if (filterType === 'savings') {
+            typeMatch = isSavings;
+        } else if (filterType === 'spending') {
+            typeMatch = r.type === 'spending' && !isSavings;
+        } else if (filterType === 'income') {
+            typeMatch = r.type === 'income' && !isSavings;
+        } else if (filterType === 'account_receivable') {
+            typeMatch = r.type === 'account_receivable';
+        }
+
+        const recordDate = new Date(r.date);
+        const now = new Date();
+
+        // Date Period Match logic
+        let periodMatch = false;
+        if (!filterYear && !filterMonth) {
+            // Default Dashboard View: Current month transactions OR any currently pending AR
+            const isCurrentMonth = recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear();
+            const isPendingAR = r.type === 'account_receivable' && !r.collected;
+            periodMatch = isCurrentMonth || isPendingAR;
+        } else {
+            // Explicit Filter View: Match the selected Year and/or Month
+            const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
+            const monthMatch = !filterMonth || (recordDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
+            periodMatch = yearMatch && monthMatch;
+
+            // Special Dashboard Case: Pending AR is often kept visible on the dashboard even when filtering by month,
+            // as it represents outstanding action items. Only show if it matches other active filters.
+            if (r.type === 'account_receivable' && !r.collected && (filterType === 'all' || filterType === 'account_receivable')) {
+                periodMatch = true;
+            }
+        }
+
+        const personMatch = !filterPerson || r.person === filterPerson;
+
+        let categoryMatch = !filterCategory;
+        if (filterCategory) {
+            const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
+            if (filterCategory === 'all-income') {
+                categoryMatch = r.type === 'income' && !isSavings;
+            } else if (filterCategory === 'all-spending') {
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
+            } else {
+                categoryMatch = catToMatch === filterCategory;
+            }
+        }
+
+        return typeMatch && periodMatch && personMatch && categoryMatch;
+    });
+
+    // Sort by date (newest first)
+    filteredRecords.sort((a, b) => {
         const dateCompare = new Date(b.date) - new Date(a.date);
         if (dateCompare !== 0) return dateCompare;
-        return b.id - a.id; // If same date, newer ID first
-    }).slice(0, 5);
+        return b.id - a.id;
+    });
 
-    if (sorted.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">No records for this month</td></tr>';
+    // Clear container
+    container.innerHTML = '';
+
+    if (filteredRecords.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-receipt"></i>
+                <p>No transactions yet</p>
+                <span>Your transactions will appear here. Tap the button above to add your first one!</span>
+            </div>
+        `;
         return;
     }
 
-    sorted.forEach(r => {
-        const tr = document.createElement('tr');
+    // Group records by week for stats calculation
+    const getWeekKey = (dateObj) => {
+        const day = dateObj.getDate();
+        let week = 4;
+        if (day <= 7) week = 1;
+        else if (day < 15) week = 2;
+        else if (day < 22) week = 3;
+        return `${dateObj.getMonth()}-${dateObj.getFullYear()}-W${week}`;
+    };
+
+    // Calculate week stats
+    const weekStats = {};
+    filteredRecords.forEach(r => {
+        const recordDateObj = new Date(r.date);
+        const weekKey = getWeekKey(recordDateObj);
+        
+        if (!weekStats[weekKey]) {
+            weekStats[weekKey] = { count: 0, spending: 0, income: 0 };
+        }
+        
+        weekStats[weekKey].count++;
+        
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            // For combined transactions, calculate based on components
+            r.combinedTransactions.forEach(ct => {
+                const amount = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
+                if (ct.type === 'income') {
+                    weekStats[weekKey].income += amount;
+                } else {
+                    weekStats[weekKey].spending += amount;
+                }
+            });
+        } else {
+            const amount = parseFloat(r.amount) || 0;
+            if (r.type === 'income') {
+                weekStats[weekKey].income += amount;
+            } else if (r.type === 'spending' || r.type === 'account_receivable') {
+                weekStats[weekKey].spending += amount;
+            }
+        }
+    });
+
+    // Render each record as a card
+    const now = new Date();
+    let currentWeek = -1;
+    let currentMonthYear = '';
+
+    filteredRecords.forEach(r => {
         const isCombined = r.formatType === 'combined';
+        const recordDateObj = new Date(r.date);
+
+        // Add Week Separators logic
+        const monthYearKey = `${recordDateObj.getMonth()}-${recordDateObj.getFullYear()}`;
+        const day = recordDateObj.getDate();
+
+        let recordWeek = 4;
+        if (day <= 7) recordWeek = 1;
+        else if (day < 15) recordWeek = 2;
+        else if (day < 22) recordWeek = 3;
+
+        // Detect if we transitioned to a different month (e.g. from current month to past AR items)
+        if (typeof currentMonthYear === 'undefined' || monthYearKey !== currentMonthYear) {
+            currentMonthYear = monthYearKey;
+            currentWeek = -1; // Reset week tracking for the new month
+        }
+
+        if (recordWeek !== currentWeek) {
+            currentWeek = recordWeek;
+            const weekKey = getWeekKey(recordDateObj);
+            const stats = weekStats[weekKey] || { count: 0, spending: 0, income: 0 };
+            
+            const separator = document.createElement('div');
+            separator.className = 'week-separator';
+            separator.innerHTML = `
+                <div class="week-separator-header">
+                    <span>Week ${currentWeek}</span>
+                    <div class="week-separator-stats">
+                        <span class="week-stat count">
+                            <i class="fas fa-list-ol"></i> ${stats.count}
+                        </span>
+                        <span class="week-stat spending">
+                            <i class="fas fa-arrow-down"></i> $${formatCurrency(stats.spending)}
+                        </span>
+                        <span class="week-stat income">
+                            <i class="fas fa-arrow-up"></i> $${formatCurrency(stats.income)}
+                        </span>
+                    </div>
+                </div>
+            `;
+            container.appendChild(separator);
+        }
         const isAR = r.type === 'account_receivable';
         const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
         const isCarriedForward = r.carriedForwardFrom;
-        const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
-        const carriedForwardText = isCarriedForward ? ' <span class="carried-forward-indicator">↻ Carried Forward</span>' : '';
-        const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
-        const savingsTransferText = `<span class="category-badge badge-savings">Saving</span>`;
+        const arStatus = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
 
-        let rowClass = (r.type || '');
-        if (r.isCombinedComponent) {
-            rowClass += ' sub-row';
-            if (r.componentIndex === 0) rowClass += ' group-start';
-            if (r.componentIndex === r.totalComponents - 1) rowClass += ' group-end';
-        }
-        tr.className = rowClass;
-        tr.onclick = () => openDetailsModal(r);
+        // For combined transactions, calculate net and breakdown
+        let combinedIncome = 0;
+        let combinedSpending = 0;
+        let combinedNet = 0;
+        let hasMixedTypes = false;
+        let combinedBreakdownHtml = '';
 
-        tr.innerHTML = `
-            <td>${r.date}</td>
-            <td class="item-cell">${(r.isCombinedComponent ? (r.item || '-') : (isCombined ? r.item : (r.type === 'income' ? r.category : r.item))) + (r.isCombinedComponent ? '' : carriedForwardText)}</td>
-            <td>
-                ${isSavingsTransfer ? savingsTransferText : `
-                    <span class="category-badge badge-${r.type} ${arClass}">${r.isCombinedComponent ? r.actualCategory : r.category}${arStatusText}</span>
-                `}
-            </td>
-            <td>${r.person || '-'}</td>
-            <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
-                ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
-                ${isCombined && !r.isCombinedComponent ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
-            </td>
-            <td>
-                <div class="action-btns">
-                    <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    ${isAR && !r.collected ? `
-                        <button class="btn-icon collect-btn" onclick="event.stopPropagation(); collectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark as Collected">
-                            <i class="fas fa-check"></i>
-                        </button>
-                    ` : ''}
-                    ${isAR && r.collected ? `
-                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoCollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Undo Collection">
-                            <i class="fas fa-undo"></i>
-                        </button>
-                    ` : ''}
+        if (isCombined && r.combinedTransactions) {
+            r.combinedTransactions.forEach(ct => {
+                const amount = parseFloat(ct.amount) || 0;
+                const quantity = parseInt(ct.quantity) || 1;
+                const totalAmount = amount * quantity;
+                if (ct.type === 'income') {
+                    combinedIncome += totalAmount;
+                } else {
+                    combinedSpending += totalAmount;
+                }
+            });
+            combinedNet = combinedIncome - combinedSpending;
+            hasMixedTypes = combinedIncome > 0 && combinedSpending > 0;
+
+            // Create breakdown HTML
+            const incomePart = combinedIncome > 0 ? `<span class="income-part">+${formatCurrency(combinedIncome)}</span>` : '';
+            const spendingPart = combinedSpending > 0 ? `<span class="spending-part">-${formatCurrency(combinedSpending)}</span>` : '';
+            const netClass = combinedNet >= 0 ? 'positive' : 'negative';
+            const netSign = combinedNet >= 0 ? '+' : '';
+            const netPart = `<span class="net-part ${netClass}">${netSign}${formatCurrency(combinedNet)}</span>`;
+
+            combinedBreakdownHtml = `
+                <div class="combined-breakdown">
+                    ${incomePart}
+                    ${spendingPart}
+                    <span style="color: var(--border-color);">|</span>
+                    Net: ${netPart}
                 </div>
-            </td>
+            `;
+        }
+
+        // Determine icon and colors based on type
+        let icon, typeClass, amountClass, amountPrefix;
+        if (isSavingsTransfer) {
+            icon = 'fa-piggy-bank';
+            typeClass = 'savings';
+            amountClass = 'spending';
+            amountPrefix = '-';
+        } else if (isCombined) {
+            // Combined transaction: show special styling
+            icon = 'fa-layer-group';
+            typeClass = 'combined';
+            // For combined, use net to determine color
+            if (combinedNet >= 0) {
+                amountClass = 'income';
+                amountPrefix = '+';
+            } else {
+                amountClass = 'spending';
+                amountPrefix = '-';
+            }
+        } else if (r.type === 'income') {
+            icon = 'fa-dollar-sign';
+            typeClass = 'income';
+            amountClass = 'income';
+            amountPrefix = '+';
+        } else if (r.type === 'account_receivable') {
+            icon = 'fa-dollar-sign';
+            typeClass = 'account_receivable';
+            amountClass = r.collected ? 'income' : 'account_receivable';
+            amountPrefix = '';
+        } else {
+            icon = 'fa-dollar-sign';
+            typeClass = 'spending';
+            amountClass = 'spending';
+            amountPrefix = '-';
+        }
+
+        // Get display name
+        let displayName = r.isCombinedComponent ? (r.item || 'Combined Transaction') :
+            (isCombined ? r.item : (r.type === 'income' ? r.category : r.item));
+        if (isCarriedForward) displayName += ' ↻';
+
+        // Get category name
+        const categoryName = r.isCombinedComponent ? r.actualCategory : r.category;
+
+        // Format date
+        const dateObj = new Date(r.date);
+        const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        const card = document.createElement('div');
+        card.className = `transaction-card ${typeClass}`;
+        card.onclick = (e) => {
+            // Don't open details if clicking on action buttons
+            if (e.target.closest('.transaction-actions')) return;
+            openDetailsModal(r);
+        };
+
+        // Combined indicator badge - removed as per user request
+        const combinedBadge = '';
+
+        // Show amount - for combined, show the net
+        const displayAmount = isCombined ? Math.abs(combinedNet) : parseFloat(r.amount);
+
+        card.innerHTML = `
+            <div class="transaction-icon">
+                <i class="fas ${icon}"></i>
+            </div>
+            <div class="transaction-info">
+                <div class="transaction-name">${displayName}</div>
+                <div class="transaction-category">
+                    <span class="category-badge badge-${isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type}">${isCombined ? 'Combined' : categoryName}${arStatus}</span>
+                    ${r.person ? `<span><i class="fas fa-user" style="font-size: 0.7rem;"></i> ${r.person}</span>` : ''}
+                </div>
+            </div>
+            <div class="transaction-amount">
+                <div class="amount ${amountClass}">${amountPrefix}$${formatCurrency(displayAmount)}</div>
+                <div class="date">${dateStr}</div>
+            </div>
+            <div class="transaction-actions">
+                ${isAR && !r.collected ? `
+                    <button class="btn-icon collect-btn" onclick="event.stopPropagation(); collectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Collected">
+                        <i class="fas fa-check"></i>
+                    </button>
+                ` : ''}
+                ${isAR && r.collected ? `
+                    <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoCollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Pending">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                ` : ''}
+                <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Edit">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
         `;
-        tbody.appendChild(tr);
+
+        container.appendChild(card);
     });
 }
 
@@ -1247,6 +1709,9 @@ function renderCharts(monthlyRecords) {
         // Check if we're on mobile and need to limit categories
         const isMobile = window.innerWidth <= 768;
         const showMoreBtn = document.getElementById('show-more-chart-categories');
+        const allLabels = [...labels]; // Store original labels before truncation
+
+        console.log('renderCharts - isMobile:', isMobile, 'chartCategoriesExpanded:', chartCategoriesExpanded, 'labels.length:', labels.length, 'allLabels.length:', allLabels.length, 'chartCategoriesVisible:', chartCategoriesVisible);
 
         if (isMobile && !chartCategoriesExpanded && labels.length > chartCategoriesVisible) {
             // Limit categories and create "Other" category for the rest
@@ -1270,11 +1735,15 @@ function renderCharts(monthlyRecords) {
             // Show the show more button
             if (showMoreBtn) {
                 showMoreBtn.style.display = 'block';
+                console.log('Showing button (collapsed state)');
             }
         } else {
             // Show all categories or on desktop
             if (showMoreBtn) {
-                showMoreBtn.style.display = isMobile && labels.length > chartCategoriesVisible ? 'block' : 'none';
+                // Always show button on mobile if we have more real categories than limit
+                const shouldShowButton = isMobile && allLabels.length > chartCategoriesVisible;
+                showMoreBtn.style.display = shouldShowButton ? 'block' : 'none';
+                console.log('Button visibility (expanded/desktop):', shouldShowButton, 'display set to:', shouldShowButton ? 'block' : 'none');
             }
         }
 
@@ -1300,7 +1769,7 @@ function renderCharts(monthlyRecords) {
                     labels: labels,
                     datasets: [{
                         data: data,
-                        backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
+                        backgroundColor: ['#355872', '#7AAACE', '#9CD5FF', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
                         borderWidth: 0
                     }]
                 },
@@ -1367,6 +1836,7 @@ function renderCharts(monthlyRecords) {
 function populateYearFilter() {
     const yearSelect = document.getElementById('filter-year');
     const analyticsYearSelect = document.getElementById('analytics-filter-year');
+    const dashboardYearSelect = document.getElementById('dashboard-filter-year');
 
     if (!records || records.length === 0) return;
 
@@ -1394,6 +1864,17 @@ function populateYearFilter() {
             analyticsYearSelect.appendChild(option);
         });
     }
+
+    // Populate dashboard filter
+    if (dashboardYearSelect) {
+        dashboardYearSelect.innerHTML = '<option value="">All Years</option>';
+        years.forEach(year => {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            dashboardYearSelect.appendChild(option);
+        });
+    }
 }
 
 // Populate analytics person and category dropdowns
@@ -1402,6 +1883,8 @@ function populateAnalyticsFilterDropdowns() {
     const analyticsCategorySelect = document.getElementById('analytics-filter-category');
     const recordsPersonSelect = document.getElementById('filter-person');
     const recordsCategorySelect = document.getElementById('filter-category');
+    const dashboardPersonSelect = document.getElementById('dashboard-filter-person');
+    const dashboardCategorySelect = document.getElementById('dashboard-filter-category');
 
     // Populate analytics person dropdown
     if (analyticsPersonSelect) {
@@ -1449,6 +1932,30 @@ function populateAnalyticsFilterDropdowns() {
             (incomeCategories.length > 0 && spendingCategories.length > 0 ? '<option value="" disabled>──────────</option>' : '') +
             spendingCategories.map(c => `<option value="${c.name}">${c.name} (Spending)</option>`).join('');
         recordsCategorySelect.value = currentValue;
+    }
+
+    // Populate dashboard person dropdown
+    if (dashboardPersonSelect) {
+        const currentValue = dashboardPersonSelect.value;
+        dashboardPersonSelect.innerHTML = '<option value="">All People</option>' +
+            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        dashboardPersonSelect.value = currentValue;
+    }
+
+    // Populate dashboard category dropdown
+    if (dashboardCategorySelect) {
+        const currentValue = dashboardCategorySelect.value;
+        const incomeCategories = categories.filter(c => c.type === 'income');
+        const spendingCategories = categories.filter(c => c.type === 'spending');
+
+        dashboardCategorySelect.innerHTML = '<option value="">All Categories</option>' +
+            '<option value="all-income">All Income Categories</option>' +
+            '<option value="all-spending">All Spending Categories</option>' +
+            '<option value="" disabled>──────────</option>' +
+            incomeCategories.map(c => `<option value="${c.name}">${c.name} (Income)</option>`).join('') +
+            (incomeCategories.length > 0 && spendingCategories.length > 0 ? '<option value="" disabled>──────────</option>' : '') +
+            spendingCategories.map(c => `<option value="${c.name}">${c.name} (Spending)</option>`).join('');
+        dashboardCategorySelect.value = currentValue;
     }
 }
 
@@ -1501,7 +2008,7 @@ function renderRecords() {
     });
 
     // If month+year filters are set, pending A/R should "carry forward" into that month.
-    // Example: viewing March 2026 should still show A/R from Feb 2026 if still pending.
+    // Example: viewing March 2027 should still show A/R from Feb 2027 if still pending.
     let filterMonthEnd = null;
     if (filterYear && filterMonth) {
         const y = parseInt(filterYear, 10);
@@ -1842,6 +2349,9 @@ function renderAnalytics() {
     renderFilterKPIs(filteredRecords, filterCategory, filterPerson);
 
     renderPersonChart(filteredRecords);
+
+    // Render charts moved from Dashboard
+    renderCharts(filteredRecords);
 }
 
 // Render filter-specific KPIs for analytics
@@ -2128,7 +2638,7 @@ function renderPersonChart(filteredRecords = null) {
             datasets: [{
                 label: 'Spending',
                 data: data,
-                backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'],
+                backgroundColor: ['#355872', '#7AAACE', '#9CD5FF', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'],
                 borderRadius: 8,
                 barThickness: 40
             }]
@@ -2347,6 +2857,9 @@ function renderSavings() {
         savingsPage[acc.id] = page;
         const paged = txs.slice(page * perPage, page * perPage + perPage);
 
+        const monthCashflow = monthDeposit - monthWithdraw;
+        const cashflowPositive = monthCashflow >= 0;
+
         const card = document.createElement('div');
         card.className = 'savings-card card';
         card.setAttribute('data-id', acc.id);
@@ -2380,6 +2893,16 @@ function renderSavings() {
                     <div class="kpi-details">
                         <h4>Withdrawn This Month</h4>
                         <p>$${formatCurrency(monthWithdraw)}</p>
+                    </div>
+                </div>
+                <div class="kpi-card cashflow">
+                    <div class="kpi-icon"><i class="fas fa-exchange-alt"></i></div>
+                    <div class="kpi-details">
+                        <h4>Cashflow</h4>
+                        <p style="color: ${cashflowPositive ? '#ef4444' : 'var(--danger)'}">
+                            ${cashflowPositive ? '+' : '-'}$${formatCurrency(Math.abs(monthCashflow))}
+                            <i class="fas fa-arrow-${cashflowPositive ? 'up' : 'down'}" style="font-size: 0.8em; margin-left: 4px;"></i>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -3337,48 +3860,18 @@ function togglePeopleVisibility() {
 
 function toggleChartCategoriesVisibility() {
     chartCategoriesExpanded = !chartCategoriesExpanded;
+
+    // Update button text BEFORE re-rendering
     const btn = document.getElementById('show-more-chart-categories');
     if (btn) {
         btn.textContent = chartCategoriesExpanded ? 'Show Less' : 'Show More';
     }
 
-    // Adjust chart container height based on expansion state
-    const chartContainer = document.querySelector('#categoryChart').closest('.chart-container');
-    if (chartContainer) {
-        if (chartCategoriesExpanded) {
-            // Calculate needed height based on number of categories
-            const isMobile = window.innerWidth <= 768;
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            const monthlyRecords = records.filter(r => {
-                const recordDate = new Date(r.date);
-                return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
-            });
+    console.log('Toggle clicked, chartCategoriesExpanded:', chartCategoriesExpanded);
 
-            const spendingByCategory = {};
-            const spendingRecords = monthlyRecords.filter(r => r.type === 'spending');
-            spendingRecords.forEach(r => {
-                spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
-            });
-
-            const categoryCount = Object.keys(spendingByCategory).length;
-            // Base height + extra height for legend items (approximately 25px per legend item)
-            const neededHeight = Math.max(300, 250 + (categoryCount * 25));
-            chartContainer.style.height = neededHeight + 'px';
-        } else {
-            // Reset to default height
-            chartContainer.style.height = '300px';
-        }
-    }
-
-    // Re-render charts with updated visibility
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    const monthlyRecords = records.filter(r => {
-        const recordDate = new Date(r.date);
-        return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
-    });
-    renderCharts(monthlyRecords);
+    // Re-render charts with all records (not filtered to current month)
+    // The chart should show the same data as before, just with different category limit
+    renderCharts(records);
 }
 
 // People Management Functions
@@ -3691,8 +4184,6 @@ function togglePrivacyMode() {
     document.body.classList.toggle('privacy-mode', isPrivacyMode);
     localStorage.setItem('floosy_privacy_mode', isPrivacyMode);
     updatePrivacyIcon();
-
-    showToast(isPrivacyMode ? 'Privacy Mode Enabled' : 'Privacy Mode Disabled', 'info');
 }
 
 function updatePrivacyIcon() {
@@ -3700,6 +4191,14 @@ function updatePrivacyIcon() {
     const icon = privacyToggle.querySelector('i');
     if (icon) {
         icon.className = isPrivacyMode ? 'fas fa-eye-slash' : 'fas fa-eye';
+    }
+    // Update hero/dashboard privacy icon too
+    const heroPrivacyToggle = document.getElementById('hero-privacy-toggle');
+    if (heroPrivacyToggle) {
+        const heroIcon = heroPrivacyToggle.querySelector('i');
+        if (heroIcon) {
+            heroIcon.className = isPrivacyMode ? 'fas fa-eye-slash' : 'fas fa-eye';
+        }
     }
 }
 

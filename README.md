@@ -45,7 +45,7 @@ Floosy is a modern, user-friendly personal finance tracking web application desi
 The application includes comprehensive sample data for testing all features:
 
 **📊 Sample Dataset Overview:**
-- **8 months of transactions** (January-August 2026)
+- **8 months of transactions** (January-August 2027)
 - **124 transactions** with realistic spending patterns
 - **5 people**: John, Sarah, Mike, Emma, David
 - **20 categories**: Including Rent/Mortgage, Groceries, Utilities, Transport, Entertainment, Healthcare, Insurance, Clothing, Dining Out, Education, Home Maintenance, Gifts, Pet Supplies, Gym/Fitness
@@ -65,7 +65,7 @@ The application includes comprehensive sample data for testing all features:
 To test the application with sample data:
 1. Navigate to Settings → Data Management
 2. Click "Import JSON"
-3. Select the `house_spending_export_2026-03-02.json` file (included in this repository)
+3. Select the `house_spending_export_2027-03-02.json` file (included in this repository)
 
 The sample data demonstrates:
 - **Dashboard analytics** with monthly trends

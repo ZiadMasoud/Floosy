@@ -148,7 +148,26 @@
     { "formatType": "single", "type": "spending", "date": "2026-03-09", "item": "Gas", "category": "Transport", "person": "John", "amount": 58.1, "quantity": "1", "notes": "Fuel", "savingsAccountId": "" },
     { "formatType": "single", "type": "spending", "date": "2026-03-11", "item": "Health insurance", "category": "Insurance", "person": "Sarah", "amount": 120, "quantity": "1", "notes": "Monthly premium", "savingsAccountId": "" },
     { "formatType": "single", "type": "spending", "date": "2026-03-13", "item": "Dinner", "category": "Dining Out", "person": "Mike", "amount": 74.6, "quantity": "1", "notes": "Weekend dinner", "savingsAccountId": "" },
-    { "formatType": "single", "type": "income", "date": "2026-03-15", "item": "", "category": "Freelance", "person": "Mike", "amount": 580, "quantity": "1", "notes": "March project", "savingsAccountId": "" }
+    { "formatType": "single", "type": "income", "date": "2026-03-15", "item": "", "category": "Freelance", "person": "Mike", "amount": 580, "quantity": "1", "notes": "March project", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-17", "item": "Coffee", "category": "Dining Out", "person": "Emma", "amount": 12.5, "quantity": "1", "notes": "Morning coffee", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-18", "item": "Pharmacy", "category": "Healthcare", "person": "Sarah", "amount": 35.8, "quantity": "1", "notes": "Prescription", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-03-20", "item": "", "category": "Investment", "person": "John", "amount": 195, "quantity": "1", "notes": "Quarterly dividend", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-22", "item": "Groceries", "category": "Groceries", "person": "Sarah", "amount": 189.4, "quantity": "1", "notes": "Weekly shopping", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-24", "item": "Gas", "category": "Transport", "person": "John", "amount": 61.3, "quantity": "1", "notes": "Fuel", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-26", "item": "Birthday gift", "category": "Gifts", "person": "Emma", "amount": 45, "quantity": "1", "notes": "Friend's birthday", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-28", "item": "Electricity", "category": "Utilities", "person": "John", "amount": 95.6, "quantity": "1", "notes": "March power bill", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-03-29", "item": "Dinner", "category": "Dining Out", "person": "Mike", "amount": 82.3, "quantity": "1", "notes": "Family dinner", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-03-30", "item": "", "category": "Freelance", "person": "Mike", "amount": 320, "quantity": "1", "notes": "Quick bug fix", "savingsAccountId": "" },
+
+    { "formatType": "single", "type": "income", "date": "2026-04-01", "item": "", "category": "Salary", "person": "John", "amount": 4200, "quantity": "1", "notes": "Monthly salary", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-02", "item": "Rent", "category": "Rent/Mortgage", "person": "John", "amount": 1350, "quantity": "1", "notes": "April rent", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-04-03", "item": "", "category": "Salary", "person": "John", "amount": 300, "quantity": "1", "notes": "Transfer to Emergency Fund", "savingsAccountId": "1", "isSavingsTransfer": true, "savingsTransactionType": "deposit" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-04", "item": "Groceries", "category": "Groceries", "person": "Sarah", "amount": 245.7, "quantity": "1", "notes": "Weekly shopping", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-06", "item": "Internet", "category": "Utilities", "person": "John", "amount": 121.5, "quantity": "1", "notes": "ISP bill", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-08", "item": "Gas", "category": "Transport", "person": "John", "amount": 59.4, "quantity": "1", "notes": "Fuel", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-10", "item": "Health insurance", "category": "Insurance", "person": "Sarah", "amount": 120, "quantity": "1", "notes": "Monthly premium", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-12", "item": "Dinner", "category": "Dining Out", "person": "Mike", "amount": 71.5, "quantity": "1", "notes": "Weekend dinner", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-04-15", "item": "", "category": "Freelance", "person": "Mike", "amount": 450, "quantity": "1", "notes": "Website project", "savingsAccountId": "" }
   ],
   "categories": [
     { "name": "Rent/Mortgage", "type": "spending" },

@@ -12,18 +12,18 @@ class MonthlySummaryPDF {
 
         // Design tokens
         this.colors = {
-            primary: [99, 102, 241],   // indigo-500
-            success: [34, 197, 94],    // green-500
+            primary: [53, 88, 114],   // navy
+            success: [16, 185, 129],    // green-500
             danger: [239, 68, 68],    // red-500
-            warning: [251, 191, 36],    // amber-400
-            info: [56, 189, 248],   // sky-400
-            textDark: [17, 24, 39],    // gray-900
-            textMid: [75, 85, 99],    // gray-600
-            textLight: [156, 163, 175],   // gray-400
-            bgCard: [248, 250, 252],   // slate-50
-            bgStripe: [241, 245, 249],   // slate-100
-            border: [226, 232, 240],   // slate-200
-            white: [255, 255, 255],
+            warning: [245, 158, 11],    // amber-500
+            info: [122, 170, 206],   // blue
+            textDark: [53, 88, 114],    // navy
+            textMid: [122, 170, 206],    // blue
+            textLight: [156, 213, 255],   // sea
+            bgCard: [247, 248, 240],   // cold white
+            bgStripe: [237, 240, 232],   // slightly darker cold white
+            border: [122, 170, 206],   // blue
+            white: [247, 248, 240],
         };
 
         this.init();
@@ -456,13 +456,13 @@ class MonthlySummaryPDF {
         // Gradient-like header: two rects
         this._fc(pdf, C.primary);
         pdf.rect(0, 0, pageW, 30, 'F');
-        this._fc(pdf, [79, 70, 229]); // slightly darker indigo
+        this._fc(pdf, [42, 69, 89]); // slightly darker navy
         pdf.rect(0, 24, pageW, 6, 'F');
 
         // App name
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(9);
-        this._c(pdf, [199, 210, 254]); // indigo-200
+        this._c(pdf, [156, 213, 255]); // sea
         pdf.text('FLOOSY  |  PERSONAL FINANCE', margin, 10);
 
         // Month title
@@ -473,7 +473,7 @@ class MonthlySummaryPDF {
         // Generated date (right aligned)
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(7.5);
-        this._c(pdf, [199, 210, 254]);
+        this._c(pdf, [156, 213, 255]);
         const genDate = new Date().toLocaleDateString('en-US', { dateStyle: 'full' });
         pdf.text(`Generated ${genDate}`, pageW - margin, 22, { align: 'right' });
 
@@ -973,7 +973,6 @@ class MonthlySummaryPDF {
             pdf.roundedRect(bx, y, boxW, boxH, 2, 2, 'F');
             pdf.setFont('helvetica', 'normal');
             pdf.setFontSize(7);
-            this._c(pdf, [255, 255, 255, 0.8]);
             this._c(pdf, [220, 240, 255]);
             pdf.text(box.label.toUpperCase(), bx + 5, y + 7);
             pdf.setFont('helvetica', 'bold');
