@@ -259,7 +259,8 @@ body.privacy-mode #stats-table td:nth-child(4),
 body.privacy-mode .kpi-card p,
 body.privacy-mode .kpi-details p,
 body.privacy-mode .savings-kpis p,
-body.privacy-mode .chart-container canvas {
+body.privacy-mode .chart-container canvas,
+body.privacy-mode .week-stat {
   filter: blur(10px) !important;
   color: transparent !important;
   text-shadow: 0 0 10px rgba(30, 41, 59, 0.8) !important;
