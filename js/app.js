@@ -17,6 +17,9 @@ let savingsAccounts = [];
 let savingsTransactions = [];
 let savingsPage = {}; // tracks current page for each account (zero-based)
 
+// Budget limits state
+let budgetLimits = [];
+
 // DOM Elements
 const navLinks = document.querySelectorAll('.nav-links li');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -73,6 +76,17 @@ const editCategoryIdInput = document.getElementById('edit-category-id');
 const editCategoryNameInput = document.getElementById('edit-category-name');
 const editCategoryTypeSelect = document.getElementById('edit-category-type');
 const cancelCategoryEditBtn = document.getElementById('cancel-category-edit-modal');
+
+// Budget DOM Elements
+const addBudgetLimitBtn = document.getElementById('add-budget-limit-btn');
+const budgetLimitModal = document.getElementById('budget-limit-modal');
+const budgetLimitForm = document.getElementById('budget-limit-form');
+const budgetLimitIdInput = document.getElementById('budget-limit-id');
+const budgetLimitCategorySelect = document.getElementById('budget-limit-category');
+const budgetLimitAmountInput = document.getElementById('budget-limit-amount');
+const budgetLimitThresholdInput = document.getElementById('budget-limit-threshold');
+const cancelBudgetLimitBtn = document.getElementById('cancel-budget-limit-modal');
+const resetAllBudgetsBtn = document.getElementById('reset-all-budgets-btn');
 
 // Show More Buttons
 const showMoreCategoriesBtn = document.getElementById('show-more-categories');
@@ -702,6 +716,58 @@ function initEventListeners() {
     if (categoryEditForm) {
         categoryEditForm.addEventListener('submit', handleEditSubmit);
     }
+
+    // Budget Limit Modal
+    if (addBudgetLimitBtn) {
+        addBudgetLimitBtn.addEventListener('click', () => openBudgetLimitModal());
+    }
+    if (cancelBudgetLimitBtn) {
+        cancelBudgetLimitBtn.addEventListener('click', closeBudgetLimitModal);
+    }
+    if (budgetLimitForm) {
+        budgetLimitForm.addEventListener('submit', handleBudgetLimitSubmit);
+    }
+    if (resetAllBudgetsBtn) {
+        resetAllBudgetsBtn.addEventListener('click', handleResetAllBudgets);
+    }
+
+    // Budget limit list delegation for edit/delete/reset
+    const budgetLimitsList = document.getElementById('budget-limits-list');
+    if (budgetLimitsList) {
+        budgetLimitsList.addEventListener('click', async (e) => {
+            const editBtn = e.target.closest('.edit-budget-btn');
+            const deleteBtn = e.target.closest('.delete-budget-btn');
+            const resetBtn = e.target.closest('.reset-budget-btn');
+            
+            if (editBtn) {
+                const id = parseInt(editBtn.getAttribute('data-id'));
+                const limit = budgetLimits.find(l => l.id === id);
+                if (limit) openBudgetLimitModal(limit);
+            } else if (deleteBtn) {
+                const id = parseInt(deleteBtn.getAttribute('data-id'));
+                if (await showConfirm('Delete this budget limit?')) {
+                    await remove(STORE_BUDGET_LIMITS, id);
+                    await refreshData();
+                    renderBudget();
+                    showToast('Budget limit deleted', 'success');
+                }
+            } else if (resetBtn) {
+                const id = parseInt(resetBtn.getAttribute('data-id'));
+                const limit = budgetLimits.find(l => l.id === id);
+                if (limit) {
+                    limit.spent = 0;
+                    await updateRecord(STORE_BUDGET_LIMITS, limit);
+                    renderBudget();
+                    showToast('Spending reset for ' + limit.category, 'success');
+                }
+            }
+        });
+    }
+
+    // Close budget modal on click outside
+    window.addEventListener('click', (e) => {
+        if (e.target === budgetLimitModal) closeBudgetLimitModal();
+    });
 }
 
 function toggleItemField() {
@@ -1091,6 +1157,8 @@ async function refreshData() {
     // new: load savings
     savingsAccounts = await getAll(STORE_SAVINGS_ACCOUNTS);
     savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
+    // load budget limits
+    budgetLimits = await getAll(STORE_BUDGET_LIMITS);
     savingsPage = {}; // start pages over so user sees first page after data change
     updateCategoryDropdowns();
     updatePersonDropdown();
@@ -1117,8 +1185,8 @@ function switchTab(tabId) {
     }
     const headerFiltersBtn = document.getElementById('header-filters-btn');
     const userInfo = document.querySelector('.user-info');
-    // Show floating user-info on analytics, savings, and settings only
-    const showUserInfoTabs = ['analytics', 'savings', 'settings'];
+    // Show floating user-info on analytics, budget, savings, and settings only
+    const showUserInfoTabs = ['analytics', 'budget', 'savings', 'settings'];
     if (userInfo) {
         userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
     }
@@ -1156,6 +1224,7 @@ function renderAll() {
     else if (currentTab === 'analytics') renderAnalytics();
     else if (currentTab === 'settings') renderSettings();
     else if (currentTab === 'savings') renderSavings();
+    else if (currentTab === 'budget') renderBudget();
 }
 
 // Dashboard Functions
@@ -1270,9 +1339,7 @@ function renderDashboard() {
     const monthlyRecords = kpiFilteredRecords;
 
 
-    // Calculate income, spending, and balance with AR logic
-    // Pending AR counts as spending (money deducted now)
-    // Collected AR counts as income (money received)
+    // Calculate income and spending (AR does NOT affect either - it's balance-only)
     let income = 0;
     let spending = 0;
 
@@ -1280,9 +1347,6 @@ function renderDashboard() {
         const amount = parseFloat(r.amount) || 0;
 
         if (r.isSavingsTransfer) {
-            // New logic:
-            // 1. Income to Savings: Treat as a budget outflow (increases spending)
-            // 2. Spending from Savings: Exclude from budget (already deducted when moved to savings)
             if (r.type === 'income') {
                 spending += amount;
             }
@@ -1291,16 +1355,18 @@ function renderDashboard() {
 
         if (r.type === 'income') {
             income += amount;
-        } else if (r.type === 'account_receivable') {
-            if (!r.collected) {
-                spending += amount;
-            }
-        } else {
+        } else if (r.type === 'spending') {
             spending += amount;
         }
+        // account_receivable excluded - affects balance only, not income/spending
     });
 
-    const balance = income - spending;
+    // Calculate AR impact on balance (only PENDING AR reduces balance - collected has no effect)
+    const arImpact = monthlyRecords
+        .filter(r => r.type === 'account_receivable' && !r.collected)
+        .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
+
+    const balance = income - spending + arImpact;
 
     // Calculate Accounts Receivable (filter by selected person/category if applicable)
     const arPending = expandedRecords
@@ -1320,10 +1386,10 @@ function renderDashboard() {
     const balanceEl = document.getElementById('total-balance');
     const arEl = document.getElementById('total-ar');
 
-    if (incomeEl) incomeEl.textContent = `$${formatCurrency(income)}`;
-    if (spendingEl) spendingEl.textContent = `$${formatCurrency(spending)}`;
-    if (balanceEl) balanceEl.textContent = `$${formatCurrency(balance)}`;
-    if (arEl) arEl.textContent = `$${formatCurrency(arPending)}`;
+    if (incomeEl) incomeEl.innerHTML = `<span class="dollar-positive">+$</span><span class="amount-num">${formatCurrency(income)}</span>`;
+    if (spendingEl) spendingEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
+    if (balanceEl) balanceEl.innerHTML = `<span class="${balance >= 0 ? 'dollar-positive' : 'dollar-negative'}">${balance >= 0 ? '+' : '-'}$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
+    if (arEl) arEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(arPending)}</span>`;
 
     // Update Mobile Hero Metrics
     // heroMonthEl update already handled above
@@ -1335,9 +1401,9 @@ function renderDashboard() {
     const heroTrendIconEl = document.getElementById('hero-trend-icon');
     const heroArDisplayEl = document.getElementById('hero-ar-display');
 
-    if (heroSpendingEl) heroSpendingEl.querySelector('.amount-num').textContent = formatCurrencyNoDecimals(spending);
-    if (heroIncomeEl) heroIncomeEl.querySelector('.amount-num').textContent = formatCurrencyNoDecimals(income);
-    if (heroThisMonthValEl) heroThisMonthValEl.textContent = `$${formatCurrencyNoDecimals(balance)}`;
+    if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrencyNoDecimals(spending)}</span>`;
+    if (heroIncomeEl) heroIncomeEl.innerHTML = `<span class="dollar-icon income-icon">$</span><span class="amount-num">${formatCurrencyNoDecimals(income)}</span>`;
+    if (heroThisMonthValEl) heroThisMonthValEl.innerHTML = `<span class="currency-sign">$</span><span class="amount-num">${formatCurrencyNoDecimals(Math.abs(balance))}</span>`;
     if (heroTrendIconEl) {
         // Trend based on balance (positive = up/green, negative = down/red)
         if (balance >= 0) {
@@ -1348,13 +1414,16 @@ function renderDashboard() {
     }
     if (heroArDisplayEl) {
         heroArDisplayEl.style.display = 'block';
-        heroArDisplayEl.querySelector('.amount-num').textContent = formatCurrency(arPending);
+        heroArDisplayEl.innerHTML = `Accounts Receivable: <span class="dollar-icon ar-icon">$</span><span class="amount-num">${formatCurrency(arPending)}</span>`;
     }
 
     // Render records - pass ORIGINAL records (not expanded) so combined transactions appear as single entries
     // Only expand for the dashboard display list, not for KPI calculations which need to count each component
     const originalNonCarriedRecords = records.filter(r => !(r.type === 'account_receivable' && r.carriedForwardFrom));
     renderDashboardRecords(originalNonCarriedRecords);
+    
+    // Render upcoming widget
+    renderUpcomingWidget();
 }
 
 
@@ -1433,11 +1502,12 @@ function renderDashboardRecords(recordsToRender) {
         return typeMatch && periodMatch && personMatch && categoryMatch;
     });
 
-    // Sort by date (newest first)
+    // Sort by date (newest first), then by timestamp for precise ordering within same day
     filteredRecords.sort((a, b) => {
         const dateCompare = new Date(b.date) - new Date(a.date);
         if (dateCompare !== 0) return dateCompare;
-        return b.id - a.id;
+        // Use timestamp for secondary sort (newest first)
+        return (b.timestamp || 0) - (a.timestamp || 0);
     });
 
     // Clear container
@@ -1490,9 +1560,10 @@ function renderDashboardRecords(recordsToRender) {
             const amount = parseFloat(r.amount) || 0;
             if (r.type === 'income') {
                 weekStats[weekKey].income += amount;
-            } else if (r.type === 'spending' || r.type === 'account_receivable') {
+            } else if (r.type === 'spending') {
                 weekStats[weekKey].spending += amount;
             }
+            // account_receivable excluded - affects balance only, not income/spending
         }
     });
 
@@ -1535,10 +1606,10 @@ function renderDashboardRecords(recordsToRender) {
                             <i class="fas fa-list-ol"></i> ${stats.count}
                         </span>
                         <span class="week-stat spending">
-                            <i class="fas fa-arrow-down"></i> $${formatCurrency(stats.spending)}
+                            <i class="fas fa-arrow-down"></i> <span class="dollar-negative">$</span><span class="amount-num">${formatCurrency(stats.spending)}</span>
                         </span>
                         <span class="week-stat income">
-                            <i class="fas fa-arrow-up"></i> $${formatCurrency(stats.income)}
+                            <i class="fas fa-arrow-up"></i> <span class="dollar-positive">$</span><span class="amount-num">${formatCurrency(stats.income)}</span>
                         </span>
                     </div>
                 </div>
@@ -1662,7 +1733,7 @@ function renderDashboardRecords(recordsToRender) {
                 </div>
             </div>
             <div class="transaction-amount">
-                <div class="amount ${amountClass}">${amountPrefix}$${formatCurrency(displayAmount)}</div>
+                <div class="amount ${amountClass}"><span class="${isAR ? 'ar-icon' : (amountPrefix === '+' ? 'dollar-positive' : 'dollar-negative')}">${amountPrefix}$</span><span class="amount-num">${formatCurrency(displayAmount)}</span></div>
                 <div class="date">${dateStr}</div>
             </div>
             <div class="transaction-actions">
@@ -2163,7 +2234,7 @@ function renderRecords() {
                 </td>
                 <td>${r.isParentGroupHeader ? '' : (r.person || '-')}</td>
                 <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
-                    ${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$${formatCurrency(parseFloat(r.amount))}
+                    <span class="${r.type === 'income' ? 'dollar-positive' : (r.type === 'account_receivable' ? 'ar-icon' : 'dollar-negative')}">${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$</span><span class="amount-num">${formatCurrency(parseFloat(r.amount))}</span>
                     ${isCombined && !r.isCombinedComponent && !r.isParentGroupHeader ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
                 </td>
                 <td>${r.isParentGroupHeader ? '' : (r.quantity || '-')}</td>
@@ -2278,16 +2349,11 @@ function renderAnalytics() {
 
         if (r.type === 'income') {
             monthlyStats[monthKey].income += amount;
-        } else if (r.type === 'account_receivable') {
-            if (r.collected) {
-                monthlyStats[monthKey].arCollected += parseFloat(r.amount);
-            } else {
-                monthlyStats[monthKey].arPending += parseFloat(r.amount);
-            }
-        } else {
+        } else if (r.type === 'spending') {
             monthlyStats[monthKey].spending += parseFloat(r.amount);
             monthlyStats[monthKey].categories[r.category] = (monthlyStats[monthKey].categories[r.category] || 0) + parseFloat(r.amount);
         }
+        // account_receivable excluded - affects balance only, not income/spending
     });
 
     const sortedMonths = Object.keys(monthlyStats).sort().reverse();
@@ -2298,9 +2364,7 @@ function renderAnalytics() {
 
     sortedMonths.forEach(monthKey => {
         const stats = monthlyStats[monthKey];
-        // Total spending includes pending AR (money deducted now)
-        const totalSpending = stats.spending + stats.arPending;
-        // Total income - collected AR is neutral (money recovered, not earned)
+        const totalSpending = stats.spending;
         const totalIncome = stats.income;
         const savings = totalIncome - totalSpending;
 
@@ -2319,11 +2383,9 @@ function renderAnalytics() {
 
         tr.innerHTML = `
             <td style="font-weight: 600;">${monthName}</td>
-            <td class="amount-income">$${formatCurrency(totalIncome)}</td>
-            <td class="amount-spending">$${formatCurrency(totalSpending)}</td>
-            <td style="font-weight: 700; color: ${savings >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                ${savings >= 0 ? '+' : ''}$${formatCurrency(savings)}
-            </td>
+            <td class="amount-income"><span class="dollar-positive">+$</span><span class="amount-num">${formatCurrency(totalIncome)}</span></td>
+            <td class="amount-spending"><span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(totalSpending)}</span></td>
+            <td><span class="${savings >= 0 ? 'dollar-positive' : 'dollar-negative'}">${savings >= 0 ? '+' : '-'}$</span><span class="amount-num">${formatCurrency(Math.abs(savings))}</span></td>
             <td>${topCategory}</td>
         `;
         statsBody.appendChild(tr);
@@ -2391,7 +2453,7 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
                 if (filterCategory && r.category === filterCategory) {
                     categoryIncome += amount;
                 }
-            } else if ((r.type === 'spending' || (r.type === 'account_receivable' && !r.collected)) && !isSavings) {
+            } else if (r.type === 'spending' && !isSavings) {
                 categoryTotals[r.category].spending += amount;
                 if (filterCategory && r.category === filterCategory) {
                     categorySpending += amount;
@@ -2409,7 +2471,7 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
                 if (filterPerson && r.person === filterPerson) {
                     personIncome += amount;
                 }
-            } else if ((r.type === 'spending' || (r.type === 'account_receivable' && !r.collected)) && !isSavings) {
+            } else if (r.type === 'spending' && !isSavings) {
                 personTotals[r.person].spending += amount;
                 if (filterPerson && r.person === filterPerson) {
                     personSpending += amount;
@@ -2538,23 +2600,21 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
 
             if (r.type === 'income') {
                 incomeData[dayIdx] += amount;
-            } else if (r.type === 'account_receivable') {
-                // Pending AR counts as spending (money deducted now)
-                if (!r.collected) spendingData[dayIdx] += amount;
             } else if (r.type === 'spending') {
                 spendingData[dayIdx] += amount;
             }
+            // account_receivable excluded - affects balance only, not income/spending
         });
     } else {
         const months = Object.keys(monthlyStats).sort();
-        // Calculate total income and spending including AR logic
+        // Calculate total income and spending (AR does not affect either)
         incomeData = months.map(m => {
             const stats = monthlyStats[m];
-            return stats.income; // Collected AR is neutral, not income
+            return stats.income;
         });
         spendingData = months.map(m => {
             const stats = monthlyStats[m];
-            return stats.spending + stats.arPending; // Include pending AR in spending
+            return stats.spending;
         });
         labels = months.map(m => {
             const [year, month] = m.split('-');
@@ -2608,16 +2668,11 @@ function renderPersonChart(filteredRecords = null) {
     // Use filtered records if provided, otherwise use all records
     const recordsToUse = filteredRecords || records;
 
-    // Calculate spending by person (includes pending AR)
+    // Calculate spending by person (AR does not affect spending)
     const spendingByPerson = {};
     recordsToUse.forEach(r => {
-        if (r.person) {
-            if (r.type === 'spending') {
-                spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
-            } else if (r.type === 'account_receivable' && !r.collected) {
-                // Pending AR counts as spending (money deducted now)
-                spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
-            }
+        if (r.person && r.type === 'spending') {
+            spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
         }
     });
 
@@ -3134,6 +3189,7 @@ async function handleRecordSubmit(e) {
             formatType: 'combined',
             type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
             date: date,
+            timestamp: Date.now(), // Store creation time in milliseconds for precise ordering
             item: combinedTransactionName || `Combined Transaction (${validTransactions.length} items)`,
             category: combinedTransactionCategory,
             person: validTransactions[0].person || '',
@@ -3186,6 +3242,7 @@ async function handleRecordSubmit(e) {
             formatType: 'single',
             type: type,
             date: date,
+            timestamp: Date.now(), // Store creation time in milliseconds for precise ordering
             item: type === 'income' ? '' : (document.getElementById('record-item')?.value || ''),
             category: document.getElementById('record-category')?.value || '',
             person: document.getElementById('record-person')?.value || '',
@@ -3340,6 +3397,12 @@ function openDetailsModal(record) {
             <span class="detail-label">Date</span>
             <span class="detail-value">${record.date}</span>
         </div>
+        ${record.timestamp ? `
+        <div class="detail-row">
+            <span class="detail-label">Time Recorded</span>
+            <span class="detail-value">${new Date(record.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+        </div>
+        ` : ''}
         <div class="detail-row">
             <span class="detail-label">${record.type === 'income' ? 'Source & Category' : 'Item & Category'}</span>
             <span class="detail-value">
@@ -4204,3 +4267,365 @@ function updatePrivacyIcon() {
     }
 }
 
+// ========================================
+// BUDGET FUNCTIONS
+// ========================================
+
+function renderBudget() {
+    const container = document.getElementById('budget-limits-list');
+    const activeBudgetsEl = document.getElementById('active-budgets-count');
+    const nearLimitEl = document.getElementById('near-limit-count');
+    const cappedEl = document.getElementById('capped-count');
+
+    if (!container) return;
+
+    // Calculate spending for each budget limit
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Get spending records for current month
+    const monthlySpending = {};
+    records.forEach(r => {
+        if (r.type === 'spending') {
+            const recordDate = new Date(r.date);
+            if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+                // Handle combined transactions
+                if (r.formatType === 'combined' && r.combinedTransactions) {
+                    r.combinedTransactions.forEach(ct => {
+                        if (ct.type === 'spending') {
+                            const amount = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
+                            monthlySpending[ct.category] = (monthlySpending[ct.category] || 0) + amount;
+                        }
+                    });
+                } else {
+                    const amount = parseFloat(r.amount) || 0;
+                    monthlySpending[r.category] = (monthlySpending[r.category] || 0) + amount;
+                }
+            }
+        }
+    });
+
+    // Update budget limits with current spending
+    budgetLimits.forEach(limit => {
+        limit.spent = monthlySpending[limit.category] || 0;
+        limit.percentage = (limit.spent / limit.limit) * 100;
+    });
+
+    // Update KPI counts
+    let nearCount = 0;
+    let cappedCount = 0;
+
+    budgetLimits.forEach(limit => {
+        const threshold = limit.alertThreshold || 80;
+        if (limit.percentage >= 100) {
+            cappedCount++;
+        } else if (limit.percentage >= threshold) {
+            nearCount++;
+        }
+    });
+
+    if (activeBudgetsEl) activeBudgetsEl.textContent = budgetLimits.length;
+    if (nearLimitEl) nearLimitEl.textContent = nearCount;
+    if (cappedEl) cappedEl.textContent = cappedCount;
+
+    // Render upcoming income section
+    renderUpcomingIncome();
+
+    // Render budget limits
+    if (budgetLimits.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-bullseye"></i>
+                <p>No budget limits set</p>
+                <span>Add limits to track spending by category</span>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = '';
+
+    // Sort by percentage (highest first)
+    const sortedLimits = [...budgetLimits].sort((a, b) => b.percentage - a.percentage);
+
+    sortedLimits.forEach(limit => {
+        const threshold = limit.alertThreshold || 80;
+        let status = 'safe';
+        let statusClass = 'safe';
+        let statusText = 'Safe';
+        let statusIcon = 'fa-check-circle';
+
+        if (limit.percentage >= 100) {
+            status = 'capped';
+            statusClass = 'capped';
+            statusText = 'Capped';
+            statusIcon = 'fa-ban';
+        } else if (limit.percentage >= threshold) {
+            status = 'near';
+            statusClass = 'near';
+            statusText = 'Near Limit';
+            statusIcon = 'fa-exclamation-circle';
+        }
+
+        const item = document.createElement('div');
+        item.className = `budget-limit-item ${status === 'near' ? 'near-limit' : ''} ${status === 'capped' ? 'capped' : ''}`;
+        item.innerHTML = `
+            <div class="budget-limit-header">
+                <div class="budget-limit-info">
+                    <span class="budget-limit-category">${limit.category}</span>
+                    <span class="budget-status-badge ${statusClass}">
+                        <i class="fas ${statusIcon}"></i> ${statusText}
+                    </span>
+                </div>
+                <div class="budget-limit-actions">
+                    <button class="btn-icon reset-budget-btn" data-id="${limit.id}" title="Reset Spent">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                    <button class="btn-icon edit-budget-btn" data-id="${limit.id}" title="Edit">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    <button class="btn-icon delete-budget-btn" data-id="${limit.id}" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="budget-amount-display">
+                <span class="spent ${statusClass}">$${formatCurrency(limit.spent)} spent</span>
+                <span class="limit">of $${formatCurrency(limit.limit)}</span>
+                <span class="budget-percentage ${statusClass}">${Math.round(limit.percentage)}%</span>
+            </div>
+            <div class="budget-progress-container">
+                <div class="budget-progress-bar ${statusClass}" style="width: ${Math.min(limit.percentage, 100)}%"></div>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function openBudgetLimitModal(limit = null) {
+    const modalTitle = document.getElementById('budget-limit-modal-title');
+    const categorySelect = document.getElementById('budget-limit-category');
+    const amountInput = document.getElementById('budget-limit-amount');
+    const thresholdInput = document.getElementById('budget-limit-threshold');
+    const idInput = document.getElementById('budget-limit-id');
+
+    // Populate categories (only spending categories)
+    const spendingCategories = categories.filter(c => c.type === 'spending');
+    categorySelect.innerHTML = '<option value="">Select a category</option>' +
+        spendingCategories.map(c => {
+            const isUsed = budgetLimits.some(l => l.category === c.name && (!limit || l.id !== limit.id));
+            return `<option value="${c.name}" ${isUsed ? 'disabled' : ''}>${c.name}${isUsed ? ' (already has limit)' : ''}</option>`;
+        }).join('');
+
+    if (limit) {
+        modalTitle.textContent = 'Edit Budget Limit';
+        idInput.value = limit.id;
+        categorySelect.value = limit.category;
+        amountInput.value = limit.limit;
+        thresholdInput.value = limit.alertThreshold || 80;
+        categorySelect.disabled = true;
+    } else {
+        modalTitle.textContent = 'Add Budget Limit';
+        idInput.value = '';
+        categorySelect.value = '';
+        amountInput.value = '';
+        thresholdInput.value = 80;
+        categorySelect.disabled = false;
+    }
+
+    budgetLimitModal.classList.add('active');
+}
+
+function closeBudgetLimitModal() {
+    budgetLimitModal.classList.remove('active');
+    budgetLimitForm.reset();
+}
+
+async function handleBudgetLimitSubmit(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('budget-limit-id').value;
+    const category = document.getElementById('budget-limit-category').value;
+    const limit = parseFloat(document.getElementById('budget-limit-amount').value);
+    const threshold = parseInt(document.getElementById('budget-limit-threshold').value);
+
+    if (!category || !limit || limit <= 0) {
+        showToast('Please fill in all fields with valid values', 'error');
+        return;
+    }
+
+    const limitData = {
+        category,
+        limit,
+        alertThreshold: threshold,
+        spent: 0,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        if (id) {
+            // Edit existing
+            limitData.id = parseInt(id);
+            const existing = budgetLimits.find(l => l.id === parseInt(id));
+            if (existing) {
+                limitData.spent = existing.spent;
+            }
+            await updateRecord(STORE_BUDGET_LIMITS, limitData);
+            showToast('Budget limit updated', 'success');
+        } else {
+            // Add new
+            await add(STORE_BUDGET_LIMITS, limitData);
+            showToast('Budget limit added', 'success');
+        }
+
+        closeBudgetLimitModal();
+        await refreshData();
+        renderBudget();
+    } catch (error) {
+        showToast('Error saving budget limit: ' + error.message, 'error');
+    }
+}
+
+async function handleResetAllBudgets() {
+    if (await showConfirm('Reset spending for all budget limits?')) {
+        for (const limit of budgetLimits) {
+            limit.spent = 0;
+            await updateRecord(STORE_BUDGET_LIMITS, limit);
+        }
+        renderBudget();
+        showToast('All spending amounts reset', 'success');
+    }
+}
+
+// ========================================
+// UPCOMING WIDGET FUNCTIONS
+// ========================================
+
+function renderUpcomingWidget() {
+    const container = document.getElementById('upcoming-widget');
+    if (!container) return;
+
+    const now = new Date();
+    const fiveDaysFromNow = new Date(now);
+    fiveDaysFromNow.setDate(now.getDate() + 5);
+
+    // Get upcoming transactions (next 5 days)
+    const upcoming = records.filter(r => {
+        const recordDate = new Date(r.date);
+        return recordDate > now && recordDate <= fiveDaysFromNow;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const listContainer = container.querySelector('.upcoming-list');
+    if (!listContainer) return;
+
+    if (upcoming.length === 0) {
+        listContainer.innerHTML = '<div class="upcoming-empty">No upcoming transactions in the next 5 days</div>';
+        return;
+    }
+
+    listContainer.innerHTML = '';
+    upcoming.slice(0, 5).forEach(r => {
+        const dateObj = new Date(r.date);
+        const isToday = dateObj.toDateString() === now.toDateString();
+        const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === dateObj.toDateString();
+        
+        let dateLabel;
+        if (isToday) {
+            dateLabel = 'Today';
+        } else if (isTomorrow) {
+            dateLabel = 'Tomorrow';
+        } else {
+            dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        const isIncome = r.type === 'income';
+        const amountClass = isIncome ? 'income' : 'spending';
+        const amountPrefix = isIncome ? '+' : '-';
+        const amount = parseFloat(r.amount) || 0;
+
+        let description = r.item || r.category;
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            const itemCount = r.combinedTransactions.length;
+            description = `${r.item || 'Combined'} (${itemCount} items)`;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'upcoming-item';
+        item.innerHTML = `
+            <span class="upcoming-date">${dateLabel}</span>
+            <span class="upcoming-amount ${amountClass}">${amountPrefix}$${formatCurrency(amount)}</span>
+            <span class="upcoming-desc">${isIncome ? '💰' : '💸'} ${description}</span>
+        `;
+        listContainer.appendChild(item);
+    });
+}
+
+function renderUpcomingIncome() {
+    const container = document.getElementById('upcoming-income-list');
+    if (!container) return;
+
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now);
+    thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+    // Get upcoming income and AR (next 30 days)
+    const upcomingIncome = records.filter(r => {
+        const recordDate = new Date(r.date);
+        // Include: future income dates and pending AR
+        if (r.type === 'income' && recordDate > now && recordDate <= thirtyDaysFromNow) {
+            return true;
+        }
+        if (r.type === 'account_receivable' && !r.collected && recordDate <= thirtyDaysFromNow) {
+            return true;
+        }
+        return false;
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (upcomingIncome.length === 0) {
+        container.innerHTML = `
+            <div class="upcoming-income-empty">
+                <i class="fas fa-calendar"></i>
+                <p>No upcoming income or receivables</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = '';
+    upcomingIncome.forEach(r => {
+        const dateObj = new Date(r.date);
+        const isToday = dateObj.toDateString() === now.toDateString();
+        const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === dateObj.toDateString();
+        
+        let dateLabel;
+        if (isToday) {
+            dateLabel = 'Today';
+        } else if (isTomorrow) {
+            dateLabel = 'Tomorrow';
+        } else {
+            dateLabel = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        const isAR = r.type === 'account_receivable';
+        const amount = parseFloat(r.amount) || 0;
+        const description = r.item || r.category;
+
+        const item = document.createElement('div');
+        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''}`;
+        item.innerHTML = `
+            <div class="income-info">
+                <div class="income-icon">
+                    <i class="fas ${isAR ? 'fa-hand-holding-dollar' : 'fa-arrow-trend-up'}"></i>
+                </div>
+                <div class="income-details">
+                    <span class="income-name">${description}</span>
+                    <span class="income-date">${dateLabel}${isAR ? ' (Receivable)' : ''}</span>
+                </div>
+            </div>
+            <span class="income-amount">+$${formatCurrency(amount)}</span>
+            ${isAR ? `<button class="collect-btn" onclick="collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
+        `;
+        container.appendChild(item);
+    });
+}

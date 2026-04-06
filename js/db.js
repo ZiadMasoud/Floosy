@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 4; // bumped to support accounts receivable
+const DB_VERSION = 5; // bumped to support budget limits
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
@@ -7,6 +7,9 @@ const STORE_PEOPLE = 'people';
 // new stores for savings feature
 const STORE_SAVINGS_ACCOUNTS = 'savingsAccounts';
 const STORE_SAVINGS_TRANSACTIONS = 'savingsTransactions';
+
+// new store for budget limits
+const STORE_BUDGET_LIMITS = 'budgetLimits';
 
 let db;
 
@@ -36,6 +39,11 @@ function initDB() {
 
             if (!db.objectStoreNames.contains(STORE_SAVINGS_TRANSACTIONS)) {
                 db.createObjectStore(STORE_SAVINGS_TRANSACTIONS, { keyPath: 'id', autoIncrement: true });
+            }
+
+            // create budget limits store
+            if (!db.objectStoreNames.contains(STORE_BUDGET_LIMITS)) {
+                db.createObjectStore(STORE_BUDGET_LIMITS, { keyPath: 'id', autoIncrement: true });
             }
         };
 
@@ -107,6 +115,7 @@ async function resetDB() {
     await clearStore(STORE_PEOPLE);
     await clearStore(STORE_SAVINGS_ACCOUNTS);
     await clearStore(STORE_SAVINGS_TRANSACTIONS);
+    await clearStore(STORE_BUDGET_LIMITS);
     await seedDefaultCategories();
 }
 
