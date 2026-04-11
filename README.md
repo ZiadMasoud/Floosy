@@ -40,40 +40,6 @@ Floosy is a modern, user-friendly personal finance tracking web application desi
 2. Open `index.html` in your web browser
 3. Start tracking your finances immediately!
 
-### Sample Data
-
-The application includes comprehensive sample data for testing all features:
-
-**📊 Sample Dataset Overview:**
-- **8 months of transactions** (January-August 2027)
-- **124 transactions** with realistic spending patterns
-- **5 people**: John, Sarah, Mike, Emma, David
-- **20 categories**: Including Rent/Mortgage, Groceries, Utilities, Transport, Entertainment, Healthcare, Insurance, Clothing, Dining Out, Education, Home Maintenance, Gifts, Pet Supplies, Gym/Fitness
-- **Multiple income sources**: Salary, Rental Income, Freelance, Bonus, Side Hustle, Investment
-
-**💰 Savings Accounts with Realistic Data:**
-- **7 savings accounts**: Emergency Fund, Vacation Savings, New Car Fund, Home Renovation, Kids Education, Retirement Fund, Wedding Fund
-- **67 savings transactions** with deposits and withdrawals
-- **Current balances** reflecting real usage patterns
-- **Life events**: Car purchases, vacation bookings, medical emergencies, home renovations
-
-**📈 Financial Summary:**
-- **Total Income**: ~$69,000 over 8 months
-- **Diverse Spending**: Across all categories with seasonal patterns
-- **Active Savings**: Multiple goals with regular contributions and withdrawals
-
-To test the application with sample data:
-1. Navigate to Settings → Data Management
-2. Click "Import JSON"
-3. Select the `house_spending_export_2027-03-02.json` file (included in this repository)
-
-The sample data demonstrates:
-- **Dashboard analytics** with monthly trends
-- **Category breakdowns** and spending patterns
-- **Person-based tracking** across family members
-- **Savings management** with multiple goals
-- **Historical data** for trend analysis
-
 ### Usage
 
 1. **Dashboard**: View your financial overview with total income, spending, and balance for the current month.

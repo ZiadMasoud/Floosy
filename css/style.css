@@ -186,6 +186,17 @@ h1 {
   transition: all 0.3s ease;
 }
 
+#tab-name-badge-userinfo {
+  background: var(--primary-color);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  margin-right: 0.25rem;
+}
+
+
 @media (max-width: 768px) {
   .user-info {
     top: 1rem;
@@ -237,40 +248,7 @@ body.privacy-mode #privacy-toggle {
 
 /* Privacy Mode Blurring */
 
-/* Budget Tab & Upcoming Widget Blur with Coming Soon */
-.blur-section {
-  filter: blur(5px);
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.7;
-}
-
-.coming-soon-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(53, 88, 114, 0.95);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  font-weight: 700;
-  z-index: 100;
-  box-shadow: var(--shadow-lg);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.coming-soon-overlay i {
-  font-size: 1rem;
-}
-
-/* Position relative containers for coming soon overlay */
-#budget,
+/* Upcoming Widget positioning */
 .upcoming-widget {
   position: relative;
 }
@@ -299,7 +277,10 @@ body.privacy-mode .kpi-card p,
 body.privacy-mode .kpi-details p,
 body.privacy-mode .savings-kpis p,
 body.privacy-mode .chart-container canvas,
-body.privacy-mode .week-stat {
+body.privacy-mode .week-stat,
+body.privacy-mode .upcoming-amount,
+body.privacy-mode .upcoming-income-item .income-amount,
+body.privacy-mode .upcoming-income-popup .income-amount {
   filter: blur(10px) !important;
   color: transparent !important;
   text-shadow: 0 0 10px rgba(30, 41, 59, 0.8) !important;
@@ -3982,7 +3963,7 @@ tr:last-child td {
   }
 
   #budget-kpis {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: 0.75rem;
   }
 
@@ -4245,5 +4226,197 @@ tr:last-child td {
   font-size: 2rem;
   margin-bottom: 0.5rem;
   display: block;
+}
+
+/* Upcoming Income Actions */
+.upcoming-income-item .income-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upcoming-income-item .income-actions .btn-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.upcoming-income-item .income-actions .btn-icon:hover {
+  background: rgba(53, 88, 114, 0.1);
+  color: var(--primary-color);
+}
+
+.upcoming-income-item .income-actions .btn-icon.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.upcoming-income-item .income-info {
+  cursor: pointer;
+  flex: 1;
+}
+
+.upcoming-income-item.upcoming-projected {
+  border-left: 3px solid var(--success);
+}
+
+/* Upcoming Income Popup */
+.upcoming-income-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  min-width: 320px;
+  max-width: 90vw;
+  animation: popupFadeIn 0.2s ease;
+}
+
+@keyframes popupFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.upcoming-income-popup .popup-content {
+  padding: 1.5rem;
+}
+
+.upcoming-income-popup .popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.upcoming-income-popup .popup-header h3 {
+  font-size: 1.1rem;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.upcoming-income-popup .popup-header .close-popup {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.upcoming-income-popup .popup-header .close-popup:hover {
+  background: rgba(53, 88, 114, 0.1);
+  color: var(--primary-color);
+}
+
+.upcoming-income-popup .popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upcoming-income-popup .detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.upcoming-income-popup .detail-label {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.upcoming-income-popup .detail-value {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+.upcoming-income-popup .detail-value.income-amount {
+  color: var(--success);
+  font-size: 1.1rem;
+}
+
+.upcoming-income-popup .detail-value.collected {
+  color: var(--success);
+}
+
+.upcoming-income-popup .detail-value.pending {
+  color: #d97706;
+}
+
+.upcoming-income-popup .detail-value.notes-text {
+  font-weight: 400;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  max-width: 200px;
+}
+
+/* Responsive styles for upcoming income items */
+@media (max-width: 480px) {
+  .upcoming-income-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .upcoming-income-item .income-info {
+    width: 100%;
+  }
+
+  .upcoming-income-item .income-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .upcoming-income-item .income-amount {
+    font-size: 1rem;
+    margin-right: auto;
+  }
+
+  .upcoming-income-item .income-name {
+    font-size: 0.9rem;
+  }
+
+  .upcoming-ar-item .collect-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .upcoming-income-item .income-actions .btn-icon {
+    width: 28px;
+    height: 28px;
+  }
 }
 

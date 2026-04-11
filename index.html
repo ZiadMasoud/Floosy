@@ -51,6 +51,7 @@
       
       <!-- Floating User Info (outside hidden header) -->
       <div class="user-info" style="display: none;">
+        <span id="tab-name-badge-userinfo">Analytics</span>
         <span id="current-month-display">...</span>
         <button id="header-filters-btn" title="Filters" class="btn-icon header-filters-btn">
           <i class="fas fa-filter"></i>
@@ -97,13 +98,6 @@
 
           <!-- Upcoming Widget -->
           <div class="upcoming-widget" id="upcoming-widget">
-            <!-- Coming Soon Overlay -->
-            <div class="coming-soon-overlay">
-              <i class="fas fa-clock"></i>
-              <span>Coming Soon</span>
-            </div>
-            
-            <div class="blur-section">
               <div class="upcoming-widget-header">
                 <i class="fas fa-calendar-alt"></i>
                 <span>Upcoming (Next 5 Days)</span>
@@ -111,7 +105,6 @@
               <div class="upcoming-list">
                 <div class="upcoming-empty">No upcoming transactions</div>
               </div>
-            </div>
           </div>
         </div>
 
@@ -360,13 +353,6 @@
 
       <!-- Budget Tab -->
       <section id="budget" class="tab-content">
-        <!-- Coming Soon Overlay -->
-        <div class="coming-soon-overlay">
-          <i class="fas fa-clock"></i>
-          <span>Coming Soon</span>
-        </div>
-        
-        <div class="blur-section">
           <button class="btn btn-primary fab" id="add-budget-limit-btn" title="Add Budget Limit" onclick="openBudgetLimitModal()">
             <i class="fas fa-plus"></i>
             <span class="fab-label">Add Limit</span>
@@ -401,6 +387,9 @@
           <div class="card upcoming-income-section">
             <div class="card-header">
               <h3><i class="fas fa-calendar-check"></i> Upcoming Income</h3>
+              <button class="btn btn-primary" id="add-upcoming-income-btn">
+                <i class="fas fa-plus"></i> Add Expected Income
+              </button>
             </div>
             <div id="upcoming-income-list" class="upcoming-income-list">
               <div class="upcoming-income-empty">
@@ -427,7 +416,6 @@
               </div>
             </div>
           </div>
-        </div>
       </section>
 
       <!-- Settings Tab -->
@@ -892,6 +880,43 @@
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="cancel-budget-limit-modal">Cancel</button>
             <button type="submit" class="btn btn-primary">Save Limit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal for Add Upcoming Income -->
+    <div id="upcoming-income-modal" class="modal">
+      <div class="modal-content">
+        <h2>Add Expected Income</h2>
+        <form id="upcoming-income-form">
+          <div class="form-group">
+            <label>Source</label>
+            <input type="text" id="upcoming-income-source" required placeholder="e.g. Salary, Freelance, Gift..." />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Expected Date</label>
+              <input type="date" id="upcoming-income-date" required />
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" id="upcoming-income-amount" step="0.01" required placeholder="0.00" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="upcoming-income-category" required>
+              <!-- Options will be loaded dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Notes (Optional)</label>
+            <textarea id="upcoming-income-notes" rows="2" placeholder="Additional details..."></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-upcoming-income-modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Expected Income</button>
           </div>
         </form>
       </div>

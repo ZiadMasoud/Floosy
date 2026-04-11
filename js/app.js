@@ -88,6 +88,17 @@ const budgetLimitThresholdInput = document.getElementById('budget-limit-threshol
 const cancelBudgetLimitBtn = document.getElementById('cancel-budget-limit-modal');
 const resetAllBudgetsBtn = document.getElementById('reset-all-budgets-btn');
 
+// Upcoming Income DOM Elements
+const addUpcomingIncomeBtn = document.getElementById('add-upcoming-income-btn');
+const upcomingIncomeModal = document.getElementById('upcoming-income-modal');
+const upcomingIncomeForm = document.getElementById('upcoming-income-form');
+const upcomingIncomeSourceInput = document.getElementById('upcoming-income-source');
+const upcomingIncomeDateInput = document.getElementById('upcoming-income-date');
+const upcomingIncomeAmountInput = document.getElementById('upcoming-income-amount');
+const upcomingIncomeCategorySelect = document.getElementById('upcoming-income-category');
+const upcomingIncomeNotesInput = document.getElementById('upcoming-income-notes');
+const cancelUpcomingIncomeBtn = document.getElementById('cancel-upcoming-income-modal');
+
 // Show More Buttons
 const showMoreCategoriesBtn = document.getElementById('show-more-categories');
 const showMorePeopleBtn = document.getElementById('show-more-people');
@@ -755,10 +766,10 @@ function initEventListeners() {
                 const id = parseInt(resetBtn.getAttribute('data-id'));
                 const limit = budgetLimits.find(l => l.id === id);
                 if (limit) {
-                    limit.spent = 0;
+                    limit.lastResetDate = new Date().toISOString();
                     await updateRecord(STORE_BUDGET_LIMITS, limit);
                     renderBudget();
-                    showToast('Spending reset for ' + limit.category, 'success');
+                    showToast('Spending reset for ' + limit.category + ' - tracking from now', 'success');
                 }
             }
         });
@@ -767,6 +778,22 @@ function initEventListeners() {
     // Close budget modal on click outside
     window.addEventListener('click', (e) => {
         if (e.target === budgetLimitModal) closeBudgetLimitModal();
+    });
+
+    // Upcoming Income Modal
+    if (addUpcomingIncomeBtn) {
+        addUpcomingIncomeBtn.addEventListener('click', openUpcomingIncomeModal);
+    }
+    if (cancelUpcomingIncomeBtn) {
+        cancelUpcomingIncomeBtn.addEventListener('click', closeUpcomingIncomeModal);
+    }
+    if (upcomingIncomeForm) {
+        upcomingIncomeForm.addEventListener('submit', handleUpcomingIncomeSubmit);
+    }
+
+    // Close upcoming income modal on click outside
+    window.addEventListener('click', (e) => {
+        if (e.target === upcomingIncomeModal) closeUpcomingIncomeModal();
     });
 }
 
@@ -1185,11 +1212,24 @@ function switchTab(tabId) {
     }
     const headerFiltersBtn = document.getElementById('header-filters-btn');
     const userInfo = document.querySelector('.user-info');
+
     // Show floating user-info on analytics, budget, savings, and settings only
     const showUserInfoTabs = ['analytics', 'budget', 'savings', 'settings'];
     if (userInfo) {
         userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
     }
+
+    // Update tab name inside user-info box
+    const tabNameBadgeUserInfo = document.getElementById('tab-name-badge-userinfo');
+    if (tabNameBadgeUserInfo) {
+        if (showUserInfoTabs.includes(tabId)) {
+            tabNameBadgeUserInfo.textContent = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+            tabNameBadgeUserInfo.style.display = 'inline-block';
+        } else {
+            tabNameBadgeUserInfo.style.display = 'none';
+        }
+    }
+
     if (headerFiltersBtn) {
         headerFiltersBtn.style.display = tabId === 'analytics' ? '' : 'none';
         headerFiltersBtn.classList.remove('active');
@@ -3158,10 +3198,14 @@ async function handleRecordSubmit(e) {
             return;
         }
 
-        // Filter out invalid transactions
+        // Filter out invalid transactions and apply item defaulting
         const validTransactions = combinedTransactions.filter(t =>
             t.category && t.amount && parseFloat(t.amount) > 0
-        );
+        ).map(t => ({
+            ...t,
+            // Use item if provided, otherwise use category name for spending (income doesn't need item)
+            item: t.type === 'income' ? '' : (t.item || t.category)
+        }));
 
         // Create main record
         let totalIncome = 0;
@@ -3238,13 +3282,18 @@ async function handleRecordSubmit(e) {
             return;
         }
 
+        const category = document.getElementById('record-category')?.value || '';
+        const itemInput = document.getElementById('record-item')?.value || '';
+        // Use item if provided, otherwise use category name for spending/AR (income doesn't need item)
+        const item = type === 'income' ? '' : (itemInput || category);
+
         const data = {
             formatType: 'single',
             type: type,
             date: date,
             timestamp: Date.now(), // Store creation time in milliseconds for precise ordering
-            item: type === 'income' ? '' : (document.getElementById('record-item')?.value || ''),
-            category: document.getElementById('record-category')?.value || '',
+            item: item,
+            category: category,
             person: document.getElementById('record-person')?.value || '',
             amount: amount,
             quantity: document.getElementById('record-quantity')?.value || '1',
@@ -4234,6 +4283,11 @@ window.undoCollectAR = undoCollectAR;
 // Records tab uses uncollectAR; keep it as an alias to undo collection.
 window.uncollectAR = undoCollectAR;
 
+// Make upcoming income functions globally available
+window.editUpcomingIncome = editUpcomingIncome;
+window.deleteUpcomingIncome = deleteUpcomingIncome;
+window.showUpcomingIncomeDetails = showUpcomingIncomeDetails;
+
 // Function to generate unique ID
 function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -4284,23 +4338,30 @@ function renderBudget() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Get spending records for current month
+    // Get spending records for current month (after last reset)
     const monthlySpending = {};
     records.forEach(r => {
         if (r.type === 'spending') {
             const recordDate = new Date(r.date);
             if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
-                // Handle combined transactions
-                if (r.formatType === 'combined' && r.combinedTransactions) {
-                    r.combinedTransactions.forEach(ct => {
-                        if (ct.type === 'spending') {
-                            const amount = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
-                            monthlySpending[ct.category] = (monthlySpending[ct.category] || 0) + amount;
-                        }
-                    });
-                } else {
-                    const amount = parseFloat(r.amount) || 0;
-                    monthlySpending[r.category] = (monthlySpending[r.category] || 0) + amount;
+                // Find the budget limit for this category to check last reset date
+                const limit = budgetLimits.find(l => l.category === r.category);
+                const lastReset = limit?.lastResetDate ? new Date(limit.lastResetDate) : null;
+                
+                // Only count spending after last reset
+                if (!lastReset || recordDate >= lastReset) {
+                    // Handle combined transactions
+                    if (r.formatType === 'combined' && r.combinedTransactions) {
+                        r.combinedTransactions.forEach(ct => {
+                            if (ct.type === 'spending') {
+                                const amount = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
+                                monthlySpending[ct.category] = (monthlySpending[ct.category] || 0) + amount;
+                            }
+                        });
+                    } else {
+                        const amount = parseFloat(r.amount) || 0;
+                        monthlySpending[r.category] = (monthlySpending[r.category] || 0) + amount;
+                    }
                 }
             }
         }
@@ -4488,13 +4549,14 @@ async function handleBudgetLimitSubmit(e) {
 }
 
 async function handleResetAllBudgets() {
-    if (await showConfirm('Reset spending for all budget limits?')) {
+    if (await showConfirm('Reset spending for all budget limits? This will mark current spending as tracked from now.')) {
+        const now = new Date().toISOString();
         for (const limit of budgetLimits) {
-            limit.spent = 0;
+            limit.lastResetDate = now;
             await updateRecord(STORE_BUDGET_LIMITS, limit);
         }
         renderBudget();
-        showToast('All spending amounts reset', 'success');
+        showToast('All spending amounts reset - tracking from now', 'success');
     }
 }
 
@@ -4608,24 +4670,229 @@ function renderUpcomingIncome() {
         }
 
         const isAR = r.type === 'account_receivable';
+        const isProjected = r.isProjected;
         const amount = parseFloat(r.amount) || 0;
-        const description = r.item || r.category;
+        const description = r.projectedSource || r.item || r.category;
 
         const item = document.createElement('div');
-        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''}`;
+        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''} ${isProjected ? 'upcoming-projected' : ''}`;
         item.innerHTML = `
-            <div class="income-info">
+            <div class="income-info" onclick="showUpcomingIncomeDetails(${r.id})">
                 <div class="income-icon">
-                    <i class="fas ${isAR ? 'fa-hand-holding-dollar' : 'fa-arrow-trend-up'}"></i>
+                    <i class="fas ${isAR ? 'fa-hand-holding-dollar' : (isProjected ? 'fa-calendar-check' : 'fa-arrow-trend-up')}"></i>
                 </div>
                 <div class="income-details">
                     <span class="income-name">${description}</span>
-                    <span class="income-date">${dateLabel}${isAR ? ' (Receivable)' : ''}</span>
+                    <span class="income-date">${dateLabel}${isAR ? ' (Receivable)' : (isProjected ? ' (Expected)' : '')}</span>
                 </div>
             </div>
-            <span class="income-amount">+$${formatCurrency(amount)}</span>
-            ${isAR ? `<button class="collect-btn" onclick="collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
+            <div class="income-actions">
+                <span class="income-amount">+$${formatCurrency(amount)}</span>
+                ${!isAR ? `<button class="btn-icon edit-btn" onclick="event.stopPropagation(); editUpcomingIncome(${r.id})" title="Edit"><i class="fas fa-pen"></i></button>` : ''}
+                <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteUpcomingIncome(${r.id})" title="Delete"><i class="fas fa-trash"></i></button>
+                ${isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
+            </div>
         `;
         container.appendChild(item);
     });
+}
+
+// ========================================
+// UPCOMING INCOME MODAL FUNCTIONS
+// ========================================
+
+function openUpcomingIncomeModal() {
+    if (!upcomingIncomeModal) return;
+
+    // Reset form
+    upcomingIncomeForm.reset();
+
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    upcomingIncomeDateInput.valueAsDate = tomorrow;
+
+    // Populate category dropdown with income categories
+    const incomeCategories = categories.filter(c => c.type === 'income');
+    upcomingIncomeCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+        incomeCategories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+    upcomingIncomeModal.classList.add('active');
+}
+
+function closeUpcomingIncomeModal() {
+    if (upcomingIncomeModal) upcomingIncomeModal.classList.remove('active');
+}
+
+async function handleUpcomingIncomeSubmit(e) {
+    e.preventDefault();
+
+    const source = upcomingIncomeSourceInput.value.trim();
+    const date = upcomingIncomeDateInput.value;
+    const amount = parseFloat(upcomingIncomeAmountInput.value);
+    const category = upcomingIncomeCategorySelect.value;
+    const notes = upcomingIncomeNotesInput.value.trim();
+    const id = document.getElementById('upcoming-income-edit-id')?.value;
+
+    if (!source || !date || !amount || amount <= 0 || !category) {
+        showToast('Please fill in all required fields with valid values', 'error');
+        return;
+    }
+
+    // Check if date is in the future
+    const selectedDate = new Date(date);
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    if (selectedDate < now) {
+        showToast('Expected date must be in the future', 'warning');
+        return;
+    }
+
+    const data = {
+        formatType: 'single',
+        type: 'income',
+        date: date,
+        timestamp: Date.now(),
+        item: '',
+        category: category,
+        person: '',
+        amount: amount,
+        quantity: '1',
+        notes: notes ? `Expected Income: ${source}. ${notes}` : `Expected Income: ${source}`,
+        isProjected: true,
+        projectedSource: source
+    };
+
+    try {
+        if (id) {
+            data.id = parseInt(id);
+            await updateRecord(STORE_RECORDS, data);
+            showToast('Expected income updated successfully', 'success');
+        } else {
+            await add(STORE_RECORDS, data);
+            showToast('Expected income added successfully', 'success');
+        }
+        closeUpcomingIncomeModal();
+        await refreshData();
+        renderBudget();
+    } catch (error) {
+        console.error('Error saving upcoming income:', error);
+        showToast('Error saving expected income: ' + error.message, 'error');
+    }
+}
+
+function editUpcomingIncome(id) {
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+
+    // Populate form with existing data
+    upcomingIncomeSourceInput.value = record.projectedSource || '';
+    upcomingIncomeDateInput.value = record.date;
+    upcomingIncomeAmountInput.value = record.amount;
+    upcomingIncomeNotesInput.value = record.notes?.replace(`Expected Income: ${record.projectedSource}. `, '')?.replace(`Expected Income: ${record.projectedSource}`, '') || '';
+
+    // Populate category dropdown
+    const incomeCategories = categories.filter(c => c.type === 'income');
+    upcomingIncomeCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+        incomeCategories.map(c => `<option value="${c.name}" ${c.name === record.category ? 'selected' : ''}>${c.name}</option>`).join('');
+
+    // Add hidden field for edit mode
+    let editIdField = document.getElementById('upcoming-income-edit-id');
+    if (!editIdField) {
+        editIdField = document.createElement('input');
+        editIdField.type = 'hidden';
+        editIdField.id = 'upcoming-income-edit-id';
+        upcomingIncomeForm.appendChild(editIdField);
+    }
+    editIdField.value = id;
+
+    // Update modal title
+    upcomingIncomeModal.querySelector('h2').textContent = 'Edit Expected Income';
+    upcomingIncomeModal.classList.add('active');
+}
+
+async function deleteUpcomingIncome(id) {
+    if (await showConfirm('Delete this expected income?')) {
+        try {
+            await remove(STORE_RECORDS, id);
+            showToast('Expected income deleted', 'success');
+            await refreshData();
+            renderBudget();
+        } catch (error) {
+            console.error('Error deleting upcoming income:', error);
+            showToast('Error deleting expected income: ' + error.message, 'error');
+        }
+    }
+}
+
+function showUpcomingIncomeDetails(id) {
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+
+    const isAR = record.type === 'account_receivable';
+    const isProjected = record.isProjected;
+    const dateObj = new Date(record.date);
+    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    // Create floating popup
+    let popup = document.getElementById('upcoming-income-details-popup');
+    if (popup) popup.remove();
+
+    popup = document.createElement('div');
+    popup.id = 'upcoming-income-details-popup';
+    popup.className = 'upcoming-income-popup';
+    popup.innerHTML = `
+        <div class="popup-content">
+            <div class="popup-header">
+                <h3>${isAR ? 'Accounts Receivable' : (isProjected ? 'Expected Income' : 'Upcoming Income')}</h3>
+                <button class="btn-icon close-popup" onclick="document.getElementById('upcoming-income-details-popup').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="popup-body">
+                <div class="detail-row">
+                    <span class="detail-label">Source</span>
+                    <span class="detail-value">${record.projectedSource || record.item || record.category}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Date</span>
+                    <span class="detail-value">${dateStr}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Amount</span>
+                    <span class="detail-value income-amount">+$${formatCurrency(parseFloat(record.amount) || 0)}</span>
+                </div>
+                ${record.category ? `
+                <div class="detail-row">
+                    <span class="detail-label">Category</span>
+                    <span class="detail-value">${record.category}</span>
+                </div>
+                ` : ''}
+                ${record.notes ? `
+                <div class="detail-row">
+                    <span class="detail-label">Notes</span>
+                    <span class="detail-value notes-text">${record.notes}</span>
+                </div>
+                ` : ''}
+                ${isAR ? `
+                <div class="detail-row">
+                    <span class="detail-label">Status</span>
+                    <span class="detail-value ${record.collected ? 'collected' : 'pending'}">${record.collected ? 'Collected' : 'Pending'}</span>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Close on click outside
+    setTimeout(() => {
+        document.addEventListener('click', function closePopup(e) {
+            if (!popup.contains(e.target)) {
+                popup.remove();
+                document.removeEventListener('click', closePopup);
+            }
+        });
+    }, 100);
 }

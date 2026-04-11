@@ -47,7 +47,8 @@ Floosy/
 ├── js/
 │   ├── app.js              # Main application logic (~4000 lines)
 │   ├── db.js               # IndexedDB wrapper
-│   └── monthly-summary.js  # Monthly aggregation logic
+│   ├── monthly-summary.js  # Monthly aggregation logic
+│   └── refactor.js         # Code refactoring utilities
 ├── data/
 │   └── Floosy_*.json       # Sample data exports
 └── README.md               # Full documentation
