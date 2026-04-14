@@ -808,10 +808,8 @@ function toggleItemField() {
     } else {
         // Show item field for spending and account_receivable
         itemFieldContainer.style.display = 'block';
-        // Only add required if not in combined mode
-        if (formatType !== 'combined') {
-            recordItem.setAttribute('required', '');
-        }
+        // Item field is optional - if empty, category name will be used
+        recordItem.removeAttribute('required');
     }
 }
 

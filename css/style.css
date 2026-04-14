@@ -426,7 +426,9 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   top: 96px;
   z-index: 50;
   display: none;
-  width: min(420px, calc(100vw - 32px));
+  width: min(500px, calc(100vw - 32px));
+  max-height: calc(100vh - 96px - 80px - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
 }
 
 .filter-panel .filter-controls-group {
@@ -456,10 +458,6 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   grid-column: span 2;
   width: 100%;
   margin-top: 0.25rem;
-}
-
-.filter-panel {
-  width: min(500px, calc(100vw - 32px));
 }
 
 /* Floating Filter Card Styles */
@@ -716,8 +714,10 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   .filter-panel {
     left: 12px;
     right: 12px;
-    top: 86px;
+    top: 60px;
     width: auto;
+    max-height: calc(100vh - 60px - 70px - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
   }
 }
 
@@ -725,23 +725,20 @@ body.privacy-mode .upcoming-income-popup .income-amount {
 @media (max-width: 480px) {
   .filter-panel {
     position: fixed;
-    top: 0;
+    top: 60px;
     left: 0;
     right: 0;
-    bottom: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(4px);
-    z-index: 50;
-    display: none;
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 16px;
+    bottom: 70px;
+    height: auto;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: safe center;
     align-items: center;
+    padding: 16px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    overflow: hidden !important;
+    z-index: 50;
   }
 
   .filter-panel.active {
@@ -749,22 +746,22 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   }
 
   .filter-panel .filter-controls-group {
-    width: 100%;
-    max-width: 100%;
-    max-height: none;
-    min-height: min-content;
-    margin: 0;
-    border-radius: var(--radius);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
-    overflow: visible;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+    max-height: calc(100vh - 60px - 70px - 48px) !important;
+    overflow-y: scroll !important;
+    overflow-x: hidden !important;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    animation: slideUp 0.3s ease-out;
-    padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
-    flex-direction: column;
-    align-items: stretch;
+    box-sizing: border-box !important;
+    flex-shrink: 0;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    animation: slideDown 0.3s ease-out;
+    padding: 1rem;
     gap: 0.75rem;
-    display: flex;
     position: relative;
     z-index: 51;
   }
@@ -794,15 +791,21 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   }
 
   .filter-panel .filter-group {
-    width: 100%;
-    min-width: 0;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
     flex: 0 0 auto;
   }
 
   .filter-panel .filter-group select,
   .filter-panel .filter-group input {
-    width: 100%;
-    min-width: 0;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Clear button distinct styling */
