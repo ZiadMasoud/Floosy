@@ -872,10 +872,7 @@ function toggleRecordFormat() {
                 element.removeAttribute('required');
             } else {
                 container.style.display = 'block';
-                // Restore required attribute for necessary fields
-                if (element.id === 'record-item' && recordTypeSelect.value !== 'income') {
-                    element.setAttribute('required', '');
-                }
+                // Restore required attribute for necessary fields only
                 if (element.id === 'record-amount') {
                     element.setAttribute('required', '');
                 }
