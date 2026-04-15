@@ -1119,10 +1119,8 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
 
         const amount = parseFloat(r.amount) || 0;
 
+        // Skip savings transfers - they don't affect main balance
         if (r.isSavingsTransfer) {
-            if (r.type === 'income') {
-                spending += amount;
-            }
             return;
         }
 
@@ -1400,6 +1398,9 @@ async function renderDashboard() {
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
 
+                // Check if this component is a savings transfer (parent has savingsAccountId or component has its own)
+                const isComponentSavingsTransfer = !!(r.savingsAccountId || ct.savingsAccountId);
+
                 expandedRecords.push({
                     ...r,
                     type: ct.type,
@@ -1411,7 +1412,8 @@ async function renderDashboard() {
                     quantity: quantity,
                     originalId: r.id,
                     isCombinedComponent: true,
-                    componentIndex: index
+                    componentIndex: index,
+                    isSavingsTransfer: isComponentSavingsTransfer
                 });
             });
         } else {
@@ -1487,10 +1489,8 @@ async function renderDashboard() {
     monthlyRecords.forEach(r => {
         const amount = parseFloat(r.amount) || 0;
 
+        // Skip savings transfers - they don't affect main balance
         if (r.isSavingsTransfer) {
-            if (r.type === 'income') {
-                spending += amount;
-            }
             return;
         }
 
@@ -2486,10 +2486,8 @@ function renderAnalytics() {
 
         const amount = parseFloat(r.amount) || 0;
 
+        // Skip savings transfers - they don't affect main balance
         if (r.isSavingsTransfer) {
-            if (r.type === 'income') {
-                monthlyStats[monthKey].spending += amount;
-            }
             return;
         }
 
@@ -2737,10 +2735,8 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
             const dayIdx = d.getDate() - 1;
             const amount = parseFloat(r.amount) || 0;
 
-            // Savings transfer records should not count as income/spending here (they are "savings" type),
-            // BUT existing analytics logic treats income+savingsTransfer as spending. Keep that behavior.
+            // Skip savings transfers - they don't affect main balance
             if (r.isSavingsTransfer) {
-                if (r.type === 'income') spendingData[dayIdx] += amount;
                 return;
             }
 
