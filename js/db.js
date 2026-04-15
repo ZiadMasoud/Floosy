@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 5; // bumped to support budget limits
+const DB_VERSION = 6; // bumped to support monthly balance carry-over settings
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
@@ -10,6 +10,9 @@ const STORE_SAVINGS_TRANSACTIONS = 'savingsTransactions';
 
 // new store for budget limits
 const STORE_BUDGET_LIMITS = 'budgetLimits';
+
+// new store for monthly balance carry-over settings
+const STORE_MONTHLY_BALANCE_SETTINGS = 'monthlyBalanceSettings';
 
 let db;
 
@@ -44,6 +47,11 @@ function initDB() {
             // create budget limits store
             if (!db.objectStoreNames.contains(STORE_BUDGET_LIMITS)) {
                 db.createObjectStore(STORE_BUDGET_LIMITS, { keyPath: 'id', autoIncrement: true });
+            }
+
+            // create monthly balance settings store
+            if (!db.objectStoreNames.contains(STORE_MONTHLY_BALANCE_SETTINGS)) {
+                db.createObjectStore(STORE_MONTHLY_BALANCE_SETTINGS, { keyPath: 'id', autoIncrement: true });
             }
         };
 
@@ -116,7 +124,53 @@ async function resetDB() {
     await clearStore(STORE_SAVINGS_ACCOUNTS);
     await clearStore(STORE_SAVINGS_TRANSACTIONS);
     await clearStore(STORE_BUDGET_LIMITS);
+    await clearStore(STORE_MONTHLY_BALANCE_SETTINGS);
     await seedDefaultCategories();
+}
+
+// Monthly balance carry-over functions
+async function getMonthlyBalanceSettings(year, month) {
+    const settings = await getAll(STORE_MONTHLY_BALANCE_SETTINGS);
+    const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+    return settings.find(s => s.monthKey === monthKey);
+}
+
+async function setMonthlyBalanceCarryOver(year, month, carryOver, remainingBalance = 0) {
+    const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
+    const settings = await getAll(STORE_MONTHLY_BALANCE_SETTINGS);
+    const existing = settings.find(s => s.monthKey === monthKey);
+    
+    const data = {
+        monthKey,
+        year,
+        month,
+        carryOver, // boolean: whether to carry over previous month's balance
+        remainingBalance, // the balance amount to carry over (if carryOver is true)
+        updatedAt: new Date().toISOString()
+    };
+    
+    if (existing) {
+        data.id = existing.id;
+        await updateRecord(STORE_MONTHLY_BALANCE_SETTINGS, data);
+    } else {
+        await add(STORE_MONTHLY_BALANCE_SETTINGS, data);
+    }
+}
+
+async function getPreviousMonthCarriedBalance(year, month) {
+    // Get previous month
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    
+    const settings = await getAll(STORE_MONTHLY_BALANCE_SETTINGS);
+    const monthKey = `${prevYear}-${prevMonth.toString().padStart(2, '0')}`;
+    const prevSetting = settings.find(s => s.monthKey === monthKey);
+    
+    // Only return balance if carryOver is enabled
+    if (prevSetting && prevSetting.carryOver) {
+        return prevSetting.remainingBalance || 0;
+    }
+    return 0;
 }
 
 async function clearRecordsByDateRange(startDate, endDate) {

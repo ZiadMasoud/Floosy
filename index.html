@@ -92,6 +92,15 @@
             <i class="fas fa-arrow-trend-down trend-down" id="hero-trend-icon"></i>
           </div>
 
+          <!-- Monthly Balance Carry-Over Control -->
+          <div class="carry-over-section" id="carry-over-section">
+            <button class="carry-over-btn" id="carry-over-btn" title="Toggle whether to carry over previous month's balance">
+              <i class="fas fa-exchange-alt"></i>
+              <span id="carry-over-text">Start Fresh (No Carry-Over)</span>
+            </button>
+            <span class="carry-over-hint" id="carry-over-hint">Balance starts at 0 each month</span>
+          </div>
+
           <div class="hero-ar" id="hero-ar-display" style="display: none;">
             Accounts Receivable: <span class="dollar-icon ar-icon">-$</span><span class="amount-num">0.00</span>
           </div>
@@ -694,11 +703,25 @@
         <form id="record-form">
           <div class="record-form-body">
             <input type="hidden" id="record-id" />
+            <div class="form-group" id="item-field-container">
+              <label>Item/Description</label>
+              <input type="text" id="record-item" placeholder="e.g. Grocery shopping" />
+            </div>
             <div class="form-group">
-              <label>Record Type</label>
-              <select id="record-format-type" required>
-                <option value="single">Single Transaction</option>
-                <option value="combined">Combined Transactions</option>
+              <label>Amount</label>
+              <input type="number" id="record-amount" step="0.01" required placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Person</label>
+              <select id="record-person">
+                <option value="">Select Person (Optional)</option>
+                <!-- Options will be loaded dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Category</label>
+              <select id="record-category" required>
+                <!-- Options will be loaded dynamically -->
               </select>
             </div>
             <div class="form-group">
@@ -709,38 +732,12 @@
                 <option value="account_receivable">Account Receivable</option>
               </select>
             </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Date</label>
-                <input type="date" id="record-date" required />
-              </div>
-              <div class="form-group">
-                <label>Category</label>
-                <select id="record-category" required>
-                  <!-- Options will be loaded dynamically -->
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Person</label>
-                <select id="record-person">
-                  <option value="">Select Person (Optional)</option>
-                  <!-- Options will be loaded dynamically -->
-                </select>
-              </div>
-            </div>
-            <div class="form-group" id="item-field-container">
-              <label>Item/Description</label>
-              <input type="text" id="record-item" placeholder="e.g. Grocery shopping" />
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Amount</label>
-                <input type="number" id="record-amount" step="0.01" required placeholder="0.00" />
-              </div>
-              <div class="form-group">
-                <label>Quantity (Optional)</label>
-                <input type="number" id="record-quantity" placeholder="1" />
-              </div>
+            <div class="form-group">
+              <label>Record Type</label>
+              <select id="record-format-type" required>
+                <option value="single">Single Transaction</option>
+                <option value="combined">Combined Transactions</option>
+              </select>
             </div>
             <div class="form-group">
               <label>Savings Account (Optional)</label>
@@ -748,6 +745,14 @@
                 <option value="">No Savings Account</option>
                 <!-- Options will be loaded dynamically -->
               </select>
+            </div>
+            <div class="form-group">
+              <label>Quantity (Optional)</label>
+              <input type="number" id="record-quantity" placeholder="1" />
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="record-date" required />
             </div>
             <div class="form-group">
               <label>Notes</label>
@@ -890,29 +895,31 @@
       <div class="modal-content">
         <h2>Add Expected Income</h2>
         <form id="upcoming-income-form">
-          <div class="form-group">
-            <label>Source</label>
-            <input type="text" id="upcoming-income-source" required placeholder="e.g. Salary, Freelance, Gift..." />
-          </div>
-          <div class="form-row">
+          <div class="record-form-body">
             <div class="form-group">
-              <label>Expected Date</label>
-              <input type="date" id="upcoming-income-date" required />
+              <label>Source</label>
+              <input type="text" id="upcoming-income-source" required placeholder="e.g. Salary, Freelance, Gift..." />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Expected Date</label>
+                <input type="date" id="upcoming-income-date" required />
+              </div>
+              <div class="form-group">
+                <label>Amount</label>
+                <input type="number" id="upcoming-income-amount" step="0.01" required placeholder="0.00" />
+              </div>
             </div>
             <div class="form-group">
-              <label>Amount</label>
-              <input type="number" id="upcoming-income-amount" step="0.01" required placeholder="0.00" />
+              <label>Category</label>
+              <select id="upcoming-income-category" required>
+                <!-- Options will be loaded dynamically -->
+              </select>
             </div>
-          </div>
-          <div class="form-group">
-            <label>Category</label>
-            <select id="upcoming-income-category" required>
-              <!-- Options will be loaded dynamically -->
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Notes (Optional)</label>
-            <textarea id="upcoming-income-notes" rows="2" placeholder="Additional details..."></textarea>
+            <div class="form-group">
+              <label>Notes (Optional)</label>
+              <textarea id="upcoming-income-notes" rows="2" placeholder="Additional details..."></textarea>
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="cancel-upcoming-income-modal">Cancel</button>

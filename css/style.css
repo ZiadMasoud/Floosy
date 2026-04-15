@@ -280,7 +280,20 @@ body.privacy-mode .chart-container canvas,
 body.privacy-mode .week-stat,
 body.privacy-mode .upcoming-amount,
 body.privacy-mode .upcoming-income-item .income-amount,
-body.privacy-mode .upcoming-income-popup .income-amount {
+body.privacy-mode .upcoming-income-popup .income-amount,
+body.privacy-mode #carry-over-text,
+body.privacy-mode #carry-over-hint,
+body.privacy-mode .carry-over-section .amount-num,
+body.privacy-mode .transaction-card .amount-num,
+body.privacy-mode .transaction-amount .amount-num,
+body.privacy-mode .dashboard-records-list .amount-num,
+body.privacy-mode #record-details-content .detail-value.income,
+body.privacy-mode #record-details-content .detail-value.spending,
+body.privacy-mode #record-details-content .amount-num,
+body.privacy-mode #record-details-content [style*="color: #059669"],
+body.privacy-mode #record-details-content [style*="color: #dc2626"],
+body.privacy-mode #record-details-content [style*="color: #1e40af"],
+body.privacy-mode #record-details-content [style*="text-align: right"] {
   filter: blur(10px) !important;
   color: transparent !important;
   text-shadow: 0 0 10px rgba(30, 41, 59, 0.8) !important;
@@ -844,7 +857,8 @@ body.privacy-mode .upcoming-income-popup .income-amount {
 }
 
 /* Add Transaction modal layout (better sticky header/footer UX) */
-#record-modal .modal-content {
+#record-modal .modal-content,
+#upcoming-income-modal .modal-content {
   display: flex;
   flex-direction: column;
   max-height: 90vh;
@@ -852,7 +866,8 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   overflow: hidden;
 }
 
-#record-modal .modal-content h2 {
+#record-modal .modal-content h2,
+#upcoming-income-modal .modal-content h2 {
   position: sticky;
   top: 0;
   z-index: 3;
@@ -862,7 +877,8 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   border-bottom: 1px solid var(--border-color);
 }
 
-#record-modal #record-form {
+#record-modal #record-form,
+#upcoming-income-modal #upcoming-income-form {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -872,7 +888,8 @@ body.privacy-mode .upcoming-income-popup .income-amount {
 }
 
 /* Scrollable form body; footer stays pinned */
-#record-modal #record-form .record-form-body {
+#record-modal #record-form .record-form-body,
+#upcoming-income-modal #upcoming-income-form .record-form-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -880,7 +897,8 @@ body.privacy-mode .upcoming-income-popup .income-amount {
   padding: 1rem 1.5rem 1rem;
 }
 
-#record-modal .modal-actions {
+#record-modal .modal-actions,
+#upcoming-income-modal .modal-actions {
   flex: 0 0 auto;
   z-index: 3;
   background: #f7f8f0;
@@ -892,7 +910,8 @@ body.privacy-mode .upcoming-income-popup .income-amount {
 }
 
 /* Keep action buttons aligned nicely (and override global mobile full-width button rules) */
-#record-modal .modal-actions .btn {
+#record-modal .modal-actions .btn,
+#upcoming-income-modal .modal-actions .btn {
   flex: 1 1 0;
   width: auto !important;
   margin: 0 !important;
@@ -913,15 +932,18 @@ body.privacy-mode .upcoming-income-popup .income-amount {
 }
 
 @media (max-width: 768px) {
-  #record-modal #record-form .record-form-body {
+  #record-modal #record-form .record-form-body,
+  #upcoming-income-modal #upcoming-income-form .record-form-body {
     padding: 1rem 1rem 1rem;
   }
 
-  #record-modal .modal-content h2 {
+  #record-modal .modal-content h2,
+  #upcoming-income-modal .modal-content h2 {
     padding: 1.1rem 1rem 0.9rem;
   }
 
-  #record-modal .modal-actions {
+  #record-modal .modal-actions,
+  #upcoming-income-modal .modal-actions {
     padding: 0.75rem 1rem 1rem;
   }
 }
@@ -1287,6 +1309,59 @@ header.dashboard-header-hide {
 
 #hero-ar-display .ar-icon {
   color: #ffd700;
+}
+
+/* Monthly Balance Carry-Over Section */
+.carry-over-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0.75rem 0;
+  position: relative;
+  z-index: 1;
+}
+
+.carry-over-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 0.4rem 0.9rem;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.carry-over-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.carry-over-btn.active {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.6);
+  color: #a8f0c0;
+}
+
+.carry-over-btn i {
+  font-size: 0.75rem;
+}
+
+.carry-over-hint {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+.carry-over-hint.carry-active {
+  color: #a8f0c0;
+  font-weight: 500;
 }
 
 /* Week Separators */
@@ -3060,14 +3135,59 @@ tr:last-child td {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 
+  /* Upcoming Income Modal - same styling as Record Modal */
+  #upcoming-income-modal .modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #upcoming-income-modal .modal-content h2 {
+    padding: 1.1rem 1rem 0.9rem;
+    margin: 0;
+  }
+
+  #upcoming-income-modal #upcoming-income-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  #upcoming-income-modal #upcoming-income-form .record-form-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem 1rem 1rem;
+  }
+
+  #upcoming-income-modal .modal-actions {
+    flex: 0 0 auto;
+    z-index: 3;
+    background: #f7f8f0;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 0;
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  #upcoming-income-modal .modal-actions .btn {
+    flex: 1 1 0;
+    width: auto !important;
+    margin: 0 !important;
+    white-space: nowrap;
+  }
+
   .modal-content h2 {
     margin-bottom: 1.5rem;
     font-weight: 800;
   }
 
-  .details-content {
-    margin-bottom: 1.5rem;
-  }
 
   .modal-actions {
     display: flex;

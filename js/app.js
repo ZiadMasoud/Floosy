@@ -163,7 +163,7 @@ function showConfirm(message) {
 }
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async function initApp() {
     try {
         await initDB();
         await seedDefaultCategories();
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        switchTab('dashboard');
+        await switchTab('dashboard');
 
         // Test monthly balance reset functionality
         testMonthlyBalanceReset();
@@ -222,13 +222,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initEventListeners() {
     // Navigation
     navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            switchTab(link.getAttribute('data-tab'));
+        link.addEventListener('click', async () => {
+            await switchTab(link.getAttribute('data-tab'));
         });
     });
 
     if (viewAllRecordsBtn) {
-        viewAllRecordsBtn.addEventListener('click', () => switchTab('records'));
+        viewAllRecordsBtn.addEventListener('click', async () => await switchTab('records'));
     }
 
     // Privacy Toggle
@@ -300,38 +300,38 @@ function initEventListeners() {
     const dashboardFilterControls = document.getElementById('dashboard-filter-controls');
 
     if (dashboardFilterType) {
-        dashboardFilterType.addEventListener('change', () => {
-            renderDashboard();
+        dashboardFilterType.addEventListener('change', async () => {
+            await renderDashboard();
         });
     }
     if (dashboardFilterYear) {
-        dashboardFilterYear.addEventListener('change', () => {
-            renderDashboard();
+        dashboardFilterYear.addEventListener('change', async () => {
+            await renderDashboard();
         });
     }
     if (dashboardFilterMonth) {
-        dashboardFilterMonth.addEventListener('change', () => {
-            renderDashboard();
+        dashboardFilterMonth.addEventListener('change', async () => {
+            await renderDashboard();
         });
     }
     if (dashboardFilterPerson) {
-        dashboardFilterPerson.addEventListener('change', () => {
-            renderDashboard();
+        dashboardFilterPerson.addEventListener('change', async () => {
+            await renderDashboard();
         });
     }
     if (dashboardFilterCategory) {
-        dashboardFilterCategory.addEventListener('change', () => {
-            renderDashboard();
+        dashboardFilterCategory.addEventListener('change', async () => {
+            await renderDashboard();
         });
     }
     if (dashboardClearFiltersBtn) {
-        dashboardClearFiltersBtn.addEventListener('click', () => {
+        dashboardClearFiltersBtn.addEventListener('click', async () => {
             if (dashboardFilterType) dashboardFilterType.value = 'all';
             if (dashboardFilterYear) dashboardFilterYear.value = '';
             if (dashboardFilterMonth) dashboardFilterMonth.value = '';
             if (dashboardFilterPerson) dashboardFilterPerson.value = '';
             if (dashboardFilterCategory) dashboardFilterCategory.value = '';
-            renderDashboard();
+            await renderDashboard();
         });
     }
 
@@ -370,7 +370,12 @@ function initEventListeners() {
         });
     }
 
-    
+    // Monthly Balance Carry-Over Button
+    const carryOverBtn = document.getElementById('carry-over-btn');
+    if (carryOverBtn) {
+        carryOverBtn.addEventListener('click', handleCarryOverToggle);
+    }
+
     // Analytics Filters
     const analyticsFilterType = document.getElementById('analytics-filter-type');
     const analyticsFilterYear = document.getElementById('analytics-filter-year');
@@ -1069,66 +1074,75 @@ function updateCombinedTransaction(id, field, value) {
 
 function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
     const targetDate = new Date(recordDate);
-    const targetMonth = targetDate.getMonth();
-    const targetYear = targetDate.getFullYear();
+    const targetTimestamp = targetDate.getTime();
 
-    // Get all records before the transaction date within the same month only
-    const recordsBeforeDate = records.filter(r => {
+    // Get all records before or on the same date as this transaction
+    const priorRecords = records.filter(r => {
         const recordDateTime = new Date(r.date);
-        const recordMonth = recordDateTime.getMonth();
-        const recordYear = recordDateTime.getFullYear();
+        const recordTimestamp = recordDateTime.getTime();
 
-        // Only include records from the same month and year
-        if (recordMonth !== targetMonth || recordYear !== targetYear) {
+        // Exclude the record itself if specified
+        if (excludeRecordId !== null && r.id === excludeRecordId) {
             return false;
         }
 
-        // If same date, only include records with earlier ID (assuming sequential IDs)
-        if (recordDateTime.getTime() === targetDate.getTime()) {
-            return r.id !== excludeRecordId && r.id < excludeRecordId;
+        // Include records with earlier dates
+        if (recordTimestamp < targetTimestamp) {
+            return true;
         }
 
-        return recordDateTime < targetDate;
-    });
-
-    // Sort records by date and ID to ensure proper order
-    recordsBeforeDate.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        if (dateA.getTime() !== dateB.getTime()) {
-            return dateA - dateB;
+        // For same date, use timestamp or ID to determine order
+        if (recordTimestamp === targetTimestamp) {
+            // If both have timestamps, compare them
+            if (r.timestamp && excludeRecordId !== null) {
+                const currentRecord = records.find(rec => rec.id === excludeRecordId);
+                if (currentRecord && currentRecord.timestamp) {
+                    return r.timestamp < currentRecord.timestamp;
+                }
+            }
+            // Fallback: use ID (lower ID = earlier)
+            if (excludeRecordId !== null) {
+                return r.id < excludeRecordId;
+            }
         }
-        return a.id - b.id; // Sort by ID if same date
+
+        return false;
     });
 
-    // Expand combined transactions for accurate balance calculation
-    const expandedRecords = [];
-    recordsBeforeDate.forEach(r => {
-        if (r.formatType === 'combined' && r.combinedTransactions) {
-            // For combined transactions, add the net amount as a single entry
-            // Don't expand individual components to avoid double counting
-            expandedRecords.push({
-                ...r,
-                type: r.type, // Use the combined transaction's net type
-                amount: r.amount // Use the combined transaction's net amount
-            });
-        } else {
-            expandedRecords.push(r);
-        }
-    });
+    // Calculate income and spending from prior records (same logic as dashboard)
+    let income = 0;
+    let spending = 0;
 
-    // Calculate balance
-    let balance = 0;
-    expandedRecords.forEach(r => {
+    priorRecords.forEach(r => {
+        // Skip carried-forward AR duplicates
+        if (r.type === 'account_receivable' && r.carriedForwardFrom) return;
+
         const amount = parseFloat(r.amount) || 0;
-        if (r.type === 'income') {
-            balance += amount;
-        } else {
-            balance -= amount;
+
+        if (r.isSavingsTransfer) {
+            if (r.type === 'income') {
+                spending += amount;
+            }
+            return;
         }
+
+        if (r.type === 'income') {
+            income += amount;
+        } else if (r.type === 'spending') {
+            spending += amount;
+        }
+        // account_receivable excluded - affects balance only, not income/spending
     });
 
-    return balance;
+    // Calculate AR impact from prior records (only pending AR at that time)
+    const arImpact = priorRecords
+        .filter(r => r.type === 'account_receivable' && !r.collected)
+        .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
+
+    // Opening Balance = Income - Spending + AR Impact from all prior transactions
+    const openingBalance = income - spending + arImpact;
+
+    return openingBalance;
 }
 
 function formatCurrency(amount) {
@@ -1137,6 +1151,86 @@ function formatCurrency(amount) {
 
 function formatCurrencyNoDecimals(amount) {
     return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// Monthly Balance Carry-Over Handler
+async function handleCarryOverToggle() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-indexed
+
+    // Get current settings for this month
+    const settings = await getMonthlyBalanceSettings(currentYear, currentMonth);
+    const currentCarryOver = settings ? settings.carryOver : false;
+
+    // Toggle the setting
+    const newCarryOver = !currentCarryOver;
+
+    // If enabling carry-over, calculate and store the current balance as remaining balance
+    let remainingBalance = 0;
+    if (newCarryOver) {
+        remainingBalance = await calculateCurrentMonthRemainingBalance(currentYear, currentMonth);
+    }
+
+    // Save the setting
+    await setMonthlyBalanceCarryOver(currentYear, currentMonth, newCarryOver, remainingBalance);
+
+    // Update UI
+    updateCarryOverUI(newCarryOver, remainingBalance);
+
+    // Refresh dashboard to show updated balance
+    await renderDashboard();
+
+    showToast(newCarryOver ? 'Balance will carry over to next month' : 'Balance starts fresh each month', 'info');
+}
+
+// Calculate the remaining balance for a specific month
+async function calculateCurrentMonthRemainingBalance(year, month) {
+    // Get all records for this month
+    const monthRecords = records.filter(r => {
+        const d = new Date(r.date);
+        return d.getFullYear() === year && d.getMonth() === month - 1;
+    });
+
+    let income = 0;
+    let spending = 0;
+    let arImpact = 0;
+
+    monthRecords.forEach(r => {
+        const amount = parseFloat(r.amount) || 0;
+        if (r.type === 'income') {
+            income += amount;
+        } else if (r.type === 'spending') {
+            spending += amount;
+        } else if (r.type === 'account_receivable' && !r.collected) {
+            arImpact -= amount;
+        }
+    });
+
+    return income - spending + arImpact;
+}
+
+// Update the carry-over button UI
+function updateCarryOverUI(carryOver, remainingBalance = 0) {
+    const carryOverBtn = document.getElementById('carry-over-btn');
+    const carryOverText = document.getElementById('carry-over-text');
+    const carryOverHint = document.getElementById('carry-over-hint');
+
+    if (!carryOverBtn || !carryOverText || !carryOverHint) return;
+
+    if (carryOver) {
+        carryOverBtn.classList.add('active');
+        carryOverText.textContent = `Carry Over: $${formatCurrency(Math.abs(remainingBalance))}`;
+        carryOverHint.textContent = remainingBalance >= 0
+            ? `+$${formatCurrency(remainingBalance)} will be added next month`
+            : `-$${formatCurrency(Math.abs(remainingBalance))} deficit will carry over`;
+        carryOverHint.classList.add('carry-active');
+    } else {
+        carryOverBtn.classList.remove('active');
+        carryOverText.textContent = 'Start Fresh (No Carry-Over)';
+        carryOverHint.textContent = 'Balance starts at 0 each month';
+        carryOverHint.classList.remove('carry-active');
+    }
 }
 
 // Test function for monthly balance reset
@@ -1185,12 +1279,12 @@ async function refreshData() {
     updateCategoryDropdowns();
     updatePersonDropdown();
     updateSavingsAccountDropdown();
-    renderAll();
+    await renderAll();
     populateYearFilter();
     populateAnalyticsFilterDropdowns();
 }
 
-function switchTab(tabId) {
+async function switchTab(tabId) {
     if (currentTab === tabId) return;
     currentTab = tabId;
     navLinks.forEach(link => {
@@ -1248,14 +1342,14 @@ function switchTab(tabId) {
     // Remove body scroll lock class when switching tabs
     document.body.classList.remove('filter-open');
 
-    renderAll();
+    await renderAll();
 
     // Scroll to top on tab switch
     window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
-function renderAll() {
-    if (currentTab === 'dashboard') renderDashboard();
+async function renderAll() {
+    if (currentTab === 'dashboard') await renderDashboard();
     else if (currentTab === 'analytics') renderAnalytics();
     else if (currentTab === 'settings') renderSettings();
     else if (currentTab === 'savings') renderSavings();
@@ -1263,7 +1357,7 @@ function renderAll() {
 }
 
 // Dashboard Functions
-function renderDashboard() {
+async function renderDashboard() {
     // Get filter values
     const filterType = document.getElementById('dashboard-filter-type')?.value || 'all';
     const filterYearValue = document.getElementById('dashboard-filter-year')?.value;
@@ -1373,6 +1467,18 @@ function renderDashboard() {
 
     const monthlyRecords = kpiFilteredRecords;
 
+    // Get the year/month we're displaying
+    const displayYear = filterYearValue ? parseInt(filterYearValue) : now.getFullYear();
+    const displayMonth = filterMonthValue ? parseInt(filterMonthValue) : now.getMonth() + 1;
+
+    // Check if there's a carried balance from previous month (for display only)
+    const carriedBalance = await getPreviousMonthCarriedBalance(displayYear, displayMonth);
+
+    // Also update the carry-over UI for the current month
+    if (!filterYearValue && !filterMonthValue) {
+        const currentSettings = await getMonthlyBalanceSettings(displayYear, displayMonth);
+        updateCarryOverUI(currentSettings?.carryOver || false, currentSettings?.remainingBalance || 0);
+    }
 
     // Calculate income and spending (AR does NOT affect either - it's balance-only)
     let income = 0;
@@ -1396,12 +1502,17 @@ function renderDashboard() {
         // account_receivable excluded - affects balance only, not income/spending
     });
 
-    // Calculate AR impact on balance (only PENDING AR reduces balance - collected has no effect)
+    // Calculate AR impact on balance for current period (only PENDING AR reduces balance - collected has no effect)
     const arImpact = monthlyRecords
         .filter(r => r.type === 'account_receivable' && !r.collected)
         .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
 
-    const balance = income - spending + arImpact;
+    // Current Balance = This month's net only (Income - Spending + AR Impact)
+    // Opening/Ending balance are for display only and equal the current balance
+    const currentBalance = income - spending + arImpact;
+    const openingBalance = currentBalance; // Display only - equals current balance
+    const endingBalance = currentBalance;  // Display only - equals current balance
+    const balance = currentBalance;
 
     // Calculate Accounts Receivable (filter by selected person/category if applicable)
     const arPending = expandedRecords
@@ -3422,11 +3533,52 @@ function openDetailsModal(record) {
     const itemLabel = record.type === 'income' ? 'Source (Where money came from)' : 'Item (What was purchased)';
     const itemValue = record.type === 'income' ? record.category : (record.item || '-');
 
+    const timeRecorded = record.timestamp ? new Date(record.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+    const itemName = (record.item || '').trim().toLowerCase();
+    const categoryName = (record.category || '').trim().toLowerCase();
+    const isSameName = itemName === categoryName;
+
     let detailsHTML = `
+        <div class="detail-row">
+            <span class="detail-label">Date & Time Recorded</span>
+            <span class="detail-value">${record.date}${timeRecorded ? ' at ' + timeRecorded : ''}</span>
+        </div>
+        ${record.type === 'income' || !isSameName ? `
+        <div class="detail-row">
+            <span class="detail-label">${record.type === 'income' ? 'Source & Category' : 'Item & Category'}</span>
+            <span class="detail-value">
+                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                    <div style="color: ${record.type === 'income' ? '#059669' : '#dc2626'}; font-weight: 500;">
+                        ${record.type === 'income' ? record.category : (record.item || '-')}
+                    </div>
+                    ${!isSameName ? `
+                    <div style="color: #6b7280; font-size: 0.85rem;">
+                        ${record.category}
+                    </div>
+                    ` : ''}
+                </div>
+            </span>
+        </div>
+        ` : `
+        <div class="detail-row">
+            <span class="detail-label">Item</span>
+            <span class="detail-value" style="color: #dc2626; font-weight: 500;">${record.item || '-'}</span>
+        </div>
+        `}
+        <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}</span>
+        </div>
         <div class="detail-row">
             <span class="detail-label">Transaction Type</span>
             <span class="detail-value ${record.type}">${record.type === 'income' ? 'Income' : 'Spending'}</span>
         </div>
+        ${record.person ? `
+        <div class="detail-row">
+            <span class="detail-label">Person</span>
+            <span class="detail-value">${record.person}</span>
+        </div>
+        ` : ''}
         <div class="detail-row">
             <span class="detail-label">Format</span>
             <span class="detail-value">${isCombined ? '📦 Combined Transactions' : 'Single Transaction'}</span>
@@ -3437,33 +3589,12 @@ function openDetailsModal(record) {
             <span class="detail-value">${record.combinedTransactionName}</span>
         </div>
         ` : ''}
+        ${record.quantity ? `
         <div class="detail-row">
-            <span class="detail-label">Date</span>
-            <span class="detail-value">${record.date}</span>
-        </div>
-        ${record.timestamp ? `
-        <div class="detail-row">
-            <span class="detail-label">Time Recorded</span>
-            <span class="detail-value">${new Date(record.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            <span class="detail-label">Quantity</span>
+            <span class="detail-value">${record.quantity}</span>
         </div>
         ` : ''}
-        <div class="detail-row">
-            <span class="detail-label">${record.type === 'income' ? 'Source & Category' : 'Item & Category'}</span>
-            <span class="detail-value">
-                <div style="display: flex; flex-direction: column; gap: 0.25rem;">
-                    <div style="color: ${record.type === 'income' ? '#059669' : '#dc2626'}; font-weight: 500;">
-                        ${record.type === 'income' ? record.category : (record.item || '-')}
-                    </div>
-                    <div style="color: #6b7280; font-size: 0.85rem;">
-                        ${record.category}
-                    </div>
-                </div>
-            </span>
-        </div>
-        <div class="detail-row">
-            <span class="detail-label">Amount</span>
-            <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}</span>
-        </div>
         <div class="detail-row" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: var(--radius-sm); margin: 0.5rem 0;">
             <div style="font-size: 0.875rem; line-height: 1.6;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
@@ -3515,18 +3646,6 @@ function openDetailsModal(record) {
                 </div>
             </div>
         </div>
-        ${record.person ? `
-        <div class="detail-row">
-            <span class="detail-label">Person</span>
-            <span class="detail-value">${record.person}</span>
-        </div>
-        ` : ''}
-        ${record.quantity ? `
-        <div class="detail-row">
-            <span class="detail-label">Quantity</span>
-            <span class="detail-value">${record.quantity}</span>
-        </div>
-        ` : ''}
         ${record.savingsAccountId ? `
         <div class="detail-row">
             <span class="detail-label">Savings Account</span>
@@ -4234,6 +4353,10 @@ async function collectAR(id) {
     const rootId = getARRootId(record);
     const group = getARGroupRecords(rootId);
     const collectedDate = new Date().toISOString().split('T')[0];
+
+    // Calculate total AR amount to collect
+    const totalAmount = group.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+
     group.forEach(r => {
         r.collected = true;
         r.collectedDate = collectedDate;
@@ -4243,7 +4366,31 @@ async function collectAR(id) {
         for (const r of group) {
             await updateRecord(STORE_RECORDS, r);
         }
+
+        // Create an AR collection record (shows money received, doesn't affect income)
+        const collectionRecord = {
+            formatType: 'single',
+            type: 'account_receivable',
+            date: collectedDate,
+            timestamp: Date.now(),
+            item: `AR Collected - ${record.item || record.category}`,
+            category: 'AR Collection',
+            person: record.person || '',
+            amount: totalAmount,
+            quantity: '1',
+            notes: `Collection of AR from ${record.date} - ${record.item || record.category}`,
+            savingsAccountId: '',
+            isSavingsTransfer: false,
+            savingsTransactionType: null,
+            linkedARId: rootId, // Link to the original AR record
+            collected: true, // Mark as collected so it doesn't reduce balance
+            isCollectionRecord: true // Flag to identify this as a collection record
+        };
+
+        await add(STORE_RECORDS, collectionRecord);
+
         await refreshData();
+        showToast('AR marked as collected', 'success');
     } catch (error) {
         console.error('Error collecting AR:', error);
         showToast('Error marking as collected: ' + error.message, 'error');
@@ -4265,7 +4412,15 @@ async function undoCollectAR(id) {
         for (const r of group) {
             await updateRecord(STORE_RECORDS, r);
         }
+
+        // Find and remove the AR collection record
+        const collectionRecord = records.find(r => r.linkedARId === rootId && r.isCollectionRecord);
+        if (collectionRecord) {
+            await remove(STORE_RECORDS, collectionRecord.id);
+        }
+
         await refreshData();
+        showToast('AR collection undone', 'success');
     } catch (error) {
         console.error('Error undoing AR collection:', error);
         showToast('Error undoing collection: ' + error.message, 'error');
