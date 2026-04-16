@@ -406,7 +406,7 @@ function initEventListeners() {
         } else {
             // Desktop: use display toggle
             controlsEl.style.display = isVisible ? 'none' : 'flex';
-            panelEl.style.display = isVisible ? 'none' : 'block';
+            panelEl.style.display = isVisible ? 'none' : 'flex';
         }
     }
 

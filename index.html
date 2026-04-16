@@ -167,6 +167,9 @@
 
           <!-- Filter Panel for Dashboard -->
           <div class="filter-panel" id="dashboard-filter-panel" style="display: none;">
+            <div class="filter-modal-header">
+              <h2>Filters</h2>
+            </div>
             <div class="filter-controls-group" id="dashboard-filter-controls" style="display: none;">
               <div class="filter-group">
                 <label class="filter-label">Type:</label>
@@ -214,13 +217,14 @@
                   <option value="">All Categories</option>
                 </select>
               </div>
-              <button class="btn btn-outline" id="dashboard-clear-filters">
-                <i class="fas fa-times"></i> Clear
-              </button>
-              <button class="btn btn-secondary filter-close-btn" id="dashboard-filter-close"
-                style="width: 100%; margin-top: 0.5rem;">
-                <i class="fas fa-times"></i> Close
-              </button>
+              <div class="modal-actions">
+                <button class="btn btn-secondary" id="dashboard-filter-close">
+                  Cancel
+                </button>
+                <button class="btn btn-primary" id="dashboard-clear-filters">
+                  Clear
+                </button>
+              </div>
             </div>
           </div>
 
