@@ -1184,6 +1184,9 @@ async function handleCarryOverToggle() {
 
 // Calculate the remaining balance for a specific month
 async function calculateCurrentMonthRemainingBalance(year, month) {
+    // Check if there's a carried balance from previous month
+    const carriedBalance = await getPreviousMonthCarriedBalance(year, month);
+
     // Get all records for this month
     const monthRecords = records.filter(r => {
         const d = new Date(r.date);
@@ -1195,23 +1198,41 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     let arImpact = 0;
 
     monthRecords.forEach(r => {
-        const amount = parseFloat(r.amount) || 0;
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            r.combinedTransactions.forEach(ct => {
+                const amount = parseFloat(ct.amount) || 0;
+                const quantity = parseInt(ct.quantity) || 1;
+                const totalAmount = amount * quantity;
 
-        // Skip savings transfers - they don't affect main balance
-        if (r.isSavingsTransfer) {
-            return;
-        }
+                // Skip savings transfers
+                const isComponentSavingsTransfer = !!(r.savingsAccountId || ct.savingsAccountId);
+                if (isComponentSavingsTransfer) return;
 
-        if (r.type === 'income') {
-            income += amount;
-        } else if (r.type === 'spending') {
-            spending += amount;
-        } else if (r.type === 'account_receivable' && !r.collected) {
-            arImpact -= amount;
+                if (ct.type === 'income') {
+                    income += totalAmount;
+                } else if (ct.type === 'spending') {
+                    spending += totalAmount;
+                }
+            });
+        } else {
+            const amount = parseFloat(r.amount) || 0;
+
+            // Skip savings transfers - they don't affect main balance
+            if (r.isSavingsTransfer) {
+                return;
+            }
+
+            if (r.type === 'income') {
+                income += amount;
+            } else if (r.type === 'spending') {
+                spending += amount;
+            } else if (r.type === 'account_receivable' && !r.collected) {
+                arImpact -= amount;
+            }
         }
     });
 
-    return income - spending + arImpact;
+    return carriedBalance + income - spending + arImpact;
 }
 
 // Update the carry-over button UI
@@ -1513,9 +1534,9 @@ async function renderDashboard() {
         .filter(r => r.type === 'account_receivable' && !r.collected)
         .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
 
-    // Current Balance = This month's net only (Income - Spending + AR Impact)
+    // Current Balance = This month's net plus any carried balance (Income - Spending + AR Impact + Carried)
     // Opening/Ending balance are for display only and equal the current balance
-    const currentBalance = income - spending + arImpact;
+    const currentBalance = carriedBalance + income - spending + arImpact;
     const openingBalance = currentBalance; // Display only - equals current balance
     const endingBalance = currentBalance;  // Display only - equals current balance
     const balance = currentBalance;
