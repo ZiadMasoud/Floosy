@@ -316,9 +316,46 @@
         </div>
 
         <!-- Charts moved from Dashboard -->
+        <!-- Category Breakdown (First) -->
+        <div class="card" id="category-breakdown-card" style="display: none; margin-bottom: 1.5rem;">
+          <h3 id="category-breakdown-title">Breakdown by Category</h3>
+          <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Count</th>
+                  <th>Total</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody id="category-breakdown-body">
+                <!-- Breakdown will be injected here -->
+              </tbody>
+              <tfoot>
+                <tr id="category-breakdown-total-row" style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                  <td>Total</td>
+                  <td id="category-breakdown-total-count">0</td>
+                  <td id="category-breakdown-total-amount">$0.00</td>
+                  <td>100%</td>
+                </tr>
+              </tfoot>
+            </table>
+          <!-- Pagination for breakdown -->
+          <div class="pagination-controls" id="category-breakdown-pagination" style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <button class="btn btn-outline btn-sm" id="prev-breakdown-page">
+              <i class="fas fa-chevron-left"></i> Previous
+            </button>
+            <span id="breakdown-page-info" style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of 1</span>
+            <button class="btn btn-outline btn-sm" id="next-breakdown-page">
+              Next <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Charts side-by-side -->
         <div class="charts-row">
           <div class="card">
-            <h3>Spending by Category</h3>
+            <h3 id="category-chart-title">Spending by Category</h3>
             <div class="chart-container">
               <canvas id="categoryChart"></canvas>
             </div>

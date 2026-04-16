@@ -113,6 +113,12 @@ let peopleExpanded = false;
 let chartCategoriesVisible = 5;
 let chartCategoriesExpanded = false;
 
+// Category breakdown pagination state
+let categoryBreakdownPage = 0;
+const categoryBreakdownLimit = 8;
+let currentBreakdownData = []; // Store current filtered categories for pagination
+let currentBreakdownType = 'spending';
+
 // Utility Notification Functions
 function showToast(message, type = 'info') {
     let backgroundColor = "#355872"; // default navy
@@ -487,6 +493,27 @@ function initEventListeners() {
             if (analyticsFilterPerson) analyticsFilterPerson.value = '';
             if (analyticsFilterCategory) analyticsFilterCategory.value = '';
             renderAnalytics();
+        });
+    }
+
+    // Category Breakdown Pagination
+    const prevBreakdownBtn = document.getElementById('prev-breakdown-page');
+    const nextBreakdownBtn = document.getElementById('next-breakdown-page');
+    if (prevBreakdownBtn) {
+        prevBreakdownBtn.addEventListener('click', () => {
+            if (categoryBreakdownPage > 0) {
+                categoryBreakdownPage--;
+                renderCategoryBreakdownTable();
+            }
+        });
+    }
+    if (nextBreakdownBtn) {
+        nextBreakdownBtn.addEventListener('click', () => {
+            const maxPage = Math.ceil(currentBreakdownData.length / categoryBreakdownLimit) - 1;
+            if (categoryBreakdownPage < maxPage) {
+                categoryBreakdownPage++;
+                renderCategoryBreakdownTable();
+            }
         });
     }
 
@@ -1934,88 +1961,88 @@ function renderDashboardRecords(recordsToRender) {
 }
 
 function renderCharts(monthlyRecords) {
-    // Include all transactions in chart calculations
-    const nonSavingsRecords = monthlyRecords;
+    const filterType = document.getElementById('analytics-filter-type')?.value || 'all';
+    const filterCategory = document.getElementById('analytics-filter-category')?.value;
 
-    const spendingByCategory = {};
-    const spendingRecords = nonSavingsRecords.filter(r => r.type === 'spending');
+    // Detect focus based on filter
+    let dataFocus = 'spending';
+    if (filterType === 'income' || filterCategory === 'all-income') {
+        dataFocus = 'income';
+    } else if (filterCategory) {
+        // If specific category is selected, try to find its type
+        const cat = categories.find(c => c.name === filterCategory);
+        if (cat && cat.type === 'income') dataFocus = 'income';
+    }
 
-    spendingRecords.forEach(r => {
-        spendingByCategory[r.category] = (spendingByCategory[r.category] || 0) + parseFloat(r.amount);
+    // Update Category Chart Title
+    const catTitle = document.getElementById('category-chart-title');
+    if (catTitle) {
+        catTitle.textContent = dataFocus === 'income' ? 'Income by Category' : 'Spending by Category';
+    }
+
+    const categoryData = {};
+    const relevantRecords = monthlyRecords.filter(r => r.type === dataFocus && !r.isSavingsTransfer);
+
+    relevantRecords.forEach(r => {
+        categoryData[r.category] = (categoryData[r.category] || 0) + parseFloat(r.amount);
     });
 
+    // 1. Category Breakdown Table
+    renderCategoryBreakdown(relevantRecords, dataFocus);
+
+    // 2. Category Doughnut Chart
     const canvasCat = document.getElementById('categoryChart');
     if (canvasCat) {
         const ctxCat = canvasCat.getContext('2d');
         if (categoryChart) categoryChart.destroy();
 
-        let labels = Object.keys(spendingByCategory);
-        let data = Object.values(spendingByCategory);
-
-        // Check if we're on mobile and need to limit categories
-        const isMobile = window.innerWidth <= 768;
-        const showMoreBtn = document.getElementById('show-more-chart-categories');
-        const allLabels = [...labels]; // Store original labels before truncation
-
-        console.log('renderCharts - isMobile:', isMobile, 'chartCategoriesExpanded:', chartCategoriesExpanded, 'labels.length:', labels.length, 'allLabels.length:', allLabels.length, 'chartCategoriesVisible:', chartCategoriesVisible);
-
-        if (isMobile && !chartCategoriesExpanded && labels.length > chartCategoriesVisible) {
-            // Limit categories and create "Other" category for the rest
-            const sortedCategories = labels
-                .map((label, index) => ({ label, value: data[index] }))
-                .sort((a, b) => b.value - a.value);
-
-            const visibleCategories = sortedCategories.slice(0, chartCategoriesVisible);
-            const otherCategories = sortedCategories.slice(chartCategoriesVisible);
-
-            labels = visibleCategories.map(cat => cat.label);
-            data = visibleCategories.map(cat => cat.value);
-
-            // Add "Other" category if there are remaining items
-            if (otherCategories.length > 0) {
-                const otherTotal = otherCategories.reduce((sum, cat) => sum + cat.value, 0);
-                labels.push('Other');
-                data.push(otherTotal);
-            }
-
-            // Show the show more button
-            if (showMoreBtn) {
-                showMoreBtn.style.display = 'block';
-                console.log('Showing button (collapsed state)');
-            }
-        } else {
-            // Show all categories or on desktop
-            if (showMoreBtn) {
-                // Always show button on mobile if we have more real categories than limit
-                const shouldShowButton = isMobile && allLabels.length > chartCategoriesVisible;
-                showMoreBtn.style.display = shouldShowButton ? 'block' : 'none';
-                console.log('Button visibility (expanded/desktop):', shouldShowButton, 'display set to:', shouldShowButton ? 'block' : 'none');
-            }
-        }
-
-        // Adjust chart container height based on expansion state
-        const chartContainer = canvasCat.closest('.chart-container');
-        if (chartContainer) {
-            if (chartCategoriesExpanded) {
-                // Calculate needed height based on number of categories
-                const categoryCount = labels.length;
-                // Base height + extra height for legend items (approximately 25px per legend item)
-                const neededHeight = Math.max(300, 250 + (categoryCount * 25));
-                chartContainer.style.height = neededHeight + 'px';
-            } else {
-                // Reset to default height
-                chartContainer.style.height = '300px';
-            }
-        }
+        let labels = Object.keys(categoryData);
+        let data = Object.values(categoryData);
+        const chartCard = canvasCat.closest('.card');
+        const canvasWrapper = canvasCat.closest('.chart-container');
 
         if (labels.length > 0) {
+            chartCard.style.display = 'block';
+            if (canvasWrapper) {
+                canvasWrapper.style.display = 'block';
+                const msg = canvasWrapper.querySelector('.no-data-msg');
+                if (msg) msg.remove();
+                canvasCat.style.display = 'block';
+            }
+            
+            // Re-use logic for mobile truncation
+            const isMobile = window.innerWidth <= 768;
+            const showMoreBtn = document.getElementById('show-more-chart-categories');
+            
+            if (isMobile && !chartCategoriesExpanded && labels.length > chartCategoriesVisible) {
+                const sorted = labels.map((l, i) => ({ l, v: data[i] })).sort((a,b) => b.v - a.v);
+                labels = sorted.slice(0, chartCategoriesVisible).map(x => x.l);
+                data = sorted.slice(0, chartCategoriesVisible).map(x => x.v);
+                const otherVal = sorted.slice(chartCategoriesVisible).reduce((s, x) => s + x.v, 0);
+                if (otherVal > 0) {
+                    labels.push('Other');
+                    data.push(otherVal);
+                }
+                if (showMoreBtn) showMoreBtn.style.display = 'block';
+            } else if (showMoreBtn) {
+                showMoreBtn.style.display = (isMobile && Object.keys(categoryData).length > chartCategoriesVisible) ? 'block' : 'none';
+            }
+
+            // Shrink/Grow logic
+            if (canvasWrapper) {
+                const neededHeight = chartCategoriesExpanded ? Math.max(300, 250 + (labels.length * 25)) : 300;
+                canvasWrapper.style.height = neededHeight + 'px';
+            }
+
             categoryChart = new Chart(ctxCat, {
                 type: 'doughnut',
                 data: {
                     labels: labels,
                     datasets: [{
                         data: data,
-                        backgroundColor: ['#355872', '#7AAACE', '#9CD5FF', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
+                        backgroundColor: dataFocus === 'income' ? 
+                            ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#047857', '#064e3b'] : 
+                            ['#355872', '#7AAACE', '#9CD5FF', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
                         borderWidth: 0
                     }]
                 },
@@ -2025,56 +2052,172 @@ function renderCharts(monthlyRecords) {
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: {
-                                usePointStyle: true,
-                                padding: 20,
-                                boxWidth: 10,
-                                font: { size: 11 }
-                            }
+                            labels: { usePointStyle: true, padding: 15, font: { size: 11 } }
                         }
                     }
                 }
             });
         } else {
-            ctxCat.clearRect(0, 0, canvasCat.width, canvasCat.height);
+            // Shrink container instead of hiding
+            if (canvasWrapper) {
+                canvasWrapper.style.height = '100px';
+                canvasWrapper.style.display = 'flex';
+                canvasWrapper.style.alignItems = 'center';
+                canvasWrapper.style.justifyContent = 'center';
+                ctxCat.clearRect(0, 0, canvasCat.width, canvasCat.height);
+                canvasCat.style.display = 'none';
+                
+                // Add a "No data" message if not already there
+                let msg = canvasWrapper.querySelector('.no-data-msg');
+                if (!msg) {
+                    msg = document.createElement('div');
+                    msg.className = 'no-data-msg';
+                    msg.style.color = 'var(--text-muted)';
+                    msg.style.fontSize = '0.875rem';
+                    canvasWrapper.appendChild(msg);
+                }
+                msg.textContent = `No ${dataFocus} data for this period`;
+            }
         }
     }
 
-    const income = nonSavingsRecords.filter(r => r.type === 'income').reduce((sum, r) => sum + parseFloat(r.amount), 0);
-    const spending = nonSavingsRecords.filter(r => r.type === 'spending').reduce((sum, r) => sum + parseFloat(r.amount), 0);
-
+    // 3. Income vs Spending Chart
     const canvasTrend = document.getElementById('trendChart');
     if (canvasTrend) {
         const ctxTrend = canvasTrend.getContext('2d');
         if (trendChart) trendChart.destroy();
-        trendChart = new Chart(ctxTrend, {
-            type: 'bar',
-            data: {
-                labels: ['Income', 'Spending'],
-                datasets: [{
-                    data: [income, spending],
-                    backgroundColor: ['#10b981', '#ef4444'],
-                    borderRadius: 8,
-                    barThickness: 40
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
+
+        const totalIncome = monthlyRecords.filter(r => r.type === 'income' && !r.isSavingsTransfer).reduce((s, r) => s + parseFloat(r.amount), 0);
+        const totalSpending = monthlyRecords.filter(r => r.type === 'spending' && !r.isSavingsTransfer).reduce((s, r) => s + parseFloat(r.amount), 0);
+        
+        const trendCard = canvasTrend.closest('.card');
+        if (totalIncome === 0 && totalSpending === 0) {
+            trendCard.style.display = 'none';
+        } else {
+            trendCard.style.display = 'block';
+            trendChart = new Chart(ctxTrend, {
+                type: 'bar',
+                data: {
+                    labels: ['Income', 'Spending'],
+                    datasets: [{
+                        data: [totalIncome, totalSpending],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderRadius: 8,
+                        barThickness: 40
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { display: false }
-                    },
-                    x: {
-                        grid: { display: false }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
                     }
                 }
-            }
-        });
+            });
+        }
+    }
+}
+
+function renderCategoryBreakdown(records, type) {
+    const breakdownCard = document.getElementById('category-breakdown-card');
+    if (!breakdownCard) return;
+
+    if (records.length === 0) {
+        breakdownCard.style.display = 'none';
+        return;
+    }
+
+    breakdownCard.style.display = 'block';
+    const breakdownTitle = document.getElementById('category-breakdown-title');
+    if (breakdownTitle) breakdownTitle.textContent = type === 'income' ? 'Income Breakdown' : 'Spending Breakdown';
+
+    const categoryStats = {};
+    let totalAll = 0;
+    let totalCount = 0;
+
+    records.forEach(r => {
+        const amt = parseFloat(r.amount) || 0;
+        if (!categoryStats[r.category]) {
+            categoryStats[r.category] = { amount: 0, count: 0 };
+        }
+        categoryStats[r.category].amount += amt;
+        categoryStats[r.category].count += 1;
+        totalAll += amt;
+        totalCount += 1;
+    });
+
+    const sorted = Object.entries(categoryStats)
+        .sort((a, b) => b[1].amount - a[1].amount);
+
+    // Save for pagination
+    currentBreakdownData = sorted;
+    currentBreakdownType = type;
+    categoryBreakdownPage = 0;
+    
+    // Update Totals (always shown)
+    document.getElementById('category-breakdown-total-count').textContent = totalCount;
+    const totalAmtEl = document.getElementById('category-breakdown-total-amount');
+    totalAmtEl.textContent = '$' + formatCurrency(totalAll);
+    totalAmtEl.className = type === 'income' ? 'amount-income' : 'amount-spending';
+    
+    renderCategoryBreakdownTable();
+}
+
+function renderCategoryBreakdownTable() {
+    const breakdownBody = document.getElementById('category-breakdown-body');
+    const paginationContainer = document.getElementById('category-breakdown-pagination');
+    const pageInfo = document.getElementById('breakdown-page-info');
+    const prevBtn = document.getElementById('prev-breakdown-page');
+    const nextBtn = document.getElementById('next-breakdown-page');
+
+    if (!breakdownBody) return;
+
+    const totalAll = currentBreakdownData.reduce((sum, item) => sum + item[1].amount, 0);
+    const start = categoryBreakdownPage * categoryBreakdownLimit;
+    const end = start + categoryBreakdownLimit;
+    const paginatedItems = currentBreakdownData.slice(start, end);
+    const totalPages = Math.ceil(currentBreakdownData.length / categoryBreakdownLimit);
+
+    breakdownBody.innerHTML = paginatedItems.map(([name, stats]) => {
+        const percentage = totalAll > 0 ? ((stats.amount / totalAll) * 100).toFixed(1) : 0;
+        
+        // Dynamic color based on percentage
+        let barColor = 'rgba(53, 88, 114, 0.2)'; // default
+        if (currentBreakdownType === 'spending') {
+            if (percentage > 25) barColor = '#ef4444'; // High spending - Red
+            else if (percentage > 10) barColor = '#355872'; // Moderate - Navy
+        } else {
+            if (percentage > 25) barColor = '#10b981'; // High income - Green
+            else if (percentage > 10) barColor = '#34d399'; // Moderate - Teal
+        }
+
+        return `
+            <tr>
+                <td style="font-weight: 500; text-align: left;">${name}</td>
+                <td>${stats.count}</td>
+                <td class="${currentBreakdownType === 'income' ? 'amount-income' : 'amount-spending'}" style="font-weight: 700;">
+                    $${formatCurrency(stats.amount)}
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
+                        <span style="flex: 1; max-width: 60px; height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; overflow: hidden; display: block;">
+                            <div style="width: ${percentage}%; height: 100%; background: ${barColor};"></div>
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); min-width: 40px; text-align: right; font-weight: 600;">${percentage}%</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Handle Pagination visibility and labels
+    if (paginationContainer) {
+        paginationContainer.style.display = totalPages > 1 ? 'flex' : 'none';
+        if (pageInfo) pageInfo.textContent = `Page ${categoryBreakdownPage + 1} of ${totalPages || 1}`;
+        if (prevBtn) prevBtn.disabled = categoryBreakdownPage === 0;
+        if (nextBtn) nextBtn.disabled = categoryBreakdownPage >= totalPages - 1;
     }
 }
 
@@ -2598,143 +2741,102 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
     // Always show KPIs
     kpiCard.style.display = 'block';
 
-    // Calculate totals for filtered category
-    let categoryIncome = 0;
-    let categorySpending = 0;
-    let topCategory = { name: 'N/A', amount: 0 };
+    // Calculate totals for filtered context
+    let contextIncome = 0;
+    let contextSpending = 0;
     const categoryTotals = {};
-
-    // Calculate totals for filtered person
-    let personIncome = 0;
-    let personSpending = 0;
-    let topPerson = { name: 'N/A', amount: 0 };
     const personTotals = {};
 
     filteredRecords.forEach(r => {
         const amount = parseFloat(r.amount) || 0;
         const isSavings = !!r.isSavingsTransfer;
 
-        // Category calculations
+        if (isSavings) return;
+
+        // General totals for whatever is in filteredRecords
+        if (r.type === 'income') contextIncome += amount;
+        else if (r.type === 'spending') contextSpending += amount;
+
+        // Grouping records (for finding "Tops")
         if (r.category) {
-            if (!categoryTotals[r.category]) {
-                categoryTotals[r.category] = { income: 0, spending: 0 };
-            }
-            if (r.type === 'income' && !isSavings) {
-                categoryTotals[r.category].income += amount;
-                if (filterCategory && r.category === filterCategory) {
-                    categoryIncome += amount;
-                }
-            } else if (r.type === 'spending' && !isSavings) {
-                categoryTotals[r.category].spending += amount;
-                if (filterCategory && r.category === filterCategory) {
-                    categorySpending += amount;
-                }
-            }
+            if (!categoryTotals[r.category]) categoryTotals[r.category] = { income: 0, spending: 0 };
+            if (r.type === 'income') categoryTotals[r.category].income += amount;
+            else if (r.type === 'spending') categoryTotals[r.category].spending += amount;
         }
 
-        // Person calculations
         if (r.person) {
-            if (!personTotals[r.person]) {
-                personTotals[r.person] = { income: 0, spending: 0 };
-            }
-            if (r.type === 'income' && !isSavings) {
-                personTotals[r.person].income += amount;
-                if (filterPerson && r.person === filterPerson) {
-                    personIncome += amount;
-                }
-            } else if (r.type === 'spending' && !isSavings) {
-                personTotals[r.person].spending += amount;
-                if (filterPerson && r.person === filterPerson) {
-                    personSpending += amount;
-                }
-            }
+            if (!personTotals[r.person]) personTotals[r.person] = { income: 0, spending: 0 };
+            if (r.type === 'income') personTotals[r.person].income += amount;
+            else if (r.type === 'spending') personTotals[r.person].spending += amount;
         }
     });
-
-    // Find top spending category and person
-    let maxCategorySpending = 0;
-    for (const [cat, totals] of Object.entries(categoryTotals)) {
-        if (totals.spending > maxCategorySpending) {
-            maxCategorySpending = totals.spending;
-            topCategory = { name: cat, amount: totals.spending };
-        }
-    }
-
-    let maxPersonSpending = 0;
-    for (const [person, totals] of Object.entries(personTotals)) {
-        if (totals.spending > maxPersonSpending) {
-            maxPersonSpending = totals.spending;
-            topPerson = { name: person, amount: totals.spending };
-        }
-    }
 
     // Build KPI HTML
     let kpiHTML = '';
 
-    // Filtered Category KPI
-    if (filterCategory) {
-        const catTotal = categoryIncome - categorySpending;
-        const catType = catTotal >= 0 ? 'income' : 'spending';
-        kpiHTML += `
-            <div class="kpi-card ${catType}">
-                <div class="kpi-icon"><i class="fas fa-tag"></i></div>
-                <div class="kpi-details">
-                    <h3>${filterCategory}</h3>
-                    <p>${catTotal >= 0 ? '+' : ''}$${formatCurrency(Math.abs(catTotal))}</p>
-                    <small style="color: var(--text-muted); font-size: 0.75rem;">
-                        ${categoryIncome > 0 ? `Income: $${formatCurrency(categoryIncome)}` : ''}
-                        ${categorySpending > 0 ? `Spending: $${formatCurrency(categorySpending)}` : ''}
-                    </small>
-                </div>
+    // Primary Summary KPI
+    const totalBalance = contextIncome - contextSpending;
+    const summaryLabel = filterCategory ? (filterCategory === 'all-income' ? 'Total Income' : (filterCategory === 'all-spending' ? 'Total Spending' : filterCategory)) : 'Filtered Total';
+    
+    kpiHTML += `
+        <div class="kpi-card ${totalBalance >= 0 ? 'income' : 'spending'}">
+            <div class="kpi-icon"><i class="fas ${filterPerson ? 'fa-user' : 'fa-chart-line'}"></i></div>
+            <div class="kpi-details">
+                <h3>${filterPerson ? filterPerson : summaryLabel}</h3>
+                <p>${totalBalance >= 0 ? '+' : ''}$${formatCurrency(Math.abs(totalBalance))}</p>
+                <small style="color: var(--text-muted); font-size: 0.75rem;">
+                    ${contextIncome > 0 ? `Income: $${formatCurrency(contextIncome)}` : ''}
+                    ${contextSpending > 0 ? `${contextIncome > 0 ? ' • ' : ''}Spending: $${formatCurrency(contextSpending)}` : ''}
+                </small>
             </div>
-        `;
+        </div>
+    `;
+
+    // Top Category (if not filtering for a single category)
+    const isSingleCategory = filterCategory && filterCategory !== 'all-income' && filterCategory !== 'all-spending';
+    if (!isSingleCategory) {
+        let topCat = { name: 'N/A', amount: 0 };
+        for (const [cat, totals] of Object.entries(categoryTotals)) {
+            const val = Math.max(totals.income, totals.spending);
+            if (val > topCat.amount) {
+                topCat = { name: cat, amount: val };
+            }
+        }
+        if (topCat.amount > 0) {
+            kpiHTML += `
+                <div class="kpi-card spending">
+                    <div class="kpi-icon"><i class="fas fa-tag"></i></div>
+                    <div class="kpi-details">
+                        <h3>Top Category</h3>
+                        <p>$${formatCurrency(topCat.amount)}</p>
+                        <small style="color: var(--text-muted); font-size: 0.75rem;">${topCat.name}</small>
+                    </div>
+                </div>
+            `;
+        }
     }
 
-    // Filtered Person KPI
-    if (filterPerson) {
-        const personTotal = personIncome - personSpending;
-        const personType = personTotal >= 0 ? 'income' : 'spending';
-        kpiHTML += `
-            <div class="kpi-card ${personType}">
-                <div class="kpi-icon"><i class="fas fa-user"></i></div>
-                <div class="kpi-details">
-                    <h3>${filterPerson}</h3>
-                    <p>${personTotal >= 0 ? '+' : ''}$${formatCurrency(Math.abs(personTotal))}</p>
-                    <small style="color: var(--text-muted); font-size: 0.75rem;">
-                        ${personIncome > 0 ? `Income: $${formatCurrency(personIncome)}` : ''}
-                        ${personSpending > 0 ? `Spending: $${formatCurrency(personSpending)}` : ''}
-                    </small>
+    // Top Person (if not filtering for a single person)
+    if (!filterPerson) {
+        let topPers = { name: 'N/A', amount: 0 };
+        for (const [person, totals] of Object.entries(personTotals)) {
+            const val = totals.spending || totals.income;
+            if (val > topPers.amount) {
+                topPers = { name: person, amount: val };
+            }
+        }
+        if (topPers.amount > 0) {
+            kpiHTML += `
+                <div class="kpi-card spending">
+                    <div class="kpi-icon"><i class="fas fa-user-tag"></i></div>
+                    <div class="kpi-details">
+                        <h3>Top Contributor</h3>
+                        <p>$${formatCurrency(topPers.amount)}</p>
+                        <small style="color: var(--text-muted); font-size: 0.75rem;">${topPers.name}</small>
+                    </div>
                 </div>
-            </div>
-        `;
-    }
-
-    // Top Category KPI (always show when filter is active)
-    if (topCategory.amount > 0) {
-        kpiHTML += `
-            <div class="kpi-card spending">
-                <div class="kpi-icon"><i class="fas fa-chart-pie"></i></div>
-                <div class="kpi-details">
-                    <h3>Top Category</h3>
-                    <p>$${formatCurrency(topCategory.amount)}</p>
-                    <small style="color: var(--text-muted); font-size: 0.75rem;">${topCategory.name}</small>
-                </div>
-            </div>
-        `;
-    }
-
-    // Top Person KPI (always show when filter is active)
-    if (topPerson.amount > 0) {
-        kpiHTML += `
-            <div class="kpi-card spending">
-                <div class="kpi-icon"><i class="fas fa-users"></i></div>
-                <div class="kpi-details">
-                    <h3>Top Person</h3>
-                    <p>$${formatCurrency(topPerson.amount)}</p>
-                    <small style="color: var(--text-muted); font-size: 0.75rem;">${topPerson.name}</small>
-                </div>
-            </div>
-        `;
+            `;
+        }
     }
 
     kpiContainer.innerHTML = kpiHTML || '<p style="text-align:center; color: var(--text-muted);">No data available for selected filters</p>';
@@ -2834,37 +2936,80 @@ function renderPersonChart(filteredRecords = null) {
     const ctx = canvas.getContext('2d');
     if (personChart) personChart.destroy();
 
-    // Use filtered records if provided, otherwise use all records
-    const recordsToUse = filteredRecords || records;
+    const filterType = document.getElementById('analytics-filter-type')?.value || 'all';
+    const filterCategory = document.getElementById('analytics-filter-category')?.value;
 
-    // Calculate spending by person (AR does not affect spending)
-    const spendingByPerson = {};
-    recordsToUse.forEach(r => {
-        if (r.person && r.type === 'spending') {
-            spendingByPerson[r.person] = (spendingByPerson[r.person] || 0) + parseFloat(r.amount);
-        }
+    // Detect focus
+    let dataFocus = 'spending';
+    if (filterType === 'income' || filterCategory === 'all-income') {
+        dataFocus = 'income';
+    } else if (filterCategory) {
+        const cat = categories.find(c => c.name === filterCategory);
+        if (cat && cat.type === 'income') dataFocus = 'income';
+    }
+
+    const recordsToUse = filteredRecords || records;
+    const dataByPerson = {};
+    const relevantRecords = recordsToUse.filter(r => r.person && r.type === dataFocus && !r.isSavingsTransfer);
+
+    relevantRecords.forEach(r => {
+        dataByPerson[r.person] = (dataByPerson[r.person] || 0) + parseFloat(r.amount);
     });
 
-    const labels = Object.keys(spendingByPerson);
-    const data = Object.values(spendingByPerson);
+    const labels = Object.keys(dataByPerson);
+    const data = Object.values(dataByPerson);
+    const chartCard = canvas.closest('.card');
+    const chartTitle = chartCard?.querySelector('h3');
+
+    const canvasWrapper = canvas.closest('.chart-container');
 
     if (labels.length === 0) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('No spending data by person available', canvas.width / 2, canvas.height / 2);
+        if (chartCard) {
+            chartCard.style.display = 'block';
+            if (canvasWrapper) {
+                canvasWrapper.style.height = '100px';
+                canvasWrapper.style.display = 'flex';
+                canvasWrapper.style.alignItems = 'center';
+                canvasWrapper.style.justifyContent = 'center';
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                canvas.style.display = 'none';
+                
+                let msg = canvasWrapper.querySelector('.no-data-msg');
+                if (!msg) {
+                    msg = document.createElement('div');
+                    msg.className = 'no-data-msg';
+                    msg.style.color = 'var(--text-muted)';
+                    msg.style.fontSize = '0.875rem';
+                    canvasWrapper.appendChild(msg);
+                }
+                msg.textContent = `No ${dataFocus} data by person available`;
+            }
+        }
         return;
     }
+
+    if (chartCard) {
+        chartCard.style.display = 'block';
+        if (canvasWrapper) {
+            canvasWrapper.style.display = 'block';
+            canvasWrapper.style.height = '300px';
+            const msg = canvasWrapper.querySelector('.no-data-msg');
+            if (msg) msg.remove();
+            canvas.style.display = 'block';
+        }
+    }
+    if (chartTitle) chartTitle.textContent = dataFocus === 'income' ? 'Income by Person' : 'Spending by Person';
 
     personChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Spending',
+                label: dataFocus === 'income' ? 'Income' : 'Spending',
                 data: data,
-                backgroundColor: ['#355872', '#7AAACE', '#9CD5FF', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'],
+                backgroundColor: dataFocus === 'income' ? 
+                    ['#10b981', '#34d399', '#6ee7b7', '#a7f3d0'] : 
+                    ['#355872', '#7AAACE', '#9CD5FF', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'],
                 borderRadius: 8,
                 barThickness: 40
             }]
@@ -2872,17 +3017,10 @@ function renderPersonChart(filteredRecords = null) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { borderDash: [5, 5] }
-                },
-                x: {
-                    grid: { display: false }
-                }
+                y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
+                x: { grid: { display: false } }
             }
         }
     });
