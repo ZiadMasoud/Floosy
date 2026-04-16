@@ -1196,6 +1196,12 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
 
     monthRecords.forEach(r => {
         const amount = parseFloat(r.amount) || 0;
+
+        // Skip savings transfers - they don't affect main balance
+        if (r.isSavingsTransfer) {
+            return;
+        }
+
         if (r.type === 'income') {
             income += amount;
         } else if (r.type === 'spending') {
