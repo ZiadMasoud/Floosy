@@ -1400,8 +1400,8 @@ async function switchTab(tabId) {
     const headerFiltersBtn = document.getElementById('header-filters-btn');
     const userInfo = document.querySelector('.user-info');
 
-    // Show floating user-info on dashboard, analytics, budget, savings, and settings
-    const showUserInfoTabs = ['dashboard', 'analytics', 'budget', 'savings', 'settings'];
+    // Show floating user-info on analytics, budget, savings, and settings only
+    const showUserInfoTabs = ['analytics', 'budget', 'savings', 'settings'];
     if (userInfo) {
         userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
     }
