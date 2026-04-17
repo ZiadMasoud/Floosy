@@ -1747,7 +1747,7 @@ function renderDashboardRecords(recordsToRender) {
         } else if (filterType === 'spending') {
             typeMatch = r.type === 'spending' && !isSavings;
         } else if (filterType === 'income') {
-            typeMatch = r.type === 'income' && !isSavings;
+            typeMatch = r.type === 'income'; // Include savings income
         } else if (filterType === 'account_receivable') {
             typeMatch = r.type === 'account_receivable';
         }
@@ -2539,7 +2539,9 @@ function renderRecords() {
         const isSavings = !!r.isSavingsTransfer;
         const typeMatch =
             filterType === 'all' ||
-            (filterType === 'savings' ? isSavings : (r.type === filterType && !isSavings));
+            (filterType === 'savings' ? isSavings :
+             filterType === 'income' ? r.type === 'income' : // Include savings income
+             (r.type === filterType && !isSavings));
         const recordDate = new Date(r.date);
         const isPendingAR = r.type === 'account_receivable' && !r.collected;
 
@@ -2769,7 +2771,9 @@ function renderAnalytics() {
         const isSavings = !!r.isSavingsTransfer;
         const typeMatch =
             filterType === 'all' ||
-            (filterType === 'savings' ? isSavings : (r.type === filterType && !isSavings));
+            (filterType === 'savings' ? isSavings :
+             filterType === 'income' ? r.type === 'income' : // Include savings income
+             (r.type === filterType && !isSavings));
         const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
         const monthMatch = filterMonth === '' || (recordDate.getMonth() + 1).toString() === filterMonth;
         const personMatch = !filterPerson || r.person === filterPerson;
@@ -2777,7 +2781,7 @@ function renderAnalytics() {
         let categoryMatch = !filterCategory;
         if (filterCategory) {
             if (filterCategory === 'all-income') {
-                categoryMatch = r.type === 'income' && !isSavings;
+                categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategory === 'all-spending') {
                 categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
             } else {
