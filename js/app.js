@@ -1517,6 +1517,9 @@ async function renderDashboard() {
     // Process records to expand combined transactions for KPI calculations
     const expandedRecords = [];
     records.forEach(r => {
+        // Skip projected/expected income - they don't affect actual totals
+        if (r.isProjected) return;
+
         if (r.formatType === 'combined' && r.combinedTransactions) {
             // Expand combined transactions into individual components
             r.combinedTransactions.forEach((ct, index) => {
@@ -1827,6 +1830,9 @@ function renderDashboardRecords(recordsToRender) {
     // Calculate week stats
     const weekStats = {};
     filteredRecords.forEach(r => {
+        // Skip projected/expected income - they don't affect actual totals
+        if (r.isProjected) return;
+
         const recordDateObj = new Date(r.date);
         const weekKey = getWeekKey(recordDateObj);
         
@@ -2211,8 +2217,8 @@ function renderCharts(monthlyRecords) {
         const ctxTrend = canvasTrend.getContext('2d');
         if (trendChart) trendChart.destroy();
 
-        const totalIncome = monthlyRecords.filter(r => r.type === 'income' && !r.isSavingsTransfer).reduce((s, r) => s + parseFloat(r.amount), 0);
-        const totalSpending = monthlyRecords.filter(r => r.type === 'spending' && !r.isSavingsTransfer).reduce((s, r) => s + parseFloat(r.amount), 0);
+        const totalIncome = monthlyRecords.filter(r => r.type === 'income' && !r.isProjected).reduce((s, r) => s + parseFloat(r.amount), 0);
+        const totalSpending = monthlyRecords.filter(r => r.type === 'spending' && !r.isProjected).reduce((s, r) => s + parseFloat(r.amount), 0);
         
         const trendCard = canvasTrend.closest('.card');
         if (totalIncome === 0 && totalSpending === 0) {
@@ -2798,6 +2804,9 @@ function renderAnalytics() {
     // Group records by month
     const monthlyStats = {};
     filteredRecords.forEach(r => {
+        // Skip projected/expected income - they don't affect actual totals
+        if (r.isProjected) return;
+
         const date = new Date(r.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyStats[monthKey]) {
@@ -2805,11 +2814,6 @@ function renderAnalytics() {
         }
 
         const amount = parseFloat(r.amount) || 0;
-
-        // Skip savings transfers - they don't affect main balance
-        if (r.isSavingsTransfer) {
-            return;
-        }
 
         if (r.type === 'income') {
             monthlyStats[monthKey].income += amount;
@@ -3014,11 +3018,6 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
             const dayIdx = d.getDate() - 1;
             const amount = parseFloat(r.amount) || 0;
 
-            // Skip savings transfers - they don't affect main balance
-            if (r.isSavingsTransfer) {
-                return;
-            }
-
             if (r.type === 'income') {
                 incomeData[dayIdx] += amount;
             } else if (r.type === 'spending') {
@@ -3100,7 +3099,7 @@ function renderPersonChart(filteredRecords = null) {
 
     const recordsToUse = filteredRecords || records;
     const dataByPerson = {};
-    const relevantRecords = recordsToUse.filter(r => r.person && r.type === dataFocus && !r.isSavingsTransfer);
+    const relevantRecords = recordsToUse.filter(r => r.person && r.type === dataFocus);
 
     relevantRecords.forEach(r => {
         dataByPerson[r.person] = (dataByPerson[r.person] || 0) + parseFloat(r.amount);
