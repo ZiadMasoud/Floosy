@@ -1144,6 +1144,27 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
         // Skip carried-forward AR duplicates
         if (r.type === 'account_receivable' && r.carriedForwardFrom) return;
 
+        // Handle combined transactions - iterate through components
+        if (r.formatType === 'combined' && r.combinedTransactions) {
+            r.combinedTransactions.forEach(ct => {
+                const amount = parseFloat(ct.amount) || 0;
+                const quantity = parseInt(ct.quantity) || 1;
+                const totalAmount = amount * quantity;
+
+                // Skip savings transfer components
+                if (r.savingsAccountId || ct.savingsAccountId) {
+                    return;
+                }
+
+                if (ct.type === 'income') {
+                    income += totalAmount;
+                } else if (ct.type === 'spending') {
+                    spending += totalAmount;
+                }
+            });
+            return;
+        }
+
         const amount = parseFloat(r.amount) || 0;
 
         // Skip savings transfers - they don't affect main balance
@@ -1246,6 +1267,9 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     let arImpact = 0;
 
     monthRecords.forEach(r => {
+        // Skip projected/expected income - they don't affect actual balance
+        if (r.isProjected) return;
+
         if (r.formatType === 'combined' && r.combinedTransactions) {
             r.combinedTransactions.forEach(ct => {
                 const amount = parseFloat(ct.amount) || 0;
@@ -1292,16 +1316,19 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     });
 
     // We need to calculate the balance by excluding the portion of income that went to savings
-    const incomeRecords = monthRecords.filter(r => r.type === 'income');
-    const walletIncome = incomeRecords
-        .filter(r => !r.isSavingsTransfer)
+    const walletIncome = monthRecords
+        .filter(r => !r.isSavingsTransfer && !r.isProjected)
         .reduce((sum, r) => {
             if (r.formatType === 'combined' && r.combinedTransactions) {
+                // Only include income components, exclude savings transfers
                 return sum + r.combinedTransactions
-                    .filter(ct => !(r.savingsAccountId || ct.savingsAccountId))
+                    .filter(ct => ct.type === 'income' && !(r.savingsAccountId || ct.savingsAccountId))
                     .reduce((s, ct) => s + ((parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1)), 0);
+            } else if (r.type === 'income') {
+                // Single income record (non-savings, non-combined)
+                return sum + (parseFloat(r.amount) || 0);
             }
-            return sum + (parseFloat(r.amount) || 0);
+            return sum;
         }, 0);
 
     return carriedBalance + walletIncome - spending + arImpact;
@@ -1594,6 +1621,9 @@ async function renderDashboard() {
     let dashboardBalanceSpending = 0;
 
     monthlyRecords.forEach(r => {
+        // Skip projected/expected income - they don't affect actual balance
+        if (r.isProjected) return;
+
         const amount = parseFloat(r.amount) || 0;
 
         // Process savings transfers: count income for KPI, but exclude everything else from dashboard balance and spending totals
