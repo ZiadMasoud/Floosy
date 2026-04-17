@@ -1781,7 +1781,7 @@ function renderDashboardRecords(recordsToRender) {
         if (filterCategory) {
             const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
             if (filterCategory === 'all-income') {
-                categoryMatch = r.type === 'income' && !isSavings;
+                categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategory === 'all-spending') {
                 categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
             } else {
@@ -2105,7 +2105,7 @@ function renderCharts(monthlyRecords) {
     }
 
     const categoryData = {};
-    const relevantRecords = monthlyRecords.filter(r => r.type === dataFocus && !r.isSavingsTransfer);
+    const relevantRecords = monthlyRecords.filter(r => r.type === dataFocus);
 
     relevantRecords.forEach(r => {
         categoryData[r.category] = (categoryData[r.category] || 0) + parseFloat(r.amount);
@@ -2262,6 +2262,9 @@ function renderCategoryBreakdown(records, type) {
     let totalCount = 0;
 
     records.forEach(r => {
+        // Skip projected/expected income - they don't affect actual totals
+        if (r.isProjected) return;
+
         const amt = parseFloat(r.amount) || 0;
         if (!categoryStats[r.category]) {
             categoryStats[r.category] = { amount: 0, count: 0 };
@@ -2895,12 +2898,12 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
     const personTotals = {};
 
     filteredRecords.forEach(r => {
+        // Skip projected/expected income - they don't affect actual totals
+        if (r.isProjected) return;
+
         const amount = parseFloat(r.amount) || 0;
-        const isSavings = !!r.isSavingsTransfer;
 
-        if (isSavings) return;
-
-        // General totals for whatever is in filteredRecords
+        // General totals for whatever is in filteredRecords (include savings income)
         if (r.type === 'income') contextIncome += amount;
         else if (r.type === 'spending') contextSpending += amount;
 
