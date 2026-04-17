@@ -1192,6 +1192,7 @@ async function handleCarryOverToggle() {
     const newCarryOver = !currentCarryOver;
 
     // If enabling carry-over, calculate and store the current balance as remaining balance
+    // This is now just a snapshot, the actual carry-over is calculated live
     let remainingBalance = 0;
     if (newCarryOver) {
         remainingBalance = await calculateCurrentMonthRemainingBalance(currentYear, currentMonth);
@@ -1209,10 +1210,31 @@ async function handleCarryOverToggle() {
     showToast(newCarryOver ? 'Balance will carry over to next month' : 'Balance starts fresh each month', 'info');
 }
 
+/**
+ * Gets the carried balance from the previous month live.
+ * If carry-over is enabled for the previous month, it recursively calculates its balance.
+ */
+async function getLiveCarriedBalance(year, month) {
+    // Get previous month
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+
+    // Check if carry-over is enabled for the previous month
+    const settings = await getMonthlyBalanceSettings(prevYear, prevMonth);
+
+    if (settings && settings.carryOver) {
+        // Recursively calculate the balance for the previous month
+        // This ensures changes multiple months back propagate forward instantly
+        return await calculateCurrentMonthRemainingBalance(prevYear, prevMonth);
+    }
+
+    return 0;
+}
+
 // Calculate the remaining balance for a specific month
 async function calculateCurrentMonthRemainingBalance(year, month) {
-    // Check if there's a carried balance from previous month
-    const carriedBalance = await getPreviousMonthCarriedBalance(year, month);
+    // Check if there's a carried balance from previous month (CALCULATE LIVE)
+    const carriedBalance = await getLiveCarriedBalance(year, month);
 
     // Get all records for this month
     const monthRecords = records.filter(r => {
@@ -1231,9 +1253,16 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
 
-                // Skip savings transfers
+                // Process savings transfers: only count towards income total if requested, but always exclude from main wallet balance
                 const isComponentSavingsTransfer = !!(r.savingsAccountId || ct.savingsAccountId);
-                if (isComponentSavingsTransfer) return;
+                if (isComponentSavingsTransfer) {
+                    if (ct.type === 'income') {
+                        income += totalAmount;
+                    }
+                    // Exclude from balance by not adding to spending or arImpact, 
+                    // and we must subtract this income from the final balance return if we use the 'income' variable
+                    return;
+                }
 
                 if (ct.type === 'income') {
                     income += totalAmount;
@@ -1244,8 +1273,12 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
         } else {
             const amount = parseFloat(r.amount) || 0;
 
-            // Skip savings transfers - they don't affect main balance
+            // Process savings transfers: only count towards income total if requested, but always exclude from main wallet balance
             if (r.isSavingsTransfer) {
+                if (r.type === 'income') {
+                    income += amount;
+                }
+                // Exclude from balance by not adding to spending or arImpact
                 return;
             }
 
@@ -1259,7 +1292,20 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
         }
     });
 
-    return carriedBalance + income - spending + arImpact;
+    // We need to calculate the balance by excluding the portion of income that went to savings
+    const incomeRecords = monthRecords.filter(r => r.type === 'income');
+    const walletIncome = incomeRecords
+        .filter(r => !r.isSavingsTransfer)
+        .reduce((sum, r) => {
+            if (r.formatType === 'combined' && r.combinedTransactions) {
+                return sum + r.combinedTransactions
+                    .filter(ct => !(r.savingsAccountId || ct.savingsAccountId))
+                    .reduce((s, ct) => s + ((parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1)), 0);
+            }
+            return sum + (parseFloat(r.amount) || 0);
+        }, 0);
+
+    return carriedBalance + walletIncome - spending + arImpact;
 }
 
 // Update the carry-over button UI
@@ -1354,8 +1400,8 @@ async function switchTab(tabId) {
     const headerFiltersBtn = document.getElementById('header-filters-btn');
     const userInfo = document.querySelector('.user-info');
 
-    // Show floating user-info on analytics, budget, savings, and settings only
-    const showUserInfoTabs = ['analytics', 'budget', 'savings', 'settings'];
+    // Show floating user-info on dashboard, analytics, budget, savings, and settings
+    const showUserInfoTabs = ['dashboard', 'analytics', 'budget', 'savings', 'settings'];
     if (userInfo) {
         userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
     }
@@ -1487,7 +1533,7 @@ async function renderDashboard() {
         if (filterType !== 'all') {
             if (filterType === 'savings') typeMatch = isSavings;
             else if (filterType === 'spending') typeMatch = r.type === 'spending' && !isSavings;
-            else if (filterType === 'income') typeMatch = r.type === 'income' && !isSavings;
+            else if (filterType === 'income') typeMatch = r.type === 'income'; // Include savings income
             else if (filterType === 'account_receivable') typeMatch = r.type === 'account_receivable';
         }
 
@@ -1497,7 +1543,7 @@ async function renderDashboard() {
         if (filterCategoryValue) {
             const catToMatch = r.isCombinedComponent ? r.actualCategory : r.category;
             if (filterCategoryValue === 'all-income') {
-                categoryMatch = r.type === 'income' && !isSavings;
+                categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategoryValue === 'all-spending') {
                 categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
             } else {
@@ -1527,31 +1573,44 @@ async function renderDashboard() {
     const displayYear = filterYearValue ? parseInt(filterYearValue) : now.getFullYear();
     const displayMonth = filterMonthValue ? parseInt(filterMonthValue) : now.getMonth() + 1;
 
-    // Check if there's a carried balance from previous month (for display only)
-    const carriedBalance = await getPreviousMonthCarriedBalance(displayYear, displayMonth);
+    // Check if there's a carried balance from previous month (CALCULATE LIVE)
+    const carriedBalance = await getLiveCarriedBalance(displayYear, displayMonth);
 
-    // Also update the carry-over UI for the current month
+    // Update the carry-over UI for the current month if in current period view
     if (!filterYearValue && !filterMonthValue) {
         const currentSettings = await getMonthlyBalanceSettings(displayYear, displayMonth);
-        updateCarryOverUI(currentSettings?.carryOver || false, currentSettings?.remainingBalance || 0);
+        const currentLiveRemainingBalance = await calculateCurrentMonthRemainingBalance(displayYear, displayMonth);
+        updateCarryOverUI(currentSettings?.carryOver || false, currentLiveRemainingBalance);
+        
+        // Sync the live balance to the database cache if carry-over is active
+        if (currentSettings && currentSettings.carryOver && Math.abs(currentSettings.remainingBalance - currentLiveRemainingBalance) > 0.001) {
+            await setMonthlyBalanceCarryOver(displayYear, displayMonth, true, currentLiveRemainingBalance);
+        }
     }
 
     // Calculate income and spending (AR does NOT affect either - it's balance-only)
     let income = 0;
     let spending = 0;
+    let dashboardBalanceIncome = 0;
+    let dashboardBalanceSpending = 0;
 
     monthlyRecords.forEach(r => {
         const amount = parseFloat(r.amount) || 0;
 
-        // Skip savings transfers - they don't affect main balance
+        // Process savings transfers: count income for KPI, but exclude everything else from dashboard balance and spending totals
         if (r.isSavingsTransfer) {
+            if (r.type === 'income') {
+                income += amount;
+            }
             return;
         }
 
         if (r.type === 'income') {
             income += amount;
+            dashboardBalanceIncome += amount;
         } else if (r.type === 'spending') {
             spending += amount;
+            dashboardBalanceSpending += amount;
         }
         // account_receivable excluded - affects balance only, not income/spending
     });
@@ -1561,11 +1620,10 @@ async function renderDashboard() {
         .filter(r => r.type === 'account_receivable' && !r.collected)
         .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
 
-    // Current Balance = This month's net plus any carried balance (Income - Spending + AR Impact + Carried)
-    // Opening/Ending balance are for display only and equal the current balance
-    const currentBalance = carriedBalance + income - spending + arImpact;
-    const openingBalance = currentBalance; // Display only - equals current balance
-    const endingBalance = currentBalance;  // Display only - equals current balance
+    // Current Balance = Wallet Income - Wallet Spending + AR Impact + Carried
+    const currentBalance = carriedBalance + dashboardBalanceIncome - dashboardBalanceSpending + arImpact;
+    const openingBalance = currentBalance;
+    const endingBalance = currentBalance;
     const balance = currentBalance;
 
     // Calculate Accounts Receivable (filter by selected person/category if applicable)
@@ -1907,8 +1965,9 @@ function renderDashboardRecords(recordsToRender) {
         const dateObj = new Date(r.date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+        const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer);
         const card = document.createElement('div');
-        card.className = `transaction-card ${typeClass}`;
+        card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}`;
         card.onclick = (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
@@ -2589,6 +2648,22 @@ function renderAnalytics() {
     const filterMonth = document.getElementById('analytics-filter-month')?.value;
     const filterPerson = document.getElementById('analytics-filter-person')?.value;
     const filterCategory = document.getElementById('analytics-filter-category')?.value;
+
+    // Update Date Display in Header/User Info
+    const monthDisplay = document.getElementById('current-month-display');
+    if (monthDisplay) {
+        let displayLabel = "All History";
+        if (filterYear && filterMonth) {
+            const date = new Date(parseInt(filterYear), parseInt(filterMonth) - 1);
+            displayLabel = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        } else if (filterYear) {
+            displayLabel = filterYear;
+        } else if (filterMonth) {
+            const date = new Date(2000, parseInt(filterMonth) - 1);
+            displayLabel = date.toLocaleString('default', { month: 'long' });
+        }
+        monthDisplay.textContent = displayLabel;
+    }
 
     // Process records to expand combined transactions for analytics
     const expandedRecords = [];
@@ -3750,12 +3825,19 @@ function openDetailsModal(record) {
             <span class="detail-value">${record.combinedTransactionName}</span>
         </div>
         ` : ''}
+        ${record.savingsAccountId ? `
+        <div class="detail-row">
+            <span class="detail-label">Savings Account</span>
+            <span class="detail-value">${savingsAccounts.find(acc => acc.id === parseInt(record.savingsAccountId))?.name || 'Unknown'}</span>
+        </div>
+        ` : ''}
         ${record.quantity ? `
         <div class="detail-row">
             <span class="detail-label">Quantity</span>
             <span class="detail-value">${record.quantity}</span>
         </div>
         ` : ''}
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Amount Details & Impact</div>
         <div class="detail-row" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: var(--radius-sm); margin: 0.5rem 0;">
             <div style="font-size: 0.875rem; line-height: 1.6;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
@@ -3763,20 +3845,33 @@ function openDetailsModal(record) {
                     <div style="text-align: right;">$${formatCurrency(balanceBefore)}</div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: white; border-radius: 4px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: ${record.savingsAccountId ? '#fef2f2' : 'white'}; border-radius: 4px; ${record.savingsAccountId ? 'border: 1px solid #ef4444;' : ''}">
+                    ${record.savingsAccountId ? '<div style="grid-column: 1/-1; font-size: 0.65rem; color: #b91c1c; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;">Savings Transaction</div>' : ''}
                     <div><strong>Transaction:</strong></div>
                     <div style="text-align: right; font-weight: 600; color: ${record.type === 'income' ? '#059669' : '#dc2626'};">
                         ${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}
                     </div>
                     ${isCombined && record.combinedTransactions ? `
                     <div style="grid-column: 1 / -1; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
-                        <div style="font-weight: 600; margin-bottom: 0.25rem; color: #6b7280; font-size: 0.85rem;">Breakdown:</div>
-                        ${record.combinedTransactions.map((transaction, index) => {
-        const amount = parseFloat(transaction.amount) || 0;
-        const quantity = parseInt(transaction.quantity) || 1;
-        const totalAmount = amount * quantity;
-        return `
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem; color: #6b7280; font-size: 0.85rem;">Breakdown:</div>
+                        ${[...record.combinedTransactions]
+                            // Sort savings transactions to the top
+                            .sort((a, b) => {
+                                const aSavings = !!(a.savingsAccountId || record.savingsAccountId);
+                                const bSavings = !!(b.savingsAccountId || record.savingsAccountId);
+                                if (aSavings && !bSavings) return -1;
+                                if (!aSavings && bSavings) return 1;
+                                return 0;
+                            })
+                            .map((transaction, index) => {
+                                const amount = parseFloat(transaction.amount) || 0;
+                                const quantity = parseInt(transaction.quantity) || 1;
+                                const totalAmount = amount * quantity;
+                                const isSavingsComponent = !!(transaction.savingsAccountId || record.savingsAccountId);
+                                
+                                return `
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem; font-size: 0.8rem; margin-bottom: 0.25rem; ${isSavingsComponent ? 'border: 1px solid #ef4444; border-radius: 4px; padding: 4px; background: #fef2f2; position: relative;' : ''}">
+                                ${isSavingsComponent ? '<div style="grid-column: 1/-1; font-size: 0.65rem; color: #b91c1c; font-weight: 600; text-transform: uppercase; margin-bottom: 2px;">Savings Allocation</div>' : ''}
                                 <div style="color: ${transaction.type === 'income' ? '#059669' : '#dc2626'};">
                                     ${transaction.item || transaction.category} ${transaction.quantity && transaction.quantity !== '1' ? `(${transaction.quantity})` : ''}:
                                 </div>
@@ -3785,7 +3880,7 @@ function openDetailsModal(record) {
                                 </div>
                             </div>
                             `;
-    }).join('')}
+                            }).join('')}
                     </div>
                     ` : ''}
                 </div>
@@ -3807,12 +3902,6 @@ function openDetailsModal(record) {
                 </div>
             </div>
         </div>
-        ${record.savingsAccountId ? `
-        <div class="detail-row">
-            <span class="detail-label">Savings Account</span>
-            <span class="detail-value">${savingsAccounts.find(acc => acc.id === parseInt(record.savingsAccountId))?.name || 'Unknown'}</span>
-        </div>
-        ` : ''}
         ${record.notes ? `
         <div class="detail-row">
             <span class="detail-label">Notes</span>
@@ -4513,42 +4602,21 @@ async function collectAR(id) {
 
     const rootId = getARRootId(record);
     const group = getARGroupRecords(rootId);
-    const collectedDate = new Date().toISOString().split('T')[0];
-
-    // Calculate total AR amount to collect
-    const totalAmount = group.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
-
-    group.forEach(r => {
-        r.collected = true;
-        r.collectedDate = collectedDate;
-    });
+    const collectedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
     try {
         for (const r of group) {
+            r.collected = true;
+            r.collectedDate = new Date().toISOString().split('T')[0];
+            
+            // Append collection info to notes instead of creating a new record
+            const collectionTag = `[Collected on ${collectedDate}]`;
+            if (!r.notes || !r.notes.includes(collectionTag)) {
+                r.notes = r.notes ? `${r.notes}\n${collectionTag}` : collectionTag;
+            }
+            
             await updateRecord(STORE_RECORDS, r);
         }
-
-        // Create an AR collection record (shows money received, doesn't affect income)
-        const collectionRecord = {
-            formatType: 'single',
-            type: 'account_receivable',
-            date: collectedDate,
-            timestamp: Date.now(),
-            item: `AR Collected - ${record.item || record.category}`,
-            category: 'AR Collection',
-            person: record.person || '',
-            amount: totalAmount,
-            quantity: '1',
-            notes: `Collection of AR from ${record.date} - ${record.item || record.category}`,
-            savingsAccountId: '',
-            isSavingsTransfer: false,
-            savingsTransactionType: null,
-            linkedARId: rootId, // Link to the original AR record
-            collected: true, // Mark as collected so it doesn't reduce balance
-            isCollectionRecord: true // Flag to identify this as a collection record
-        };
-
-        await add(STORE_RECORDS, collectionRecord);
 
         await refreshData();
         showToast('AR marked as collected', 'success');
@@ -4564,20 +4632,18 @@ async function undoCollectAR(id) {
 
     const rootId = getARRootId(record);
     const group = getARGroupRecords(rootId);
-    group.forEach(r => {
-        r.collected = false;
-        delete r.collectedDate;
-    });
 
     try {
         for (const r of group) {
+            r.collected = false;
+            delete r.collectedDate;
+            
+            // Remove collection tag from notes
+            if (r.notes) {
+                r.notes = r.notes.replace(/\n?\[Collected on .*\]/g, '').trim();
+            }
+            
             await updateRecord(STORE_RECORDS, r);
-        }
-
-        // Find and remove the AR collection record
-        const collectionRecord = records.find(r => r.linkedARId === rootId && r.isCollectionRecord);
-        if (collectionRecord) {
-            await remove(STORE_RECORDS, collectionRecord.id);
         }
 
         await refreshData();

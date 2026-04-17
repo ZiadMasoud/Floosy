@@ -167,61 +167,63 @@
 
           <!-- Filter Panel for Dashboard -->
           <div class="filter-panel" id="dashboard-filter-panel" style="display: none;">
-            <div class="filter-modal-header">
-              <h2>Filters</h2>
-            </div>
-            <div class="filter-controls-group" id="dashboard-filter-controls" style="display: none;">
-              <div class="filter-group">
-                <label class="filter-label">Type:</label>
-                <select id="dashboard-filter-type" class="btn btn-outline">
-                  <option value="all">All</option>
-                  <option value="spending">Spending</option>
-                  <option value="income">Income</option>
-                  <option value="savings">Savings</option>
-                  <option value="account_receivable">Account Receivable</option>
-                </select>
+            <div class="filter-modal-content" id="dashboard-filter-controls" style="display: none;">
+              <div class="filter-modal-header">
+                <h2>Filters</h2>
               </div>
-              <div class="filter-group">
-                <label class="filter-label">Year:</label>
-                <select id="dashboard-filter-year" class="btn btn-outline">
-                  <option value="">All Years</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Month:</label>
-                <select id="dashboard-filter-month" class="btn btn-outline">
-                  <option value="">All Months</option>
-                  <option value="01">January</option>
-                  <option value="02">February</option>
-                  <option value="03">March</option>
-                  <option value="04">April</option>
-                  <option value="05">May</option>
-                  <option value="06">June</option>
-                  <option value="07">July</option>
-                  <option value="08">August</option>
-                  <option value="09">September</option>
-                  <option value="10">October</option>
-                  <option value="11">November</option>
-                  <option value="12">December</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Person:</label>
-                <select id="dashboard-filter-person" class="btn btn-outline">
-                  <option value="">All People</option>
-                </select>
-              </div>
-              <div class="filter-group">
-                <label class="filter-label">Category:</label>
-                <select id="dashboard-filter-category" class="btn btn-outline">
-                  <option value="">All Categories</option>
-                </select>
+              <div class="filter-form-body">
+                <div class="filter-group">
+                  <label class="filter-label">Type:</label>
+                  <select id="dashboard-filter-type" class="btn btn-outline">
+                    <option value="all">All</option>
+                    <option value="spending">Spending</option>
+                    <option value="income">Income</option>
+                    <option value="savings">Savings</option>
+                    <option value="account_receivable">Account Receivable</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label">Year:</label>
+                  <select id="dashboard-filter-year" class="btn btn-outline">
+                    <option value="">All Years</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label">Month:</label>
+                  <select id="dashboard-filter-month" class="btn btn-outline">
+                    <option value="">All Months</option>
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label">Person:</label>
+                  <select id="dashboard-filter-person" class="btn btn-outline">
+                    <option value="">All People</option>
+                  </select>
+                </div>
+                <div class="filter-group">
+                  <label class="filter-label">Category:</label>
+                  <select id="dashboard-filter-category" class="btn btn-outline">
+                    <option value="">All Categories</option>
+                  </select>
+                </div>
               </div>
               <div class="modal-actions">
-                <button class="btn btn-secondary" id="dashboard-filter-close">
+                <button type="button" class="btn btn-secondary" id="dashboard-filter-close">
                   Cancel
                 </button>
-                <button class="btn btn-primary" id="dashboard-clear-filters">
+                <button type="button" class="btn btn-primary" id="dashboard-clear-filters">
                   Clear
                 </button>
               </div>

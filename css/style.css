@@ -438,13 +438,70 @@ body.privacy-mode #record-details-content [style*="text-align: right"] {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(4px);
   z-index: 10001;
   display: none;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+}
+
+/* Desktop Floating Filter Panel (Full width row) */
+@media (min-width: 1024px) {
+  .filter-panel {
+    position: absolute;
+    top: 5.5rem;
+    right: 2rem;
+    bottom: auto;
+    left: 2rem;
+    width: auto !important;
+    height: auto;
+    background: transparent;
+    backdrop-filter: none;
+    z-index: 100;
+    padding: 0;
+    pointer-events: none;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .filter-panel .filter-modal-content {
+    pointer-events: auto;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    box-shadow: var(--shadow-lg) !important;
+    border: 1px solid var(--primary-color) !important;
+  }
+  
+  .filter-panel .filter-modal-header {
+    background: var(--primary-color);
+    padding: 0.75rem 1.5rem;
+  }
+  
+  .filter-panel .filter-modal-header h2 {
+    color: white;
+    font-size: 1rem;
+  }
+
+  .filter-panel .filter-form-body {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 1.5rem !important;
+    padding: 1.25rem 1.5rem !important;
+    overflow-y: visible !important;
+  }
+
+  .filter-panel .modal-actions {
+    justify-content: flex-end !important;
+    padding: 1rem 1.5rem !important;
+  }
+
+  .filter-panel .modal-actions .btn {
+    flex: none !important;
+    min-width: 120px;
+  }
 }
 
 .filter-panel .filter-controls-group {
@@ -514,29 +571,13 @@ body.privacy-mode #record-details-content [style*="text-align: right"] {
   overflow-y: auto;
 }
 
-.filter-modal-content .modal-actions,
-.filter-panel .filter-controls-group .btn-outline,
-.filter-panel .filter-controls-group .btn-secondary,
-.filter-panel .filter-controls-group #dashboard-clear-filters,
-.filter-panel .filter-controls-group #analytics-clear-filters,
-.filter-panel .filter-controls-group .filter-close-btn {
-  padding: 1rem 1.5rem !important;
-  background: #f7f8f0 !important;
-  border-top: 1px solid var(--border-color) !important;
-  margin: 0 !important;
-  width: 100% !important;
-  order: 10;
-}
-
-/* Modal Actions inside filter modals */
-.filter-modal-content .modal-actions,
-.filter-controls-group .modal-actions {
+.filter-modal-content .modal-actions {
   display: flex !important;
   flex-direction: row !important;
   gap: 0.75rem !important;
-  padding: 1rem 1.5rem !important;
+  padding: 1.25rem 1.5rem !important;
   border-top: 1px solid var(--border-color) !important;
-  background: #f7f8f0 !important;
+  background: white !important;
   margin-top: 0 !important;
   order: 100;
 }
@@ -2139,6 +2180,7 @@ tr:last-child td {
 .tab-content {
   display: none;
   animation: fadeIn 0.3s ease-out;
+  position: relative; /* For absolutely positioned filter panels */
 }
 
 .tab-content.active {
@@ -3568,6 +3610,16 @@ tr:last-child td {
   border-color: var(--border-color);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.transaction-card.savings-belong {
+  border-color: var(--danger) !important;
+  border-width: 1.5px;
+  background: rgba(239, 68, 68, 0.03);
+}
+
+.transaction-card.savings-belong:hover {
+  background: rgba(239, 68, 68, 0.08) !important;
 }
 
 /* Transaction Icon */
