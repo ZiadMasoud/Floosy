@@ -4480,6 +4480,14 @@ async function handleImport(e) {
                             await add(STORE_SAVINGS_TRANSACTIONS, t);
                         }
                     }
+                    // import budget limits
+                    if (data.budgetLimits) {
+                        await clearStore(STORE_BUDGET_LIMITS);
+                        for (const l of data.budgetLimits) {
+                            delete l.id;
+                            await add(STORE_BUDGET_LIMITS, l);
+                        }
+                    }
                     showToast('Import successful!', 'success');
                     await refreshData();
                     // Force AR carry-forward after import so KPIs reflect pending AR from previous months
@@ -4775,7 +4783,6 @@ function renderBudget() {
             }
         }
     });
-
     // Update budget limits with current spending
     budgetLimits.forEach(limit => {
         limit.spent = monthlySpending[limit.category] || 0;
@@ -4958,6 +4965,10 @@ async function handleBudgetLimitSubmit(e) {
 }
 
 async function handleResetAllBudgets() {
+    if (budgetLimits.length === 0) {
+        showToast('No budget limits found to reset', 'warning');
+        return;
+    }
     if (await showConfirm('Reset spending for all budget limits? This will mark current spending as tracked from now.')) {
         const now = new Date().toISOString();
         for (const limit of budgetLimits) {
@@ -5023,9 +5034,13 @@ function renderUpcomingWidget() {
 
         const item = document.createElement('div');
         item.className = 'upcoming-item';
+        const signColorClass = isIncome ? 'positive' : 'negative';
         item.innerHTML = `
             <span class="upcoming-date">${dateLabel}</span>
-            <span class="upcoming-amount ${amountClass}">${amountPrefix}$${formatCurrency(amount)}</span>
+            <span class="upcoming-amount">
+                <span class="currency-sign ${signColorClass}">${amountPrefix}$</span>
+                <span class="amount-value">${formatCurrency(amount)}</span>
+            </span>
             <span class="upcoming-desc">${isIncome ? '💰' : '💸'} ${description}</span>
         `;
         listContainer.appendChild(item);
@@ -5136,14 +5151,19 @@ function closeUpcomingIncomeModal() {
 async function handleUpcomingIncomeSubmit(e) {
     e.preventDefault();
 
-    const source = upcomingIncomeSourceInput.value.trim();
+    let source = upcomingIncomeSourceInput.value.trim();
     const date = upcomingIncomeDateInput.value;
     const amount = parseFloat(upcomingIncomeAmountInput.value);
     const category = upcomingIncomeCategorySelect.value;
     const notes = upcomingIncomeNotesInput.value.trim();
     const id = document.getElementById('upcoming-income-edit-id')?.value;
 
-    if (!source || !date || !amount || amount <= 0 || !category) {
+    // Use category as source if source is empty
+    if (!source && category) {
+        source = category;
+    }
+
+    if (!date || !amount || amount <= 0 || !category) {
         showToast('Please fill in all required fields with valid values', 'error');
         return;
     }

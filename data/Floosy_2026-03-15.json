@@ -167,7 +167,26 @@
     { "formatType": "single", "type": "spending", "date": "2026-04-08", "item": "Gas", "category": "Transport", "person": "John", "amount": 59.4, "quantity": "1", "notes": "Fuel", "savingsAccountId": "" },
     { "formatType": "single", "type": "spending", "date": "2026-04-10", "item": "Health insurance", "category": "Insurance", "person": "Sarah", "amount": 120, "quantity": "1", "notes": "Monthly premium", "savingsAccountId": "" },
     { "formatType": "single", "type": "spending", "date": "2026-04-12", "item": "Dinner", "category": "Dining Out", "person": "Mike", "amount": 71.5, "quantity": "1", "notes": "Weekend dinner", "savingsAccountId": "" },
-    { "formatType": "single", "type": "income", "date": "2026-04-15", "item": "", "category": "Freelance", "person": "Mike", "amount": 450, "quantity": "1", "notes": "Website project", "savingsAccountId": "" }
+    { "formatType": "single", "type": "spending", "date": "2026-04-14", "item": "Coffee", "category": "Dining Out", "person": "Mike", "amount": 15, "quantity": "1", "notes": "Morning coffee", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-15", "item": "Bus pass", "category": "Transport", "person": "Emma", "amount": 45, "quantity": "1", "notes": "Monthly pass", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-04-15", "item": "", "category": "Freelance", "person": "Mike", "amount": 450, "quantity": "1", "notes": "Website project", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-16", "item": "Groceries", "category": "Groceries", "person": "Sarah", "amount": 185.2, "quantity": "1", "notes": "Weekly restock", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-17", "item": "Lunch", "category": "Dining Out", "person": "John", "amount": 24.5, "quantity": "1", "notes": "Work lunch", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-18", "item": "Cinema", "category": "Entertainment", "person": "Emma", "amount": 35, "quantity": "1", "notes": "Movie night", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-20", "item": "Gas", "category": "Transport", "person": "John", "amount": 62.8, "quantity": "1", "notes": "Full tank", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-22", "item": "Pharmacy", "category": "Healthcare", "person": "Sarah", "amount": 42.1, "quantity": "1", "notes": "Vitamins", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-23", "item": "Weekly Groceries", "category": "Groceries", "person": "Sarah", "amount": 210.5, "quantity": "1", "notes": "Weekly restock", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-24", "item": "Steakhouse", "category": "Dining Out", "person": "John", "amount": 145.8, "quantity": "1", "notes": "Anniversary dinner", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-25", "item": "Concert Tickets", "category": "Entertainment", "person": "Emma", "amount": 120, "quantity": "1", "notes": "Upcoming show", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-04-25", "item": "Bonus", "category": "Salary", "person": "John", "amount": 500, "quantity": "1", "notes": "Performance bonus", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-26", "item": "Car wash", "category": "Transport", "person": "Mike", "amount": 25, "quantity": "1", "notes": "Basic wash", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-26", "item": "Sunday brunch", "category": "Dining Out", "person": "Sarah", "amount": 65.5, "quantity": "1", "notes": "Family brunch", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-27", "item": "New Game", "category": "Entertainment", "person": "Mike", "amount": 70, "quantity": "1", "notes": "Digital purchase", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-28", "item": "Electricity", "category": "Utilities", "person": "John", "amount": 110.4, "quantity": "1", "notes": "Monthly bill", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-29", "item": "Water bill", "category": "Utilities", "person": "John", "amount": 45.2, "quantity": "1", "notes": "Monthly bill", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-30", "item": "Bulk groceries", "category": "Groceries", "person": "Sarah", "amount": 125.4, "quantity": "1", "notes": "Monthly stock up", "savingsAccountId": "" },
+    { "formatType": "single", "type": "spending", "date": "2026-04-30", "item": "Grocery run", "category": "Groceries", "person": "Sarah", "amount": 85.3, "quantity": "1", "notes": "Late night snacks", "savingsAccountId": "" },
+    { "formatType": "single", "type": "income", "date": "2026-05-01", "item": "", "category": "Salary", "person": "John", "amount": 4200, "quantity": "1", "notes": "Expected Salary", "isProjected": true, "projectedSource": "Company Corp", "savingsAccountId": "" }
   ],
   "categories": [
     { "name": "Rent/Mortgage", "type": "spending" },
@@ -220,5 +239,20 @@
     { "accountId": 2, "type": "withdrawal", "amount": 500, "date": "2026-03-06", "notes": "Spending: Entertainment - Vacation booking" },
     { "accountId": 1, "type": "withdrawal", "amount": 40, "date": "2026-03-12", "notes": "ATM cash (manual savings withdrawal)" }
   ],
-  "exportedAt": "2026-03-17T00:00:00.000Z"
+  "budgetLimits": [
+    { "id": 1, "category": "Groceries", "limit": 800, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 2, "category": "Dining Out", "limit": 400, "alertThreshold": 75, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 3, "category": "Transport", "limit": 300, "alertThreshold": 85, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 4, "category": "Entertainment", "limit": 200, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 5, "category": "Utilities", "limit": 500, "alertThreshold": 90, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 6, "category": "Rent/Mortgage", "limit": 1400, "alertThreshold": 95, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 7, "category": "Healthcare", "limit": 150, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 8, "category": "Insurance", "limit": 200, "alertThreshold": 90, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 9, "category": "Education", "limit": 100, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 10, "category": "Clothing", "limit": 250, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 11, "category": "Gifts", "limit": 150, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 12, "category": "Home Maintenance", "limit": 300, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" },
+    { "id": 13, "category": "Other", "limit": 200, "alertThreshold": 80, "spent": 0, "createdAt": "2026-04-01T10:00:00Z" }
+  ],
+  "exportedAt": "2026-04-17T03:35:00.000Z"
 }

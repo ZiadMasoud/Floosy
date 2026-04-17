@@ -4323,16 +4323,27 @@ tr:last-child td {
   min-width: 75px;
   font-size: 0.9rem;
   color: white !important;
+  display: flex;
+  gap: 0;
 }
 
-.upcoming-amount.income {
-  color: #16a34a !important;
-  text-shadow: 0 0 2px rgba(255,255,255,0.5);
+.upcoming-amount .amount-value {
+  color: white !important;
+  font-weight: 700;
 }
 
-.upcoming-amount.spending {
-  color: #dc2626 !important;
-  text-shadow: 0 0 2px rgba(255,255,255,0.5);
+.upcoming-amount .currency-sign {
+  font-weight: 700;
+}
+
+.upcoming-amount .currency-sign.positive {
+  color: #4ade80 !important;
+  text-shadow: 0 0 2px rgba(255,255,255,0.3);
+}
+
+.upcoming-amount .currency-sign.negative {
+  color: #f87171 !important;
+  text-shadow: 0 0 2px rgba(255,255,255,0.3);
 }
 
 .upcoming-desc {
@@ -4342,6 +4353,7 @@ tr:last-child td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: right;
 }
 
 .upcoming-empty {
