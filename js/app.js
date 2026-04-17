@@ -1698,6 +1698,9 @@ function renderDashboardRecords(recordsToRender) {
 
     // Apply filters
     let filteredRecords = recordsToRender.filter(r => {
+        // Exclude projected/expected income - they only show in Upcoming Income section
+        if (r.isProjected) return false;
+
         const isSavings = !!r.isSavingsTransfer;
 
         // Correct type matching:
@@ -2500,6 +2503,9 @@ function renderRecords() {
     }
 
     let filteredRecords = expandedRecords.filter(r => {
+        // Exclude projected/expected income - they only show in Upcoming Income section
+        if (r.isProjected) return false;
+
         const isSavings = !!r.isSavingsTransfer;
         const typeMatch =
             filterType === 'all' ||
