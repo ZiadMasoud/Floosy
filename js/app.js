@@ -1171,11 +1171,10 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
 }
 
 function formatCurrency(amount) {
-    return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function formatCurrencyNoDecimals(amount) {
-    return amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return amount.toLocaleString('en-US', { 
+        minimumFractionDigits: 0, 
+        maximumFractionDigits: 2 
+    });
 }
 
 // Monthly Balance Carry-Over Handler
@@ -1659,9 +1658,9 @@ async function renderDashboard() {
     const heroTrendIconEl = document.getElementById('hero-trend-icon');
     const heroArDisplayEl = document.getElementById('hero-ar-display');
 
-    if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrencyNoDecimals(spending)}</span>`;
-    if (heroIncomeEl) heroIncomeEl.innerHTML = `<span class="dollar-icon income-icon">$</span><span class="amount-num">${formatCurrencyNoDecimals(income)}</span>`;
-    if (heroThisMonthValEl) heroThisMonthValEl.innerHTML = `<span class="currency-sign">$</span><span class="amount-num">${formatCurrencyNoDecimals(Math.abs(balance))}</span>`;
+    if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
+    if (heroIncomeEl) heroIncomeEl.innerHTML = `<span class="dollar-icon income-icon">$</span><span class="amount-num">${formatCurrency(income)}</span>`;
+    if (heroThisMonthValEl) heroThisMonthValEl.innerHTML = `<span class="currency-sign">$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
     if (heroTrendIconEl) {
         // Trend based on balance (positive = up/green, negative = down/red)
         if (balance >= 0) {
@@ -1858,7 +1857,7 @@ function renderDashboardRecords(recordsToRender) {
             separator.className = 'week-separator';
             separator.innerHTML = `
                 <div class="week-separator-header">
-                    <span>Week ${currentWeek}</span>
+                    <div class="week-name"><span>Week ${currentWeek}</span></div>
                     <div class="week-separator-stats">
                         <span class="week-stat count">
                             <i class="fas fa-list-ol"></i> ${stats.count}
@@ -1873,6 +1872,21 @@ function renderDashboardRecords(recordsToRender) {
                 </div>
             `;
             container.appendChild(separator);
+
+            // Add scroll animation if text overflows for week name
+            const weekNameEl = separator.querySelector('.week-name');
+            if (weekNameEl) {
+                const span = weekNameEl.querySelector('span');
+                setTimeout(() => {
+                    if (span && span.scrollWidth > weekNameEl.clientWidth) {
+                        const scrollDist = span.scrollWidth - weekNameEl.clientWidth;
+                        weekNameEl.style.setProperty('--scroll-dist', `-${scrollDist}px`);
+                        const duration = Math.max(4, scrollDist / 20);
+                        weekNameEl.style.setProperty('--scroll-duration', `${duration}s`);
+                        weekNameEl.classList.add('animate-scroll');
+                    }
+                }, 0);
+            }
         }
         const isAR = r.type === 'account_receivable';
         const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
@@ -1985,7 +1999,7 @@ function renderDashboardRecords(recordsToRender) {
                 <i class="fas ${icon}"></i>
             </div>
             <div class="transaction-info">
-                <div class="transaction-name">${displayName}</div>
+                <div class="transaction-name"><span>${displayName}</span></div>
                 <div class="transaction-category">
                     <span class="category-badge badge-${isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type}">${isCombined ? 'Combined' : categoryName}${arStatus}</span>
                     ${r.person ? `<span><i class="fas fa-user" style="font-size: 0.7rem;"></i> ${r.person}</span>` : ''}
@@ -1996,15 +2010,16 @@ function renderDashboardRecords(recordsToRender) {
                 <div class="date">${dateStr}</div>
             </div>
             <div class="transaction-actions">
-                ${isAR && !r.collected ? `
-                    <button class="btn-icon collect-btn" onclick="event.stopPropagation(); collectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Collected">
-                        <i class="fas fa-check"></i>
-                    </button>
-                ` : ''}
-                ${isAR && r.collected ? `
-                    <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoCollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Pending">
-                        <i class="fas fa-undo"></i>
-                    </button>
+                ${isAR ? `
+                    ${!r.collected ? `
+                        <button class="btn-icon collect-btn" onclick="event.stopPropagation(); collectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Collected">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    ` : `
+                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoCollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Pending">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    `}
                 ` : ''}
                 <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Edit">
                     <i class="fas fa-pen"></i>
@@ -2016,6 +2031,23 @@ function renderDashboardRecords(recordsToRender) {
         `;
 
         container.appendChild(card);
+
+        // Add scroll animation if text overflows
+        const nameEl = card.querySelector('.transaction-name');
+        if (nameEl) {
+            const span = nameEl.querySelector('span');
+            // Use a small timeout to ensure DOM is rendered and dimensions are available
+            setTimeout(() => {
+                if (span && span.scrollWidth > nameEl.clientWidth) {
+                    const scrollDist = span.scrollWidth - nameEl.clientWidth;
+                    nameEl.style.setProperty('--scroll-dist', `-${scrollDist}px`);
+                    // Slower duration for better readability (20px per second, min 4s)
+                    const duration = Math.max(4, scrollDist / 20);
+                    nameEl.style.setProperty('--scroll-duration', `${duration}s`);
+                    nameEl.classList.add('animate-scroll');
+                }
+            }, 0);
+        }
     });
 }
 

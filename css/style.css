@@ -1441,25 +1441,45 @@ header.dashboard-header-hide {
 .week-separator {
   display: flex;
   flex-direction: column;
-  margin: 0.5rem 0 0.25rem;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  margin: 1rem 0 0.5rem;
 }
 
 .week-separator-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  background: rgba(122, 170, 206, 0.1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  gap: 1rem;
 }
 
-.week-separator-header::after {
-  content: "";
+.week-name {
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex: 1;
-  height: 1px;
-  background: var(--border-color);
+  min-width: 0;
+  position: relative;
+  display: block;
+}
+
+.week-name span {
+  display: inline-block;
+}
+
+.week-name.animate-scroll {
+  text-overflow: clip;
+}
+
+.week-name.animate-scroll span {
+  animation: scroll-text var(--scroll-duration, 4s) cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
 }
 
 .week-separator-stats {
@@ -1471,13 +1491,13 @@ header.dashboard-header-hide {
   text-transform: none;
   letter-spacing: 0;
   color: var(--text-main);
-  margin-left: 0.5rem;
 }
 
 .week-stat {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  white-space: nowrap;
 }
 
 .week-stat i {
@@ -3756,6 +3776,29 @@ tr:last-child td {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  position: relative;
+  display: block;
+}
+
+.transaction-name span {
+  display: inline-block;
+}
+
+.transaction-name.animate-scroll {
+  text-overflow: clip; /* Remove ellipsis to show full text when animating */
+}
+
+.transaction-name.animate-scroll span {
+  animation: scroll-text var(--scroll-duration, 4s) cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+}
+
+@keyframes scroll-text {
+  0%, 25% {
+    transform: translateX(0);
+  }
+  75%, 100% {
+    transform: translateX(var(--scroll-dist));
+  }
 }
 
 .transaction-category {
@@ -3815,6 +3858,7 @@ tr:last-child td {
   display: flex;
   gap: 0.5rem;
   margin-left: 0.5rem;
+  align-items: center;
 }
 
 .transaction-actions .btn-icon {
