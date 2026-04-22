@@ -318,37 +318,71 @@
         </div>
 
         <!-- Charts moved from Dashboard -->
-        <!-- Category Breakdown (First) -->
-        <div class="card" id="category-breakdown-card" style="display: none; margin-bottom: 1.5rem;">
-          <h3 id="category-breakdown-title">Breakdown by Category</h3>
-          <table class="stats-table">
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th>Count</th>
-                  <th>Total</th>
-                  <th>%</th>
-                </tr>
-              </thead>
-              <tbody id="category-breakdown-body">
-                <!-- Breakdown will be injected here -->
-              </tbody>
-              <tfoot>
-                <tr id="category-breakdown-total-row" style="font-weight: bold; border-top: 2px solid var(--border-color);">
-                  <td>Total</td>
-                  <td id="category-breakdown-total-count">0</td>
-                  <td id="category-breakdown-total-amount">$0</td>
-                  <td>100%</td>
-                </tr>
-              </tfoot>
-            </table>
-          <!-- Pagination for breakdown -->
-          <div class="pagination-controls" id="category-breakdown-pagination" style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-            <button class="btn btn-outline btn-sm" id="prev-breakdown-page">
+        <!-- Spending Breakdown -->
+        <div class="card" id="spending-breakdown-card" style="display: none; margin-bottom: 1.5rem;">
+          <h3 id="spending-breakdown-title">Spending by Category</h3>
+          <div class="table-responsive">
+            <table class="stats-table" id="spending-breakdown-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Count</th>
+                <th>Amount</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="spending-breakdown-body"></tbody>
+            <tfoot>
+              <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                <td>Total</td>
+                <td id="spending-total-count">0</td>
+                <td id="spending-total-amount" class="amount-spending">$0</td>
+                <td>100%</td>
+              </tr>
+            </tfoot>
+          </table>
+          </div>
+          <div class="pagination-controls" id="spending-breakdown-pagination" style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <button class="btn btn-outline btn-sm" id="prev-spending-page">
               <i class="fas fa-chevron-left"></i> Previous
             </button>
-            <span id="breakdown-page-info" style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of 1</span>
-            <button class="btn btn-outline btn-sm" id="next-breakdown-page">
+            <span id="spending-page-info" style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of 1</span>
+            <button class="btn btn-outline btn-sm" id="next-spending-page">
+              Next <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Income Breakdown -->
+        <div class="card" id="income-breakdown-card" style="display: none; margin-bottom: 1.5rem;">
+          <h3 id="income-breakdown-title">Income by Category</h3>
+          <div class="table-responsive">
+          <table class="stats-table" id="income-breakdown-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Count</th>
+                <th>Amount</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="income-breakdown-body"></tbody>
+            <tfoot>
+              <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                <td>Total</td>
+                <td id="income-total-count">0</td>
+                <td id="income-total-amount" class="amount-income">$0</td>
+                <td>100%</td>
+              </tr>
+            </tfoot>
+          </table>
+          </div>
+          <div class="pagination-controls" id="income-breakdown-pagination" style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+            <button class="btn btn-outline btn-sm" id="prev-income-page">
+              <i class="fas fa-chevron-left"></i> Previous
+            </button>
+            <span id="income-page-info" style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of 1</span>
+            <button class="btn btn-outline btn-sm" id="next-income-page">
               Next <i class="fas fa-chevron-right"></i>
             </button>
           </div>
@@ -696,6 +730,13 @@
             <label>Initial Amount (optional)</label>
             <input type="number" step="0.01" id="account-initial" name="account-initial" placeholder="0.00" />
           </div>
+          <div class="form-group">
+            <label>Account Owner (Person)</label>
+            <select id="account-person" name="account-person">
+              <option value="">Select Owner (Optional)</option>
+              <!-- Options will be loaded dynamically -->
+            </select>
+          </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="cancel-account-modal">
               Cancel
@@ -761,15 +802,15 @@
               <input type="number" id="record-amount" step="0.01" required placeholder="0.00" />
             </div>
             <div class="form-group">
-              <label>Person</label>
+              <label>Recorded By (Person who made this transaction)</label>
               <select id="record-person">
                 <option value="">Select Person (Optional)</option>
                 <!-- Options will be loaded dynamically -->
               </select>
             </div>
             <div class="form-group">
-              <label>Category</label>
-              <select id="record-category" required>
+              <label>Category (Optional)</label>
+              <select id="record-category">
                 <!-- Options will be loaded dynamically -->
               </select>
             </div>
@@ -794,6 +835,14 @@
                 <option value="">No Savings Account</option>
                 <!-- Options will be loaded dynamically -->
               </select>
+            </div>
+            <div class="form-group" id="savings-beneficiary-group" style="display: none;">
+              <label>Savings Account Owner (Beneficiary)</label>
+              <select id="record-savings-beneficiary" disabled>
+                <option value="">No owner assigned to this account</option>
+                <!-- Options will be loaded dynamically -->
+              </select>
+              <small style="color: var(--text-muted); font-size: 0.75rem;">This is the person this savings account belongs to</small>
             </div>
             <div class="form-group">
               <label>Quantity (Optional)</label>

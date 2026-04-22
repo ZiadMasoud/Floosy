@@ -114,10 +114,15 @@ let chartCategoriesVisible = 5;
 let chartCategoriesExpanded = false;
 
 // Category breakdown pagination state
-let categoryBreakdownPage = 0;
 const categoryBreakdownLimit = 8;
-let currentBreakdownData = []; // Store current filtered categories for pagination
-let currentBreakdownType = 'spending';
+
+// Spending breakdown pagination state
+let spendingBreakdownPage = 0;
+let currentSpendingData = [];
+
+// Income breakdown pagination state
+let incomeBreakdownPage = 0;
+let currentIncomeData = [];
 
 // Utility Notification Functions
 function showToast(message, type = 'info') {
@@ -497,22 +502,44 @@ function initEventListeners() {
     }
 
     // Category Breakdown Pagination
-    const prevBreakdownBtn = document.getElementById('prev-breakdown-page');
-    const nextBreakdownBtn = document.getElementById('next-breakdown-page');
-    if (prevBreakdownBtn) {
-        prevBreakdownBtn.addEventListener('click', () => {
-            if (categoryBreakdownPage > 0) {
-                categoryBreakdownPage--;
-                renderCategoryBreakdownTable();
+    // Spending breakdown pagination
+    const prevSpendingBtn = document.getElementById('prev-spending-page');
+    const nextSpendingBtn = document.getElementById('next-spending-page');
+    if (prevSpendingBtn) {
+        prevSpendingBtn.addEventListener('click', () => {
+            if (spendingBreakdownPage > 0) {
+                spendingBreakdownPage--;
+                renderSpendingBreakdownTable();
             }
         });
     }
-    if (nextBreakdownBtn) {
-        nextBreakdownBtn.addEventListener('click', () => {
-            const maxPage = Math.ceil(currentBreakdownData.length / categoryBreakdownLimit) - 1;
-            if (categoryBreakdownPage < maxPage) {
-                categoryBreakdownPage++;
-                renderCategoryBreakdownTable();
+    if (nextSpendingBtn) {
+        nextSpendingBtn.addEventListener('click', () => {
+            const maxPage = Math.ceil(currentSpendingData.length / categoryBreakdownLimit) - 1;
+            if (spendingBreakdownPage < maxPage) {
+                spendingBreakdownPage++;
+                renderSpendingBreakdownTable();
+            }
+        });
+    }
+
+    // Income breakdown pagination
+    const prevIncomeBtn = document.getElementById('prev-income-page');
+    const nextIncomeBtn = document.getElementById('next-income-page');
+    if (prevIncomeBtn) {
+        prevIncomeBtn.addEventListener('click', () => {
+            if (incomeBreakdownPage > 0) {
+                incomeBreakdownPage--;
+                renderIncomeBreakdownTable();
+            }
+        });
+    }
+    if (nextIncomeBtn) {
+        nextIncomeBtn.addEventListener('click', () => {
+            const maxPage = Math.ceil(currentIncomeData.length / categoryBreakdownLimit) - 1;
+            if (incomeBreakdownPage < maxPage) {
+                incomeBreakdownPage++;
+                renderIncomeBreakdownTable();
             }
         });
     }
@@ -569,6 +596,11 @@ function initEventListeners() {
     // Record Format Type Toggle (Single vs Combined)
     if (recordFormatTypeSelect) {
         recordFormatTypeSelect.addEventListener('change', toggleRecordFormat);
+    }
+
+    // Savings Account Dropdown - Update Beneficiary Field
+    if (recordSavingsAccountSelect) {
+        recordSavingsAccountSelect.addEventListener('change', updateSavingsBeneficiaryField);
     }
 
     // Add Transaction Button for Combined Transactions
@@ -935,6 +967,31 @@ function updateSavingsAccountDropdown() {
     recordSavingsAccountSelect.value = selectedValue;
 }
 
+function updateSavingsBeneficiaryField() {
+    const savingsAccountId = recordSavingsAccountSelect?.value;
+    const beneficiaryGroup = document.getElementById('savings-beneficiary-group');
+    const beneficiarySelect = document.getElementById('record-savings-beneficiary');
+
+    if (!beneficiaryGroup || !beneficiarySelect) return;
+
+    if (!savingsAccountId) {
+        beneficiaryGroup.style.display = 'none';
+        beneficiarySelect.value = '';
+        return;
+    }
+
+    const account = savingsAccounts.find(acc => acc.id === parseInt(savingsAccountId));
+    if (account && account.person) {
+        beneficiaryGroup.style.display = 'block';
+        beneficiarySelect.innerHTML = `<option value="${account.person}">${account.person}</option>`;
+        beneficiarySelect.value = account.person;
+    } else {
+        beneficiaryGroup.style.display = 'block';
+        beneficiarySelect.innerHTML = '<option value="">No owner assigned to this account</option>';
+        beneficiarySelect.value = '';
+    }
+}
+
 function addCombinedTransaction() {
     const transaction = {
         id: combinedTransactionIdCounter++,
@@ -1099,21 +1156,33 @@ function updateCombinedTransaction(id, field, value) {
     }
 }
 
-function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
+async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
     const targetDate = new Date(recordDate);
     const targetTimestamp = targetDate.getTime();
+    const recordYear = targetDate.getFullYear();
+    const recordMonth = targetDate.getMonth() + 1; // 1-indexed
 
-    // Get all records before or on the same date as this transaction
+    // Get carried balance from previous month
+    const carriedBalance = await getLiveCarriedBalance(recordYear, recordMonth);
+
+    // Get records from the SAME MONTH as this transaction that come BEFORE it
     const priorRecords = records.filter(r => {
         const recordDateTime = new Date(r.date);
         const recordTimestamp = recordDateTime.getTime();
+        const rYear = recordDateTime.getFullYear();
+        const rMonth = recordDateTime.getMonth() + 1; // 1-indexed
+
+        // Only include records from the same month
+        if (rYear !== recordYear || rMonth !== recordMonth) {
+            return false;
+        }
 
         // Exclude the record itself if specified
         if (excludeRecordId !== null && r.id === excludeRecordId) {
             return false;
         }
 
-        // Include records with earlier dates
+        // Include records with earlier dates in the same month
         if (recordTimestamp < targetTimestamp) {
             return true;
         }
@@ -1136,7 +1205,7 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
         return false;
     });
 
-    // Calculate income and spending from prior records (same logic as dashboard)
+    // Calculate income and spending from prior records in this month (same logic as dashboard)
     let income = 0;
     let spending = 0;
 
@@ -1180,13 +1249,13 @@ function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
         // account_receivable excluded - affects balance only, not income/spending
     });
 
-    // Calculate AR impact from prior records (only pending AR at that time)
+    // Calculate AR impact from prior records in this month (only pending AR)
     const arImpact = priorRecords
         .filter(r => r.type === 'account_receivable' && !r.collected)
         .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
 
-    // Opening Balance = Income - Spending + AR Impact from all prior transactions
-    const openingBalance = income - spending + arImpact;
+    // Opening Balance = Carried Balance + Income (this month) - Spending (this month) + AR Impact (this month)
+    const openingBalance = carriedBalance + income - spending + arImpact;
 
     return openingBalance;
 }
@@ -2021,10 +2090,10 @@ function renderDashboardRecords(recordsToRender) {
         const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer);
         const card = document.createElement('div');
         card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}`;
-        card.onclick = (e) => {
+        card.onclick = async (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
-            openDetailsModal(r);
+            await openDetailsModal(r);
         };
 
         // Combined indicator badge - removed as per user request
@@ -2118,7 +2187,8 @@ function renderCharts(monthlyRecords) {
     });
 
     // 1. Category Breakdown Table
-    renderCategoryBreakdown(relevantRecords, dataFocus);
+    // Pass all monthly records to show both spending and income breakdowns
+    renderCategoryBreakdown(monthlyRecords);
 
     // 2. Category Doughnut Chart
     const canvasCat = document.getElementById('categoryChart');
@@ -2251,106 +2321,230 @@ function renderCharts(monthlyRecords) {
 }
 
 function renderCategoryBreakdown(records, type) {
-    const breakdownCard = document.getElementById('category-breakdown-card');
-    if (!breakdownCard) return;
-
-    if (records.length === 0) {
-        breakdownCard.style.display = 'none';
-        return;
-    }
-
-    breakdownCard.style.display = 'block';
-    const breakdownTitle = document.getElementById('category-breakdown-title');
-    if (breakdownTitle) breakdownTitle.textContent = type === 'income' ? 'Income Breakdown' : 'Spending Breakdown';
-
-    const categoryStats = {};
-    let totalAll = 0;
-    let totalCount = 0;
+    // Process data for spending and income separately
+    // Use composite key "category|isSavings" to separate normal from savings records
+    const spendingStats = {};
+    const incomeStats = {};
+    let totalSpending = 0;
+    let totalIncome = 0;
+    let spendingCount = 0;
+    let incomeCount = 0;
 
     records.forEach(r => {
-        // Skip projected/expected income - they don't affect actual totals
         if (r.isProjected) return;
 
         const amt = parseFloat(r.amount) || 0;
-        if (!categoryStats[r.category]) {
-            categoryStats[r.category] = { amount: 0, count: 0 };
+        const categoryName = r.category;
+        const isSavingsAccount = r.savingsAccountId ? true : false;
+        // Create separate keys for normal vs savings records of the same category
+        const categoryKey = isSavingsAccount ? `${categoryName}|savings` : `${categoryName}|normal`;
+
+        if (r.type === 'spending') {
+            if (!spendingStats[categoryKey]) {
+                spendingStats[categoryKey] = { 
+                    name: categoryName, 
+                    amount: 0, 
+                    count: 0, 
+                    isSavingsAccount: isSavingsAccount 
+                };
+            }
+            spendingStats[categoryKey].amount += amt;
+            spendingStats[categoryKey].count += 1;
+            totalSpending += amt;
+            spendingCount += 1;
+        } else if (r.type === 'income') {
+            if (!incomeStats[categoryKey]) {
+                incomeStats[categoryKey] = { 
+                    name: categoryName, 
+                    amount: 0, 
+                    count: 0, 
+                    isSavingsAccount: isSavingsAccount 
+                };
+            }
+            incomeStats[categoryKey].amount += amt;
+            incomeStats[categoryKey].count += 1;
+            totalIncome += amt;
+            incomeCount += 1;
         }
-        categoryStats[r.category].amount += amt;
-        categoryStats[r.category].count += 1;
-        totalAll += amt;
-        totalCount += 1;
     });
 
-    const sorted = Object.entries(categoryStats)
+    // Convert to arrays and sort by amount (descending)
+    // Map to format: [displayName, stats]
+    currentSpendingData = Object.entries(spendingStats)
+        .map(([key, stats]) => [stats.name, stats])
+        .sort((a, b) => b[1].amount - a[1].amount);
+    currentIncomeData = Object.entries(incomeStats)
+        .map(([key, stats]) => [stats.name, stats])
         .sort((a, b) => b[1].amount - a[1].amount);
 
-    // Save for pagination
-    currentBreakdownData = sorted;
-    currentBreakdownType = type;
-    categoryBreakdownPage = 0;
-    
-    // Update Totals (always shown)
-    document.getElementById('category-breakdown-total-count').textContent = totalCount;
-    const totalAmtEl = document.getElementById('category-breakdown-total-amount');
-    totalAmtEl.textContent = '$' + formatCurrency(totalAll);
-    totalAmtEl.className = type === 'income' ? 'amount-income' : 'amount-spending';
-    
-    renderCategoryBreakdownTable();
+    // Reset pagination
+    spendingBreakdownPage = 0;
+    incomeBreakdownPage = 0;
+
+    // Show/hide spending card and update totals
+    const spendingCard = document.getElementById('spending-breakdown-card');
+    if (spendingCard) {
+        if (currentSpendingData.length > 0) {
+            spendingCard.style.display = 'block';
+            document.getElementById('spending-total-count').textContent = spendingCount;
+            document.getElementById('spending-total-amount').textContent = '$' + formatCurrency(totalSpending);
+            renderSpendingBreakdownTable();
+        } else {
+            spendingCard.style.display = 'none';
+        }
+    }
+
+    // Show/hide income card and update totals
+    const incomeCard = document.getElementById('income-breakdown-card');
+    if (incomeCard) {
+        if (currentIncomeData.length > 0) {
+            incomeCard.style.display = 'block';
+            document.getElementById('income-total-count').textContent = incomeCount;
+            document.getElementById('income-total-amount').textContent = '$' + formatCurrency(totalIncome);
+            renderIncomeBreakdownTable();
+        } else {
+            incomeCard.style.display = 'none';
+        }
+    }
 }
 
-function renderCategoryBreakdownTable() {
-    const breakdownBody = document.getElementById('category-breakdown-body');
-    const paginationContainer = document.getElementById('category-breakdown-pagination');
-    const pageInfo = document.getElementById('breakdown-page-info');
-    const prevBtn = document.getElementById('prev-breakdown-page');
-    const nextBtn = document.getElementById('next-breakdown-page');
+function renderSpendingBreakdownTable() {
+    const tbody = document.getElementById('spending-breakdown-body');
+    const pagination = document.getElementById('spending-breakdown-pagination');
+    const pageInfo = document.getElementById('spending-page-info');
+    const prevBtn = document.getElementById('prev-spending-page');
+    const nextBtn = document.getElementById('next-spending-page');
 
-    if (!breakdownBody) return;
+    if (!tbody) return;
 
-    const totalAll = currentBreakdownData.reduce((sum, item) => sum + item[1].amount, 0);
-    const start = categoryBreakdownPage * categoryBreakdownLimit;
+    const totalSpending = currentSpendingData.reduce((sum, item) => sum + item[1].amount, 0);
+    const start = spendingBreakdownPage * categoryBreakdownLimit;
     const end = start + categoryBreakdownLimit;
-    const paginatedItems = currentBreakdownData.slice(start, end);
-    const totalPages = Math.ceil(currentBreakdownData.length / categoryBreakdownLimit);
+    const paginatedItems = currentSpendingData.slice(start, end);
+    const totalPages = Math.ceil(currentSpendingData.length / categoryBreakdownLimit);
 
-    breakdownBody.innerHTML = paginatedItems.map(([name, stats]) => {
-        const percentage = totalAll > 0 ? ((stats.amount / totalAll) * 100).toFixed(1) : 0;
-        
-        // Dynamic color based on percentage
-        let barColor = 'rgba(53, 88, 114, 0.2)'; // default
-        if (currentBreakdownType === 'spending') {
-            if (percentage > 25) barColor = '#ef4444'; // High spending - Red
-            else if (percentage > 10) barColor = '#355872'; // Moderate - Navy
-        } else {
-            if (percentage > 25) barColor = '#10b981'; // High income - Green
-            else if (percentage > 10) barColor = '#34d399'; // Moderate - Teal
-        }
+    tbody.innerHTML = paginatedItems.map(([name, stats], index) => {
+        const percentage = totalSpending > 0 ? ((stats.amount / totalSpending) * 100).toFixed(1) : 0;
+        const isSavingsAccount = stats.isSavingsAccount;
+        const rowStyle = isSavingsAccount ? 'border-top: 2px solid #ef4444; border-bottom: 2px solid #ef4444;' : '';
+        const rowClass = isSavingsAccount ? 'savings-account-row' : '';
+        const displayName = name + (isSavingsAccount ? ' (Savings)' : '');
+
+        let barColor = 'rgba(53, 88, 114, 0.2)';
+        if (percentage > 25) barColor = '#ef4444';
+        else if (percentage > 10) barColor = '#355872';
 
         return `
-            <tr>
-                <td style="font-weight: 500; text-align: left;">${name}</td>
+            <tr class="${rowClass}" style="${rowStyle}">
+                <td class="breakdown-category-name" id="spending-cat-${index}"><span>${displayName}</span></td>
                 <td>${stats.count}</td>
-                <td class="${currentBreakdownType === 'income' ? 'amount-income' : 'amount-spending'}" style="font-weight: 700;">
-                    $${formatCurrency(stats.amount)}
-                </td>
+                <td class="amount-spending" style="font-weight: 700;">$${formatCurrency(stats.amount)}</td>
                 <td>
-                    <div style="display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end;">
-                        <span style="flex: 1; max-width: 60px; height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; overflow: hidden; display: block;">
-                            <div style="width: ${percentage}%; height: 100%; background: ${barColor};"></div>
+                    <div class="percentage-bar-container">
+                        <span class="percentage-bar">
+                            <div class="percentage-bar-fill" style="width: ${percentage}%; background: ${barColor};"></div>
                         </span>
-                        <span style="font-size: 0.75rem; color: var(--text-muted); min-width: 40px; text-align: right; font-weight: 600;">${percentage}%</span>
+                        <span class="percentage-text">${percentage}%</span>
                     </div>
                 </td>
             </tr>
         `;
     }).join('');
 
-    // Handle Pagination visibility and labels
-    if (paginationContainer) {
-        paginationContainer.style.display = totalPages > 1 ? 'flex' : 'none';
-        if (pageInfo) pageInfo.textContent = `Page ${categoryBreakdownPage + 1} of ${totalPages || 1}`;
-        if (prevBtn) prevBtn.disabled = categoryBreakdownPage === 0;
-        if (nextBtn) nextBtn.disabled = categoryBreakdownPage >= totalPages - 1;
+    // Trigger text scroll animation for long category names
+    setTimeout(() => {
+        paginatedItems.forEach(([name, stats], index) => {
+            const catEl = document.getElementById(`spending-cat-${index}`);
+            if (catEl) {
+                const span = catEl.querySelector('span');
+                // Use getBoundingClientRect for actual rendered width
+                const containerWidth = catEl.getBoundingClientRect().width;
+                if (span && span.scrollWidth > containerWidth + 2) { // +2 for safety margin
+                    const scrollDist = span.scrollWidth - containerWidth;
+                    catEl.style.setProperty('--scroll-dist', `-${scrollDist}px`);
+                    const duration = Math.max(4, scrollDist / 20);
+                    catEl.style.setProperty('--scroll-duration', `${duration}s`);
+                    catEl.classList.add('animate-scroll');
+                }
+            }
+        });
+    }, 0);
+
+    if (pagination) {
+        pagination.style.display = totalPages > 1 ? 'flex' : 'none';
+        if (pageInfo) pageInfo.textContent = `Page ${spendingBreakdownPage + 1} of ${totalPages || 1}`;
+        if (prevBtn) prevBtn.disabled = spendingBreakdownPage === 0;
+        if (nextBtn) nextBtn.disabled = spendingBreakdownPage >= totalPages - 1;
+    }
+}
+
+function renderIncomeBreakdownTable() {
+    const tbody = document.getElementById('income-breakdown-body');
+    const pagination = document.getElementById('income-breakdown-pagination');
+    const pageInfo = document.getElementById('income-page-info');
+    const prevBtn = document.getElementById('prev-income-page');
+    const nextBtn = document.getElementById('next-income-page');
+
+    if (!tbody) return;
+
+    const totalIncome = currentIncomeData.reduce((sum, item) => sum + item[1].amount, 0);
+    const start = incomeBreakdownPage * categoryBreakdownLimit;
+    const end = start + categoryBreakdownLimit;
+    const paginatedItems = currentIncomeData.slice(start, end);
+    const totalPages = Math.ceil(currentIncomeData.length / categoryBreakdownLimit);
+
+    tbody.innerHTML = paginatedItems.map(([name, stats], index) => {
+        const percentage = totalIncome > 0 ? ((stats.amount / totalIncome) * 100).toFixed(1) : 0;
+        const isSavingsAccount = stats.isSavingsAccount;
+        const rowStyle = isSavingsAccount ? 'border-top: 2px solid #ef4444; border-bottom: 2px solid #ef4444;' : '';
+        const rowClass = isSavingsAccount ? 'savings-account-row' : '';
+        const displayName = name + (isSavingsAccount ? ' (Savings)' : '');
+
+        let barColor = 'rgba(16, 185, 129, 0.2)';
+        if (percentage > 25) barColor = '#10b981';
+        else if (percentage > 10) barColor = '#34d399';
+
+        return `
+            <tr class="${rowClass}" style="${rowStyle}">
+                <td class="breakdown-category-name" id="income-cat-${index}"><span>${displayName}</span></td>
+                <td>${stats.count}</td>
+                <td class="amount-income" style="font-weight: 700;">$${formatCurrency(stats.amount)}</td>
+                <td>
+                    <div class="percentage-bar-container">
+                        <span class="percentage-bar">
+                            <div class="percentage-bar-fill" style="width: ${percentage}%; background: ${barColor};"></div>
+                        </span>
+                        <span class="percentage-text">${percentage}%</span>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    // Trigger text scroll animation for long category names
+    setTimeout(() => {
+        paginatedItems.forEach(([name, stats], index) => {
+            const catEl = document.getElementById(`income-cat-${index}`);
+            if (catEl) {
+                const span = catEl.querySelector('span');
+                // Use getBoundingClientRect for actual rendered width
+                const containerWidth = catEl.getBoundingClientRect().width;
+                if (span && span.scrollWidth > containerWidth + 2) { // +2 for safety margin
+                    const scrollDist = span.scrollWidth - containerWidth;
+                    catEl.style.setProperty('--scroll-dist', `-${scrollDist}px`);
+                    const duration = Math.max(4, scrollDist / 20);
+                    catEl.style.setProperty('--scroll-duration', `${duration}s`);
+                    catEl.classList.add('animate-scroll');
+                }
+            }
+        });
+    }, 0);
+
+    if (pagination) {
+        pagination.style.display = totalPages > 1 ? 'flex' : 'none';
+        if (pageInfo) pageInfo.textContent = `Page ${incomeBreakdownPage + 1} of ${totalPages || 1}`;
+        if (prevBtn) prevBtn.disabled = incomeBreakdownPage === 0;
+        if (nextBtn) nextBtn.disabled = incomeBreakdownPage >= totalPages - 1;
     }
 }
 
@@ -2670,7 +2864,7 @@ function renderRecords() {
             }
 
             tr.className = rowClass;
-            tr.onclick = () => openDetailsModal(r);
+            tr.onclick = async () => await openDetailsModal(r);
 
             const isAR = r.type === 'account_receivable';
             const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
@@ -2785,7 +2979,8 @@ function renderAnalytics() {
              (r.type === filterType && !isSavings));
         const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
         const monthMatch = filterMonth === '' || (recordDate.getMonth() + 1).toString() === filterMonth;
-        const personMatch = !filterPerson || r.person === filterPerson;
+        // Match person on either the record's person or the savings beneficiary
+        const personMatch = !filterPerson || r.person === filterPerson || r.savingsBeneficiary === filterPerson;
 
         let categoryMatch = !filterCategory;
         if (filterCategory) {
@@ -3178,15 +3373,26 @@ function renderPersonChart(filteredRecords = null) {
 // -- savings feature functions ------------------------------------------------
 
 function openAccountModal(account = null) {
+    // Populate the person dropdown
+    const personSelect = document.getElementById('account-person');
+    if (personSelect) {
+        const currentValue = personSelect.value;
+        personSelect.innerHTML = '<option value="">Select Owner (Optional)</option>' +
+            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        personSelect.value = currentValue;
+    }
+
     if (!account) {
         accountForm.reset();
         accountForm.elements['account-id'].value = '';
         accountForm.elements['account-initial'].value = '';
+        if (personSelect) personSelect.value = '';
         accountModal.querySelector('h2').textContent = 'New Savings Account';
     } else {
         accountForm.elements['account-id'].value = account.id;
         accountForm.elements['account-name'].value = account.name;
         accountForm.elements['account-initial'].value = '';
+        if (personSelect) personSelect.value = account.person || '';
         accountModal.querySelector('h2').textContent = 'Edit Savings Account';
     }
     accountModal.classList.add('active');
@@ -3206,6 +3412,7 @@ async function handleAccountSubmit(e) {
     const id = form.elements['account-id'].value;
     const name = form.elements['account-name'].value.trim();
     const initial = parseFloat(form.elements['account-initial'].value) || 0;
+    const person = form.elements['account-person']?.value || '';
 
     if (!name) {
         showToast('Please enter an account name', 'warning');
@@ -3218,10 +3425,11 @@ async function handleAccountSubmit(e) {
             const acc = savingsAccounts.find(a => a.id === parseInt(id));
             if (acc) {
                 acc.name = name;
+                acc.person = person;
                 await updateRecord(STORE_SAVINGS_ACCOUNTS, acc);
             }
         } else {
-            const newAcc = { name };
+            const newAcc = { name, person };
             const newId = await add(STORE_SAVINGS_ACCOUNTS, newAcc);
             newAcc.id = newId;
             savingsAccounts.push(newAcc);
@@ -3593,6 +3801,13 @@ async function handleRecordSubmit(e) {
     const date = document.getElementById('record-date')?.value || '';
     const notes = document.getElementById('record-notes')?.value || '';
 
+    // Get savings account beneficiary (owner) if savings account is selected
+    let savingsBeneficiary = '';
+    if (savingsAccountId) {
+        const account = savingsAccounts.find(acc => acc.id === parseInt(savingsAccountId));
+        savingsBeneficiary = account?.person || '';
+    }
+
     if (formatType === 'combined') {
         // Handle combined transactions
         if (combinedTransactions.length === 0) {
@@ -3645,11 +3860,15 @@ async function handleRecordSubmit(e) {
         const combinedTransactionName = document.getElementById('combined-transaction-name')?.value || '';
         const combinedTransactionCategory = 'Combined'; // Forced category for combined transactions
 
+        // Get original record to preserve timestamp when editing
+        const existingRecordCombined = id ? records.find(r => r.id === parseInt(id)) : null;
+        const timestampCombined = existingRecordCombined?.timestamp || Date.now();
+
         const data = {
             formatType: 'combined',
             type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
             date: date,
-            timestamp: Date.now(), // Store creation time in milliseconds for precise ordering
+            timestamp: timestampCombined, // Preserve original timestamp when editing
             item: combinedTransactionName || `Combined Transaction (${validTransactions.length} items)`,
             category: combinedTransactionCategory,
             person: validTransactions[0].person || '',
@@ -3657,6 +3876,7 @@ async function handleRecordSubmit(e) {
             quantity: validTransactions.length,
             notes: notes,
             savingsAccountId: savingsAccountId,
+            savingsBeneficiary: savingsBeneficiary,
             combinedTransactions: validTransactions,
             combinedTransactionName: combinedTransactionName,
             // Mark as savings transfer if savings account is selected
@@ -3701,20 +3921,27 @@ async function handleRecordSubmit(e) {
         const category = document.getElementById('record-category')?.value || '';
         const itemInput = document.getElementById('record-item')?.value || '';
         // Use item if provided, otherwise use category name for spending/AR (income doesn't need item)
-        const item = type === 'income' ? '' : (itemInput || category);
+        // For savings transactions, item and category are optional
+        const item = type === 'income' ? '' : (itemInput || (savingsAccountId ? '' : category));
+        const finalCategory = savingsAccountId && !category ? 'Savings Transfer' : category;
+
+        // Get original record to preserve timestamp when editing
+        const existingRecord = id ? records.find(r => r.id === parseInt(id)) : null;
+        const timestamp = existingRecord?.timestamp || Date.now();
 
         const data = {
             formatType: 'single',
             type: type,
             date: date,
-            timestamp: Date.now(), // Store creation time in milliseconds for precise ordering
+            timestamp: timestamp, // Preserve original timestamp when editing
             item: item,
-            category: category,
+            category: finalCategory,
             person: document.getElementById('record-person')?.value || '',
             amount: amount,
             quantity: document.getElementById('record-quantity')?.value || '1',
             notes: notes,
             savingsAccountId: savingsAccountId,
+            savingsBeneficiary: savingsBeneficiary,
             // Mark as savings transfer if savings account is selected
             isSavingsTransfer: savingsAccountId ? true : false,
             savingsTransactionType: savingsAccountId ? (type === 'income' ? 'deposit' : 'withdrawal') : null
@@ -3821,7 +4048,7 @@ async function deleteRecord(id) {
 }
 
 // Record Details Modal Functions
-function openDetailsModal(record) {
+async function openDetailsModal(record) {
     if (!recordDetailsModal || !recordDetailsContent) return;
 
     // If it's a sub-transaction component, show the parent record instead
@@ -3836,7 +4063,7 @@ function openDetailsModal(record) {
     const isCombined = record.formatType === 'combined';
 
     // Calculate balance at the time of this transaction
-    const balanceBefore = calculateBalanceAtTransaction(record.date, record.id);
+    const balanceBefore = await calculateBalanceAtTransaction(record.date, record.id);
     const recordAmount = parseFloat(record.amount) || 0;
     const balanceAfter = record.type === 'income' ? balanceBefore + recordAmount : balanceBefore - recordAmount;
 
@@ -4385,7 +4612,8 @@ function updateCategoryDropdowns() {
     const categoryType = type === 'account_receivable' ? 'spending' : type;
     const filtered = categories.filter(c => c.type === categoryType);
     const currentValue = recordCategorySelect.value;
-    recordCategorySelect.innerHTML = filtered.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    recordCategorySelect.innerHTML = '<option value="">-- Select Category --</option>' +
+        filtered.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
     recordCategorySelect.value = currentValue;
 }
 
@@ -4459,7 +4687,10 @@ async function handleExport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Floosy_${new Date().toISOString().split('T')[0]}.json`;
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-');
+    a.download = `Floosy_${dateStr}_${timeStr}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }

@@ -1081,6 +1081,12 @@ class MonthlySummaryPDF {
 
             const d = new Date(r.date);
             const dateStr = `${d.getDate().toString().padStart(2, '0')} ${d.toLocaleString('default', { month: 'short' })}`;
+            // Add timestamp if available
+            let timeStr = '';
+            if (r.timestamp) {
+                const txDate = new Date(r.timestamp);
+                timeStr = txDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            }
             const typeColor = r.type === 'income' ? C.success : r.type === 'account_receivable' ? C.info : C.danger;
             const typeLabel = r.type === 'income' ? 'INC' : r.type === 'account_receivable' ? 'A/R' : 'EXP';
             const amt = (parseFloat(r.amount) || 0) * (parseInt(r.quantity) || 1);
@@ -1096,6 +1102,12 @@ class MonthlySummaryPDF {
 
             this._c(pdf, C.textMid);
             pdf.text(dateStr, margin, y);
+            // Show time below date if available
+            if (timeStr) {
+                pdf.setFontSize(6);
+                pdf.text(timeStr, margin, y + 3);
+                pdf.setFontSize(8);
+            }
 
             // Type badge
             this._fc(pdf, typeColor.map(v => Math.min(255, v + 170)));
