@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 6; // bumped to support monthly balance carry-over settings
+const DB_VERSION = 7; // bumped to support recurring income templates
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
@@ -14,6 +14,9 @@ const STORE_BUDGET_LIMITS = 'budgetLimits';
 // new store for monthly balance carry-over settings
 const STORE_MONTHLY_BALANCE_SETTINGS = 'monthlyBalanceSettings';
 
+// new store for recurring income templates
+const STORE_RECURRING_INCOME = 'recurringIncome';
+
 let db;
 
 function initDB() {
@@ -22,37 +25,41 @@ function initDB() {
 
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            
-            if (!db.objectStoreNames.contains(STORE_RECORDS)) {
-                db.createObjectStore(STORE_RECORDS, { keyPath: 'id', autoIncrement: true });
-            }
-            
-            if (!db.objectStoreNames.contains(STORE_CATEGORIES)) {
-                db.createObjectStore(STORE_CATEGORIES, { keyPath: 'id', autoIncrement: true });
-            }
+            const oldVersion = event.oldVersion;
+            const newVersion = event.newVersion;
+            console.log(`Upgrading database from version ${oldVersion} to ${newVersion}`);
 
-            if (!db.objectStoreNames.contains(STORE_PEOPLE)) {
-                db.createObjectStore(STORE_PEOPLE, { keyPath: 'id', autoIncrement: true });
-            }
+            // Migration handler - ensures all stores exist for each version upgrade
+            const ensureStore = (storeName) => {
+                if (!db.objectStoreNames.contains(storeName)) {
+                    db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
+                    console.log(`Created store: ${storeName}`);
+                    return true;
+                }
+                return false;
+            };
 
-            // create savings stores if upgrading
-            if (!db.objectStoreNames.contains(STORE_SAVINGS_ACCOUNTS)) {
-                db.createObjectStore(STORE_SAVINGS_ACCOUNTS, { keyPath: 'id', autoIncrement: true });
-            }
+            // Version 1: Initial stores
+            ensureStore(STORE_RECORDS);
+            ensureStore(STORE_CATEGORIES);
+            ensureStore(STORE_PEOPLE);
 
-            if (!db.objectStoreNames.contains(STORE_SAVINGS_TRANSACTIONS)) {
-                db.createObjectStore(STORE_SAVINGS_TRANSACTIONS, { keyPath: 'id', autoIncrement: true });
-            }
+            // Version 2: Added savings stores
+            ensureStore(STORE_SAVINGS_ACCOUNTS);
+            ensureStore(STORE_SAVINGS_TRANSACTIONS);
 
-            // create budget limits store
-            if (!db.objectStoreNames.contains(STORE_BUDGET_LIMITS)) {
-                db.createObjectStore(STORE_BUDGET_LIMITS, { keyPath: 'id', autoIncrement: true });
-            }
+            // Version 3: Added budget limits
+            ensureStore(STORE_BUDGET_LIMITS);
 
-            // create monthly balance settings store
-            if (!db.objectStoreNames.contains(STORE_MONTHLY_BALANCE_SETTINGS)) {
-                db.createObjectStore(STORE_MONTHLY_BALANCE_SETTINGS, { keyPath: 'id', autoIncrement: true });
-            }
+            // Version 4-5: Reserved
+
+            // Version 6: Added monthly balance settings
+            ensureStore(STORE_MONTHLY_BALANCE_SETTINGS);
+
+            // Version 7: Added recurring income
+            ensureStore(STORE_RECURRING_INCOME);
+
+            console.log('Database upgrade complete. Stores:', Array.from(db.objectStoreNames));
         };
 
         request.onsuccess = (event) => {
@@ -125,6 +132,7 @@ async function resetDB() {
     await clearStore(STORE_SAVINGS_TRANSACTIONS);
     await clearStore(STORE_BUDGET_LIMITS);
     await clearStore(STORE_MONTHLY_BALANCE_SETTINGS);
+    await clearStore(STORE_RECURRING_INCOME);
     await seedDefaultCategories();
 }
 

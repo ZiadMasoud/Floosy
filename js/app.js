@@ -20,6 +20,9 @@ let savingsPage = {}; // tracks current page for each account (zero-based)
 // Budget limits state
 let budgetLimits = [];
 
+// Recurring income templates state
+let recurringIncomeTemplates = [];
+
 // DOM Elements
 const navLinks = document.querySelectorAll('.nav-links li');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -97,6 +100,7 @@ const upcomingIncomeDateInput = document.getElementById('upcoming-income-date');
 const upcomingIncomeAmountInput = document.getElementById('upcoming-income-amount');
 const upcomingIncomeCategorySelect = document.getElementById('upcoming-income-category');
 const upcomingIncomeNotesInput = document.getElementById('upcoming-income-notes');
+const upcomingIncomeRecurringCheckbox = document.getElementById('upcoming-income-recurring');
 const cancelUpcomingIncomeBtn = document.getElementById('cancel-upcoming-income-modal');
 
 // Show More Buttons
@@ -855,6 +859,20 @@ function initEventListeners() {
         upcomingIncomeForm.addEventListener('submit', handleUpcomingIncomeSubmit);
     }
 
+    // Recurring checkbox styling toggle
+    if (upcomingIncomeRecurringCheckbox) {
+        const wrapper = upcomingIncomeRecurringCheckbox.closest('.recurring-checkbox-wrapper');
+        if (wrapper) {
+            upcomingIncomeRecurringCheckbox.addEventListener('change', () => {
+                if (upcomingIncomeRecurringCheckbox.checked) {
+                    wrapper.classList.add('active');
+                } else {
+                    wrapper.classList.remove('active');
+                }
+            });
+        }
+    }
+
     // Close upcoming income modal on click outside
     window.addEventListener('click', (e) => {
         if (e.target === upcomingIncomeModal) closeUpcomingIncomeModal();
@@ -1468,6 +1486,8 @@ async function refreshData() {
     savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
     // load budget limits
     budgetLimits = await getAll(STORE_BUDGET_LIMITS);
+    // load recurring income templates
+    recurringIncomeTemplates = await getAll(STORE_RECURRING_INCOME);
     savingsPage = {}; // start pages over so user sees first page after data change
     updateCategoryDropdowns();
     updatePersonDropdown();
@@ -4681,6 +4701,8 @@ async function handleExport() {
         people: await getAll(STORE_PEOPLE),
         savingsAccounts: await getAll(STORE_SAVINGS_ACCOUNTS),
         savingsTransactions: await getAll(STORE_SAVINGS_TRANSACTIONS),
+        budgetLimits: await getAll(STORE_BUDGET_LIMITS),
+        recurringIncome: await getAll(STORE_RECURRING_INCOME),
         exportedAt: new Date().toISOString()
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -4707,6 +4729,7 @@ async function handleImport(e) {
                     await clearStore(STORE_RECORDS);
                     await clearStore(STORE_CATEGORIES);
                     await clearStore(STORE_PEOPLE);
+                    await clearStore(STORE_RECURRING_INCOME);
                     for (const c of data.categories) {
                         delete c.id;
                         await add(STORE_CATEGORIES, c);
@@ -4759,6 +4782,14 @@ async function handleImport(e) {
                         for (const l of data.budgetLimits) {
                             delete l.id;
                             await add(STORE_BUDGET_LIMITS, l);
+                        }
+                    }
+                    // import recurring income
+                    if (data.recurringIncome) {
+                        await clearStore(STORE_RECURRING_INCOME);
+                        for (const ri of data.recurringIncome) {
+                            delete ri.id;
+                            await add(STORE_RECURRING_INCOME, ri);
                         }
                     }
                     showToast('Import successful!', 'success');
@@ -4977,6 +5008,7 @@ window.uncollectAR = undoCollectAR;
 window.editUpcomingIncome = editUpcomingIncome;
 window.deleteUpcomingIncome = deleteUpcomingIncome;
 window.showUpcomingIncomeDetails = showUpcomingIncomeDetails;
+window.collectRecurringIncome = collectRecurringIncome;
 
 // Function to generate unique ID
 function generateId() {
@@ -5328,7 +5360,7 @@ function renderUpcomingIncome() {
     const thirtyDaysFromNow = new Date(now);
     thirtyDaysFromNow.setDate(now.getDate() + 30);
 
-    // Get upcoming income and AR (next 30 days)
+    // Get regular upcoming income and AR (next 30 days)
     const upcomingIncome = records.filter(r => {
         const recordDate = new Date(r.date);
         // Include: future income dates and pending AR
@@ -5341,7 +5373,51 @@ function renderUpcomingIncome() {
         return false;
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    if (upcomingIncome.length === 0) {
+    // Generate recurring income occurrences for next 30 days
+    const recurringOccurrences = [];
+    recurringIncomeTemplates.forEach(template => {
+        // Check current month occurrence
+        const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
+        if (currentMonthDate > now && currentMonthDate <= thirtyDaysFromNow) {
+            recurringOccurrences.push({
+                id: template.id,
+                date: currentMonthDate.toISOString().split('T')[0],
+                amount: template.amount,
+                category: template.category,
+                projectedSource: template.source,
+                notes: template.notes,
+                isRecurring: true,
+                isProjected: true,
+                templateId: template.id,
+                dayOfMonth: template.dayOfMonth
+            });
+        }
+
+        // Check next month occurrence
+        const nextMonth = now.getMonth() + 1;
+        const nextYear = now.getFullYear() + (nextMonth > 11 ? 1 : 0);
+        const adjustedNextMonth = nextMonth % 12;
+        const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
+        if (nextMonthDate > now && nextMonthDate <= thirtyDaysFromNow) {
+            recurringOccurrences.push({
+                id: template.id + '_next', // Unique ID for this occurrence
+                date: nextMonthDate.toISOString().split('T')[0],
+                amount: template.amount,
+                category: template.category,
+                projectedSource: template.source,
+                notes: template.notes,
+                isRecurring: true,
+                isProjected: true,
+                templateId: template.id,
+                dayOfMonth: template.dayOfMonth
+            });
+        }
+    });
+
+    // Combine all upcoming income items
+    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (allUpcomingIncome.length === 0) {
         container.innerHTML = `
             <div class="upcoming-income-empty">
                 <i class="fas fa-calendar"></i>
@@ -5352,11 +5428,11 @@ function renderUpcomingIncome() {
     }
 
     container.innerHTML = '';
-    upcomingIncome.forEach(r => {
+    allUpcomingIncome.forEach(r => {
         const dateObj = new Date(r.date);
         const isToday = dateObj.toDateString() === now.toDateString();
         const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === dateObj.toDateString();
-        
+
         let dateLabel;
         if (isToday) {
             dateLabel = 'Today';
@@ -5368,26 +5444,42 @@ function renderUpcomingIncome() {
 
         const isAR = r.type === 'account_receivable';
         const isProjected = r.isProjected;
+        const isRecurring = r.isRecurring;
         const amount = parseFloat(r.amount) || 0;
         const description = r.projectedSource || r.item || r.category;
 
+        // Generate appropriate icon and label
+        let iconClass = 'fa-arrow-trend-up';
+        let statusLabel = '';
+        if (isAR) {
+            iconClass = 'fa-hand-holding-dollar';
+            statusLabel = ' (Receivable)';
+        } else if (isRecurring) {
+            iconClass = 'fa-calendar-check';
+            statusLabel = ' (Recurring)';
+        } else if (isProjected) {
+            iconClass = 'fa-calendar-check';
+            statusLabel = ' (Expected)';
+        }
+
         const item = document.createElement('div');
-        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''} ${isProjected ? 'upcoming-projected' : ''}`;
+        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''} ${isProjected ? 'upcoming-projected' : ''} ${isRecurring ? 'upcoming-recurring' : ''}`;
         item.innerHTML = `
-            <div class="income-info" onclick="showUpcomingIncomeDetails(${r.id})">
+            <div class="income-info" onclick="showUpcomingIncomeDetails(${r.id}, ${isRecurring})">
                 <div class="income-icon">
-                    <i class="fas ${isAR ? 'fa-hand-holding-dollar' : (isProjected ? 'fa-calendar-check' : 'fa-arrow-trend-up')}"></i>
+                    <i class="fas ${iconClass}"></i>
                 </div>
                 <div class="income-details">
                     <span class="income-name">${description}</span>
-                    <span class="income-date">${dateLabel}${isAR ? ' (Receivable)' : (isProjected ? ' (Expected)' : '')}</span>
+                    <span class="income-date">${dateLabel}${statusLabel}</span>
                 </div>
             </div>
             <div class="income-actions">
                 <span class="income-amount">+$${formatCurrency(amount)}</span>
-                ${!isAR ? `<button class="btn-icon edit-btn" onclick="event.stopPropagation(); editUpcomingIncome(${r.id})" title="Edit"><i class="fas fa-pen"></i></button>` : ''}
-                <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteUpcomingIncome(${r.id})" title="Delete"><i class="fas fa-trash"></i></button>
+                ${!isAR ? `<button class="btn-icon edit-btn" onclick="event.stopPropagation(); editUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Edit Recurring' : 'Edit'}"><i class="fas fa-pen"></i></button>` : ''}
+                <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Delete Recurring' : 'Delete'}"><i class="fas fa-trash"></i></button>
                 ${isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
+                ${isRecurring ? `<button class="collect-btn" onclick="event.stopPropagation(); collectRecurringIncome(${r.id}, '${r.date}')" title="Mark as Received">Received</button>` : ''}
             </div>
         `;
         container.appendChild(item);
@@ -5403,6 +5495,15 @@ function openUpcomingIncomeModal() {
 
     // Reset form
     upcomingIncomeForm.reset();
+
+    // Remove any edit ID fields
+    const regularEditIdField = document.getElementById('upcoming-income-edit-id');
+    if (regularEditIdField) regularEditIdField.remove();
+    const recurringEditIdField = document.getElementById('upcoming-income-recurring-edit-id');
+    if (recurringEditIdField) recurringEditIdField.remove();
+
+    // Reset modal title
+    upcomingIncomeModal.querySelector('h2').textContent = 'Add Expected Income';
 
     // Set default date to tomorrow
     const tomorrow = new Date();
@@ -5429,7 +5530,9 @@ async function handleUpcomingIncomeSubmit(e) {
     const amount = parseFloat(upcomingIncomeAmountInput.value);
     const category = upcomingIncomeCategorySelect.value;
     const notes = upcomingIncomeNotesInput.value.trim();
+    const isRecurring = upcomingIncomeRecurringCheckbox?.checked || false;
     const id = document.getElementById('upcoming-income-edit-id')?.value;
+    const isRecurringEditId = document.getElementById('upcoming-income-recurring-edit-id')?.value;
 
     // Use category as source if source is empty
     if (!source && category) {
@@ -5450,29 +5553,52 @@ async function handleUpcomingIncomeSubmit(e) {
         return;
     }
 
-    const data = {
-        formatType: 'single',
-        type: 'income',
-        date: date,
-        timestamp: Date.now(),
-        item: '',
-        category: category,
-        person: '',
-        amount: amount,
-        quantity: '1',
-        notes: notes ? `Expected Income: ${source}. ${notes}` : `Expected Income: ${source}`,
-        isProjected: true,
-        projectedSource: source
-    };
-
     try {
-        if (id) {
-            data.id = parseInt(id);
-            await updateRecord(STORE_RECORDS, data);
-            showToast('Expected income updated successfully', 'success');
+        if (isRecurring) {
+            // Save as recurring income template
+            const dayOfMonth = selectedDate.getDate();
+            const templateData = {
+                source: source,
+                dayOfMonth: dayOfMonth,
+                amount: amount,
+                category: category,
+                notes: notes,
+                createdAt: new Date().toISOString()
+            };
+
+            if (isRecurringEditId) {
+                templateData.id = parseInt(isRecurringEditId);
+                await updateRecord(STORE_RECURRING_INCOME, templateData);
+                showToast('Recurring income updated successfully', 'success');
+            } else {
+                await add(STORE_RECURRING_INCOME, templateData);
+                showToast('Recurring income added - will appear every month on day ' + dayOfMonth, 'success');
+            }
         } else {
-            await add(STORE_RECORDS, data);
-            showToast('Expected income added successfully', 'success');
+            // Save as one-time expected income record
+            const data = {
+                formatType: 'single',
+                type: 'income',
+                date: date,
+                timestamp: Date.now(),
+                item: '',
+                category: category,
+                person: '',
+                amount: amount,
+                quantity: '1',
+                notes: notes ? `Expected Income: ${source}. ${notes}` : `Expected Income: ${source}`,
+                isProjected: true,
+                projectedSource: source
+            };
+
+            if (id) {
+                data.id = parseInt(id);
+                await updateRecord(STORE_RECORDS, data);
+                showToast('Expected income updated successfully', 'success');
+            } else {
+                await add(STORE_RECORDS, data);
+                showToast('Expected income added successfully', 'success');
+            }
         }
         closeUpcomingIncomeModal();
         await refreshData();
@@ -5483,41 +5609,106 @@ async function handleUpcomingIncomeSubmit(e) {
     }
 }
 
-function editUpcomingIncome(id) {
-    const record = records.find(r => r.id === id);
-    if (!record) return;
+function editUpcomingIncome(id, isRecurring = false) {
+    if (isRecurring) {
+        // Edit recurring template - extract numeric ID from possible "1_next" format
+        const numericId = parseInt(id);
+        const template = recurringIncomeTemplates.find(t => t.id === numericId);
+        if (!template) return;
 
-    // Populate form with existing data
-    upcomingIncomeSourceInput.value = record.projectedSource || '';
-    upcomingIncomeDateInput.value = record.date;
-    upcomingIncomeAmountInput.value = record.amount;
-    upcomingIncomeNotesInput.value = record.notes?.replace(`Expected Income: ${record.projectedSource}. `, '')?.replace(`Expected Income: ${record.projectedSource}`, '') || '';
+        // Populate form with template data
+        upcomingIncomeSourceInput.value = template.source || '';
+        // Set date to a sample occurrence (current month with template's day)
+        const now = new Date();
+        const sampleDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
+        upcomingIncomeDateInput.valueAsDate = sampleDate;
+        upcomingIncomeAmountInput.value = template.amount;
+        upcomingIncomeNotesInput.value = template.notes || '';
 
-    // Populate category dropdown
-    const incomeCategories = categories.filter(c => c.type === 'income');
-    upcomingIncomeCategorySelect.innerHTML = '<option value="">Select Category</option>' +
-        incomeCategories.map(c => `<option value="${c.name}" ${c.name === record.category ? 'selected' : ''}>${c.name}</option>`).join('');
+        // Check the recurring checkbox
+        if (upcomingIncomeRecurringCheckbox) {
+            upcomingIncomeRecurringCheckbox.checked = true;
+        }
 
-    // Add hidden field for edit mode
-    let editIdField = document.getElementById('upcoming-income-edit-id');
-    if (!editIdField) {
-        editIdField = document.createElement('input');
-        editIdField.type = 'hidden';
-        editIdField.id = 'upcoming-income-edit-id';
-        upcomingIncomeForm.appendChild(editIdField);
+        // Populate category dropdown
+        const incomeCategories = categories.filter(c => c.type === 'income');
+        upcomingIncomeCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+            incomeCategories.map(c => `<option value="${c.name}" ${c.name === template.category ? 'selected' : ''}>${c.name}</option>`).join('');
+
+        // Add hidden field for recurring edit mode
+        let recurringEditIdField = document.getElementById('upcoming-income-recurring-edit-id');
+        if (!recurringEditIdField) {
+            recurringEditIdField = document.createElement('input');
+            recurringEditIdField.type = 'hidden';
+            recurringEditIdField.id = 'upcoming-income-recurring-edit-id';
+            upcomingIncomeForm.appendChild(recurringEditIdField);
+        }
+        recurringEditIdField.value = id;
+
+        // Remove regular edit id field if exists
+        const regularEditIdField = document.getElementById('upcoming-income-edit-id');
+        if (regularEditIdField) regularEditIdField.remove();
+
+        // Update modal title
+        upcomingIncomeModal.querySelector('h2').textContent = 'Edit Recurring Income';
+        upcomingIncomeModal.classList.add('active');
+    } else {
+        // Edit regular expected income record
+        const record = records.find(r => r.id === id);
+        if (!record) return;
+
+        // Populate form with existing data
+        upcomingIncomeSourceInput.value = record.projectedSource || '';
+        upcomingIncomeDateInput.value = record.date;
+        upcomingIncomeAmountInput.value = record.amount;
+        upcomingIncomeNotesInput.value = record.notes?.replace(`Expected Income: ${record.projectedSource}. `, '')?.replace(`Expected Income: ${record.projectedSource}`, '') || '';
+
+        // Uncheck the recurring checkbox
+        if (upcomingIncomeRecurringCheckbox) {
+            upcomingIncomeRecurringCheckbox.checked = false;
+        }
+
+        // Populate category dropdown
+        const incomeCategories = categories.filter(c => c.type === 'income');
+        upcomingIncomeCategorySelect.innerHTML = '<option value="">Select Category</option>' +
+            incomeCategories.map(c => `<option value="${c.name}" ${c.name === record.category ? 'selected' : ''}>${c.name}</option>`).join('');
+
+        // Add hidden field for edit mode
+        let editIdField = document.getElementById('upcoming-income-edit-id');
+        if (!editIdField) {
+            editIdField = document.createElement('input');
+            editIdField.type = 'hidden';
+            editIdField.id = 'upcoming-income-edit-id';
+            upcomingIncomeForm.appendChild(editIdField);
+        }
+        editIdField.value = id;
+
+        // Remove recurring edit id field if exists
+        const recurringEditIdField = document.getElementById('upcoming-income-recurring-edit-id');
+        if (recurringEditIdField) recurringEditIdField.remove();
+
+        // Update modal title
+        upcomingIncomeModal.querySelector('h2').textContent = 'Edit Expected Income';
+        upcomingIncomeModal.classList.add('active');
     }
-    editIdField.value = id;
-
-    // Update modal title
-    upcomingIncomeModal.querySelector('h2').textContent = 'Edit Expected Income';
-    upcomingIncomeModal.classList.add('active');
 }
 
-async function deleteUpcomingIncome(id) {
-    if (await showConfirm('Delete this expected income?')) {
+async function deleteUpcomingIncome(id, isRecurring = false) {
+    const confirmMessage = isRecurring
+        ? 'Delete this recurring income? It will no longer appear in future months.'
+        : 'Delete this expected income?';
+
+    if (await showConfirm(confirmMessage)) {
         try {
-            await remove(STORE_RECORDS, id);
-            showToast('Expected income deleted', 'success');
+            if (isRecurring) {
+                // Extract numeric ID from possible "1_next" format
+                const numericId = parseInt(id);
+                await remove(STORE_RECURRING_INCOME, numericId);
+                showToast('Recurring income deleted', 'success');
+            } else {
+                await remove(STORE_RECORDS, id);
+                showToast('Expected income deleted', 'success');
+            }
             await refreshData();
             renderBudget();
         } catch (error) {
@@ -5527,18 +5718,46 @@ async function deleteUpcomingIncome(id) {
     }
 }
 
-function showUpcomingIncomeDetails(id) {
-    const record = records.find(r => r.id === id);
-    if (!record) return;
+function showUpcomingIncomeDetails(id, isRecurring = false) {
+    let record, template, dateObj, dateStr, source, category, amount, notes;
 
-    const isAR = record.type === 'account_receivable';
-    const isProjected = record.isProjected;
-    const dateObj = new Date(record.date);
-    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    if (isRecurring) {
+        // Find the recurring template
+        template = recurringIncomeTemplates.find(t => t.id === id);
+        if (!template) return;
+        source = template.source;
+        category = template.category;
+        amount = template.amount;
+        notes = template.notes;
+        // Use current month occurrence date for display
+        const now = new Date();
+        dateObj = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
+        dateStr = `Day ${template.dayOfMonth} of every month`;
+    } else {
+        record = records.find(r => r.id === id);
+        if (!record) return;
+        source = record.projectedSource;
+        category = record.category;
+        amount = record.amount;
+        notes = record.notes;
+        dateObj = new Date(record.date);
+        dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
+
+    const isAR = !isRecurring && record?.type === 'account_receivable';
+    const isProjected = !isRecurring && record?.isProjected;
 
     // Create floating popup
     let popup = document.getElementById('upcoming-income-details-popup');
     if (popup) popup.remove();
+
+    const title = isAR ? 'Accounts Receivable' : (isRecurring ? 'Recurring Income' : (isProjected ? 'Expected Income' : 'Upcoming Income'));
+    const recurringInfo = isRecurring ? `
+                <div class="detail-row">
+                    <span class="detail-label">Recurring</span>
+                    <span class="detail-value">Monthly on day ${template.dayOfMonth}</span>
+                </div>
+                ` : '';
 
     popup = document.createElement('div');
     popup.id = 'upcoming-income-details-popup';
@@ -5546,7 +5765,7 @@ function showUpcomingIncomeDetails(id) {
     popup.innerHTML = `
         <div class="popup-content">
             <div class="popup-header">
-                <h3>${isAR ? 'Accounts Receivable' : (isProjected ? 'Expected Income' : 'Upcoming Income')}</h3>
+                <h3>${title}</h3>
                 <button class="btn-icon close-popup" onclick="document.getElementById('upcoming-income-details-popup').remove()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -5554,7 +5773,7 @@ function showUpcomingIncomeDetails(id) {
             <div class="popup-body">
                 <div class="detail-row">
                     <span class="detail-label">Source</span>
-                    <span class="detail-value">${record.projectedSource || record.item || record.category}</span>
+                    <span class="detail-value">${source || category}</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Date</span>
@@ -5562,18 +5781,18 @@ function showUpcomingIncomeDetails(id) {
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Amount</span>
-                    <span class="detail-value income-amount">+$${formatCurrency(parseFloat(record.amount) || 0)}</span>
+                    <span class="detail-value income-amount">+$${formatCurrency(parseFloat(amount) || 0)}</span>
                 </div>
-                ${record.category ? `
+                ${category ? `
                 <div class="detail-row">
                     <span class="detail-label">Category</span>
-                    <span class="detail-value">${record.category}</span>
+                    <span class="detail-value">${category}</span>
                 </div>
                 ` : ''}
-                ${record.notes ? `
+                ${notes ? `
                 <div class="detail-row">
                     <span class="detail-label">Notes</span>
-                    <span class="detail-value notes-text">${record.notes}</span>
+                    <span class="detail-value notes-text">${notes}</span>
                 </div>
                 ` : ''}
                 ${isAR ? `
@@ -5582,6 +5801,7 @@ function showUpcomingIncomeDetails(id) {
                     <span class="detail-value ${record.collected ? 'collected' : 'pending'}">${record.collected ? 'Collected' : 'Pending'}</span>
                 </div>
                 ` : ''}
+                ${recurringInfo}
             </div>
         </div>
     `;
@@ -5597,4 +5817,41 @@ function showUpcomingIncomeDetails(id) {
             }
         });
     }, 100);
+}
+
+// Function to collect/mark recurring income as received (creates actual income record)
+async function collectRecurringIncome(templateId, occurrenceDate) {
+    // Extract numeric ID from possible "1_next" format
+    const numericId = parseInt(templateId);
+    const template = recurringIncomeTemplates.find(t => t.id === numericId);
+    if (!template) return;
+
+    if (await showConfirm(`Mark this recurring income as received? This will create an actual income record for ${occurrenceDate}.`)) {
+        try {
+            // Create an actual income record
+            const incomeRecord = {
+                formatType: 'single',
+                type: 'income',
+                date: occurrenceDate,
+                timestamp: Date.now(),
+                item: '',
+                category: template.category,
+                person: '',
+                amount: template.amount,
+                quantity: '1',
+                notes: template.notes ? `Received recurring income: ${template.source}. ${template.notes}` : `Received recurring income: ${template.source}`,
+                isProjected: false,
+                projectedSource: template.source,
+                fromRecurringTemplate: templateId
+            };
+
+            await add(STORE_RECORDS, incomeRecord);
+            showToast('Income recorded successfully', 'success');
+            await refreshData();
+            renderBudget();
+        } catch (error) {
+            console.error('Error collecting recurring income:', error);
+            showToast('Error recording income: ' + error.message, 'error');
+        }
+    }
 }

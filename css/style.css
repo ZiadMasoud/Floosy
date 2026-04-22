@@ -4740,6 +4740,52 @@ tr:last-child td {
   border-left: 3px solid var(--success);
 }
 
+.upcoming-income-item.upcoming-recurring {
+  border-left: 3px solid #8b5cf6; /* Purple accent for recurring */
+}
+
+.upcoming-income-item.upcoming-recurring .income-icon {
+  background: rgba(139, 92, 246, 0.1);
+  color: #8b5cf6;
+}
+
+/* Recurring checkbox styling - looks like active button when checked */
+.recurring-checkbox-wrapper {
+  transition: all 0.2s ease;
+}
+
+.recurring-checkbox-wrapper:has(input:checked),
+.recurring-checkbox-wrapper.active {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.recurring-checkbox-wrapper:has(input:checked) label,
+.recurring-checkbox-wrapper.active label {
+  color: white;
+}
+
+/* Enhanced Received button for recurring income */
+.upcoming-income-item.upcoming-recurring .collect-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+
+.upcoming-income-item.upcoming-recurring .collect-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 8px rgba(16, 185, 129, 0.4);
+  transform: translateY(-1px);
+}
+
 /* Upcoming Income Popup */
 .upcoming-income-popup {
   position: fixed;
