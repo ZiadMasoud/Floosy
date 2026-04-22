@@ -2446,17 +2446,17 @@ function renderSpendingBreakdownTable() {
     tbody.innerHTML = paginatedItems.map(([name, stats], index) => {
         const percentage = totalSpending > 0 ? ((stats.amount / totalSpending) * 100).toFixed(1) : 0;
         const isSavingsAccount = stats.isSavingsAccount;
-        const rowStyle = isSavingsAccount ? 'border-top: 2px solid #ef4444; border-bottom: 2px solid #ef4444;' : '';
         const rowClass = isSavingsAccount ? 'savings-account-row' : '';
         const displayName = name + (isSavingsAccount ? ' (Savings)' : '');
+        const nameStyle = isSavingsAccount ? 'color: #ef4444; font-weight: 600;' : '';
 
         let barColor = 'rgba(53, 88, 114, 0.2)';
         if (percentage > 25) barColor = '#ef4444';
         else if (percentage > 10) barColor = '#355872';
 
         return `
-            <tr class="${rowClass}" style="${rowStyle}">
-                <td class="breakdown-category-name" id="spending-cat-${index}"><span>${displayName}</span></td>
+            <tr class="${rowClass}">
+                <td class="breakdown-category-name" id="spending-cat-${index}"><span style="${nameStyle}">${displayName}</span></td>
                 <td>${stats.count}</td>
                 <td class="amount-spending" style="font-weight: 700;">$${formatCurrency(stats.amount)}</td>
                 <td>
@@ -2516,17 +2516,17 @@ function renderIncomeBreakdownTable() {
     tbody.innerHTML = paginatedItems.map(([name, stats], index) => {
         const percentage = totalIncome > 0 ? ((stats.amount / totalIncome) * 100).toFixed(1) : 0;
         const isSavingsAccount = stats.isSavingsAccount;
-        const rowStyle = isSavingsAccount ? 'border-top: 2px solid #ef4444; border-bottom: 2px solid #ef4444;' : '';
         const rowClass = isSavingsAccount ? 'savings-account-row' : '';
         const displayName = name + (isSavingsAccount ? ' (Savings)' : '');
+        const nameStyle = isSavingsAccount ? 'color: #ef4444; font-weight: 600;' : '';
 
         let barColor = 'rgba(16, 185, 129, 0.2)';
         if (percentage > 25) barColor = '#10b981';
         else if (percentage > 10) barColor = '#34d399';
 
         return `
-            <tr class="${rowClass}" style="${rowStyle}">
-                <td class="breakdown-category-name" id="income-cat-${index}"><span>${displayName}</span></td>
+            <tr class="${rowClass}">
+                <td class="breakdown-category-name" id="income-cat-${index}"><span style="${nameStyle}">${displayName}</span></td>
                 <td>${stats.count}</td>
                 <td class="amount-income" style="font-weight: 700;">$${formatCurrency(stats.amount)}</td>
                 <td>
