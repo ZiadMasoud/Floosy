@@ -283,10 +283,17 @@ async function seedDefaultCategories() {
             { name: 'Entertainment', type: 'spending' },
             { name: 'Salary', type: 'income' },
             { name: 'Freelance', type: 'income' },
-            { name: 'Investment', type: 'income' }
+            { name: 'Investment', type: 'income' },
+            { name: 'Collection', type: 'income' }
         ];
         for (const cat of defaults) {
             await add(STORE_CATEGORIES, cat);
+        }
+    } else {
+        // Ensure 'Collection' category exists for AR collections
+        const collectionExists = categories.some(c => c.name === 'Collection' && c.type === 'income');
+        if (!collectionExists) {
+            await add(STORE_CATEGORIES, { name: 'Collection', type: 'income' });
         }
     }
 }

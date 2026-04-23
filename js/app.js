@@ -1412,7 +1412,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
             } else if (r.type === 'spending') {
                 spending += amount;
             } else if (r.type === 'account_receivable' && !r.collected) {
-                arImpact -= amount;
+                arImpact -= Math.max(0, amount - (r.collectedAmount || 0));
             }
         }
     });
@@ -1769,7 +1769,7 @@ async function renderDashboard() {
     // Calculate AR impact on balance for current period (only PENDING AR reduces balance - collected has no effect)
     const arImpact = monthlyRecords
         .filter(r => r.type === 'account_receivable' && !r.collected)
-        .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
+        .reduce((sum, r) => sum - Math.max(0, (parseFloat(r.amount) || 0) - (r.collectedAmount || 0)), 0);
 
     // Current Balance = Money on hand = the amount that will be carried to next month
     // This represents actual cash in wallet (Income - Spent - Saved - AR)
@@ -1788,7 +1788,7 @@ async function renderDashboard() {
 
             return personMatch && categoryMatch;
         })
-        .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+        .reduce((sum, r) => sum + Math.max(0, (parseFloat(r.amount) || 0) - (r.collectedAmount || 0)), 0);
 
 
     const incomeEl = document.getElementById('total-income');
@@ -5090,34 +5090,194 @@ function getARGroupRecords(rootId) {
     return records.filter(r => r.type === 'account_receivable' && getARRootId(r) === rootId);
 }
 
-async function collectAR(id) {
+// Global variable to store current AR being collected
+let currentARCollection = null;
+
+// Initialize AR collection card event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const arCard = document.getElementById('ar-collection-card');
+    const arOverlay = document.getElementById('ar-collection-overlay');
+    const closeBtn = document.getElementById('close-ar-collection-card');
+    const cancelBtn = document.getElementById('cancel-ar-collection');
+    const confirmBtn = document.getElementById('confirm-ar-collection');
+    const fullCollectBtn = document.getElementById('ar-collect-full-btn');
+    const amountInput = document.getElementById('ar-collected-amount');
+
+    closeBtn?.addEventListener('click', hideARCollectionCard);
+    cancelBtn?.addEventListener('click', hideARCollectionCard);
+    confirmBtn?.addEventListener('click', processPartialARCollection);
+    arOverlay?.addEventListener('click', hideARCollectionCard);
+    fullCollectBtn?.addEventListener('click', () => {
+        if (currentARCollection) {
+            amountInput.value = currentARCollection.remainingAmount.toFixed(2);
+            updateARProgress();
+        }
+    });
+
+    amountInput?.addEventListener('input', updateARProgress);
+
+    // Allow Enter key to confirm
+    amountInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            processPartialARCollection();
+        }
+    });
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && arCard?.classList.contains('active')) {
+            hideARCollectionCard();
+        }
+    });
+});
+
+function showARCollectionCard(id) {
     const record = records.find(r => r.id === id);
     if (!record) return;
 
     const rootId = getARRootId(record);
     const group = getARGroupRecords(rootId);
+
+    // Calculate total amount (use original amount if available, otherwise use current amount)
+    const totalAmount = group.reduce((sum, r) => {
+        const amt = parseFloat(r.originalAmount || r.amount) || 0;
+        return sum + amt;
+    }, 0);
+
+    // Calculate already collected from all records in the group
+    const alreadyCollected = group.length > 0
+        ? Math.max(...group.map(r => parseFloat(r.collectedAmount) || 0))
+        : 0;
+    const remainingAmount = Math.max(0, totalAmount - alreadyCollected);
+
+    // Check if already fully collected (has collected flag AND no remaining amount)
+    if (record.collected === true && remainingAmount <= 0) {
+        showToast('This AR has already been fully collected', 'info');
+        return;
+    }
+
+    currentARCollection = {
+        recordId: id,
+        rootId: rootId,
+        group: group,
+        totalAmount: totalAmount,
+        alreadyCollected: alreadyCollected,
+        remainingAmount: remainingAmount
+    };
+
+    // Update UI
+    document.getElementById('ar-total-amount').textContent = formatCurrency(totalAmount);
+    document.getElementById('ar-remaining-amount').textContent = formatCurrency(remainingAmount);
+    document.getElementById('ar-collected-amount').value = '';
+    document.getElementById('ar-collected-amount').max = remainingAmount.toFixed(2);
+    document.getElementById('ar-collected-amount').placeholder = `Enter amount (max $${remainingAmount.toFixed(2)})`;
+
+    updateARProgress();
+
+    // Show card and overlay
+    const card = document.getElementById('ar-collection-card');
+    const overlay = document.getElementById('ar-collection-overlay');
+    card?.classList.add('active');
+    overlay?.classList.add('active');
+
+    // Focus input
+    setTimeout(() => {
+        document.getElementById('ar-collected-amount')?.focus();
+    }, 100);
+}
+
+function hideARCollectionCard() {
+    const card = document.getElementById('ar-collection-card');
+    const overlay = document.getElementById('ar-collection-overlay');
+    card?.classList.remove('active');
+    overlay?.classList.remove('active');
+    currentARCollection = null;
+}
+
+function updateARProgress() {
+    if (!currentARCollection) return;
+
+    const amountInput = document.getElementById('ar-collected-amount');
+    const collected = parseFloat(amountInput.value) || 0;
+    const total = currentARCollection.totalAmount;
+    const alreadyCollected = currentARCollection.alreadyCollected;
+
+    const newTotalCollected = alreadyCollected + collected;
+    const percentage = total > 0 ? (newTotalCollected / total) * 100 : 0;
+
+    document.getElementById('ar-progress-fill').style.width = `${Math.min(percentage, 100)}%`;
+    document.getElementById('ar-progress-text').textContent = `${percentage.toFixed(0)}% collected ($${newTotalCollected.toFixed(2)} of $${total.toFixed(2)})`;
+
+    // Update remaining display (before confirmation)
+    const remaining = total - newTotalCollected;
+    document.getElementById('ar-remaining-amount').textContent = formatCurrency(Math.max(0, remaining));
+}
+
+async function processPartialARCollection() {
+    if (!currentARCollection) return;
+
+    const amountInput = document.getElementById('ar-collected-amount');
+    const collectedAmount = parseFloat(amountInput.value);
+
+    if (!collectedAmount || collectedAmount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+
+    if (collectedAmount > currentARCollection.remainingAmount) {
+        showToast(`Cannot collect more than remaining amount ($${currentARCollection.remainingAmount.toFixed(2)})`, 'error');
+        return;
+    }
+
+    const { recordId, rootId, group, totalAmount, alreadyCollected } = currentARCollection;
+    const newTotalCollected = alreadyCollected + collectedAmount;
+    const isFullyCollected = newTotalCollected >= totalAmount;
+    const remainingAfterCollection = totalAmount - newTotalCollected;
     const collectedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
     try {
+        // Update the AR record(s)
         for (const r of group) {
-            r.collected = true;
-            r.collectedDate = new Date().toISOString().split('T')[0];
-            
-            // Append collection info to notes instead of creating a new record
-            const collectionTag = `[Collected on ${collectedDate}]`;
-            if (!r.notes || !r.notes.includes(collectionTag)) {
-                r.notes = r.notes ? `${r.notes}\n${collectionTag}` : collectionTag;
+            // Preserve original amount on first collection
+            if (!r.originalAmount) {
+                r.originalAmount = parseFloat(r.amount) || 0;
             }
-            
+
+            r.collectedAmount = newTotalCollected;
+
+            if (isFullyCollected) {
+                r.collected = true;
+                r.collectedDate = new Date().toISOString().split('T')[0];
+            }
+
+            // Add collection note
+            const collectionNote = `[Collected $${collectedAmount.toFixed(2)} on ${collectedDate}]`;
+            if (!r.notes || !r.notes.includes(collectionNote)) {
+                r.notes = r.notes ? `${r.notes}\n${collectionNote}` : collectionNote;
+            }
+
             await updateRecord(STORE_RECORDS, r);
         }
 
         await refreshData();
-        showToast('AR marked as collected', 'success');
+
+
+        if (isFullyCollected) {
+            showToast(`Collected $${collectedAmount.toFixed(2)} - AR fully collected!`, 'success');
+        } else {
+            showToast(`Collected $${collectedAmount.toFixed(2)} - $${remainingAfterCollection.toFixed(2)} remaining`, 'success');
+        }
+
+        hideARCollectionCard();
     } catch (error) {
-        console.error('Error collecting AR:', error);
-        showToast('Error marking as collected: ' + error.message, 'error');
+        console.error('Error processing AR collection:', error);
+        showToast('Error processing collection: ' + error.message, 'error');
     }
+}
+
+async function collectAR(id) {
+    // Show the collection card instead of immediately collecting
+    showARCollectionCard(id);
 }
 
 async function undoCollectAR(id) {
@@ -5130,21 +5290,26 @@ async function undoCollectAR(id) {
     try {
         for (const r of group) {
             r.collected = false;
-            delete r.collectedDate;
-            
-            // Remove collection tag from notes
+            r.collectedDate = null;
+            r.collectedAmount = 0;
+            r.originalAmount = null;
+
+            // Remove all collection notes from notes (handles both old and new formats)
             if (r.notes) {
-                r.notes = r.notes.replace(/\n?\[Collected on .*\]/g, '').trim();
+                // Remove new format: [Collected $X.XX on date]
+                r.notes = r.notes.replace(/\n?\[Collected \$[\d.]+ on [^\]]+\]/g, '').trim();
+                // Remove old format: [Collected on date]
+                r.notes = r.notes.replace(/\n?\[Collected on [^\]]+\]/g, '').trim();
             }
-            
+
             await updateRecord(STORE_RECORDS, r);
         }
 
         await refreshData();
-        showToast('AR collection undone', 'success');
+        showToast('AR marked as pending', 'success');
     } catch (error) {
         console.error('Error undoing AR collection:', error);
-        showToast('Error undoing collection: ' + error.message, 'error');
+        showToast('Error marking as pending: ' + error.message, 'error');
     }
 }
 
@@ -5153,6 +5318,10 @@ window.collectAR = collectAR;
 window.undoCollectAR = undoCollectAR;
 // Records tab uses uncollectAR; keep it as an alias to undo collection.
 window.uncollectAR = undoCollectAR;
+// Partial collection functions
+window.showARCollectionCard = showARCollectionCard;
+window.hideARCollectionCard = hideARCollectionCard;
+window.processPartialARCollection = processPartialARCollection;
 
 // Make upcoming income functions globally available
 window.editUpcomingIncome = editUpcomingIncome;

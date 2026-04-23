@@ -5413,3 +5413,230 @@ tr:last-child td {
     text-align: center;
   }
 }
+
+/* ========================================
+   AR COLLECTION FLOATING CARD
+   ======================================== */
+
+.ar-collection-card {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 400px;
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  z-index: 2000;
+  border: 1px solid var(--border-color);
+  animation: arCardSlideIn 0.3s ease;
+}
+
+@keyframes arCardSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -55%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.ar-collection-card.active {
+  display: flex;
+  flex-direction: column;
+}
+
+.ar-collection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(53, 88, 114, 0.05) 0%, rgba(122, 170, 206, 0.05) 100%);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.ar-collection-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ar-collection-header h3::before {
+  content: '\f4e4';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  color: var(--success);
+}
+
+.ar-collection-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ar-collection-info {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ar-collection-total,
+.ar-collection-remaining {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ar-info-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.ar-info-value {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--primary-color);
+}
+
+.ar-collection-remaining .ar-info-value {
+  color: var(--warning);
+}
+
+.ar-collection-body .form-group {
+  margin: 0;
+}
+
+.ar-collection-body .form-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.ar-collection-body input[type="number"] {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.ar-collection-body input[type="number"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(53, 88, 114, 0.1);
+}
+
+.ar-collection-quick-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.ar-collection-quick-actions .btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.ar-collection-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ar-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ar-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success) 0%, #34d399 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.ar-progress-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-weight: 500;
+}
+
+.ar-collection-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(53, 88, 114, 0.02) 0%, rgba(122, 170, 206, 0.02) 100%);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.ar-collection-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* AR Collection Card Overlay */
+.ar-collection-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(53, 88, 114, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 1999;
+}
+
+.ar-collection-overlay.active {
+  display: block;
+}
+
+/* Mobile responsiveness for AR collection card */
+@media (max-width: 480px) {
+  .ar-collection-card {
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .ar-collection-header {
+    padding: 1rem;
+  }
+
+  .ar-collection-body {
+    padding: 1.25rem;
+  }
+
+  .ar-collection-actions {
+    padding: 0.875rem 1rem 1.25rem;
+  }
+
+  .ar-collection-info {
+    padding: 0.875rem;
+  }
+}

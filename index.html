@@ -1056,6 +1056,52 @@
 
   </div>
 
+  <!-- AR Collection Card Overlay -->
+  <div id="ar-collection-overlay" class="ar-collection-overlay"></div>
+
+  <!-- Floating AR Collection Card -->
+  <div id="ar-collection-card" class="ar-collection-card">
+    <div class="ar-collection-header">
+      <h3>Collect Payment</h3>
+      <button class="btn-icon" id="close-ar-collection-card">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="ar-collection-body">
+      <div class="ar-collection-info">
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Total Amount:</span>
+          <span class="ar-info-value" id="ar-total-amount">$0.00</span>
+        </div>
+        <div class="ar-collection-remaining" id="ar-remaining-row">
+          <span class="ar-info-label">Remaining:</span>
+          <span class="ar-info-value" id="ar-remaining-amount">$0.00</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Amount Collected</label>
+        <input type="number" id="ar-collected-amount" step="0.01" min="0.01" placeholder="Enter amount collected..." />
+      </div>
+      <div class="ar-collection-quick-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="ar-collect-full-btn">
+          <i class="fas fa-check-double"></i> Collect Full Amount
+        </button>
+      </div>
+      <div class="ar-collection-progress" id="ar-collection-progress">
+        <div class="ar-progress-bar">
+          <div class="ar-progress-fill" id="ar-progress-fill" style="width: 0%"></div>
+        </div>
+        <span class="ar-progress-text" id="ar-progress-text">0% collected</span>
+      </div>
+    </div>
+    <div class="ar-collection-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-ar-collection">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirm-ar-collection">
+        <i class="fas fa-check"></i> Confirm Collection
+      </button>
+    </div>
+  </div>
+
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   <script src="js/db.js?v=2"></script>
   <script src="js/app.js?v=2"></script>

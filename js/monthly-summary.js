@@ -196,7 +196,9 @@ class MonthlySummaryPDF {
                 catBreakdown[cat] = (catBreakdown[cat] || 0) + amt;
                 if (r.person) peopleBreakdown[r.person] = (peopleBreakdown[r.person] || 0) + amt;
                 dailySpending[dateKey] = (dailySpending[dateKey] || 0) + amt;
-            } else if (r.type === 'account_receivable') totalAR += amt;
+            } else if (r.type === 'account_receivable' && !r.collected) {
+                totalAR += Math.max(0, amt - (r.collectedAmount || 0));
+            }
 
             // expand combined transactions
             if (r.formatType === 'combined' && Array.isArray(r.combinedTransactions)) {
