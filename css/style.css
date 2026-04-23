@@ -2541,6 +2541,268 @@ tr:last-child td {
   padding: 1rem;
 }
 
+/* Account Mini Dashboard - New Layout */
+.account-mini-dashboard {
+  padding: 0.5rem 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.dashboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dashboard-row.top-row {
+  margin-bottom: 0.25rem;
+}
+
+.dashboard-row.bottom-row {
+  justify-content: center;
+}
+
+/* Mini stats (Withdrawn & Deposits) - smaller side elements */
+.mini-stat {
+  flex: 0 0 auto;
+  text-align: center;
+  min-width: 70px;
+}
+
+.mini-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 0.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mini-stat-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.mini-stat-value.positive {
+  color: var(--success);
+}
+
+.mini-stat-value.negative {
+  color: var(--danger);
+}
+
+/* Main Balance - larger center element */
+.main-balance {
+  flex: 1;
+  text-align: center;
+  padding: 0 0.5rem;
+}
+
+.balance-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.balance-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.1;
+}
+
+/* Cashflow - under the balance (no box) */
+.cashflow-stat {
+  text-align: center;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.cashflow-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-right: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cashflow-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.cashflow-value.positive {
+  color: var(--success);
+}
+
+.cashflow-value.negative {
+  color: var(--danger);
+}
+
+.cashflow-value i {
+  font-size: 0.7rem;
+}
+
+/* Top Action Buttons - Single Row */
+.account-actions-top {
+  display: flex;
+  flex-direction: row;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.account-actions-top .btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0.25rem !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 0.75rem !important;
+  flex-shrink: 0 !important;
+  border-radius: 6px !important;
+  margin: 0 !important;
+}
+
+/* Mobile responsiveness for mini dashboard */
+@media (max-width: 768px) {
+  .dashboard-row.top-row {
+    gap: 0.3rem;
+  }
+
+  .main-balance {
+    padding: 0 0.3rem;
+  }
+
+  .balance-value {
+    font-size: 1.25rem;
+  }
+
+  .mini-stat {
+    min-width: 60px;
+  }
+
+  .mini-stat-value {
+    font-size: 0.75rem;
+  }
+
+  .mini-stat-label {
+    font-size: 0.6rem;
+  }
+
+  .cashflow-value {
+    font-size: 0.75rem;
+  }
+
+  .account-actions-top {
+    gap: 0.3rem;
+  }
+
+  .account-actions-top .btn {
+    padding: 0.2rem !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 0.7rem !important;
+    margin: 0 !important;
+  }
+
+  .mini-stat-label {
+    font-size: 0.65rem;
+  }
+
+  .mini-stat-value {
+    font-size: 0.9rem;
+  }
+
+  .balance-label {
+    font-size: 0.7rem;
+  }
+
+  .balance-value {
+    font-size: 1.4rem;
+  }
+}
+
+/* Savings Transactions List - Card Based Layout */
+.savings-transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.savings-transactions-list .transaction-card {
+  background: rgba(122, 170, 206, 0.15);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.savings-transactions-list .transaction-card:hover {
+  background: rgba(122, 170, 206, 0.25);
+  border-color: var(--border-color);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.savings-transactions-list .transaction-card.income {
+  border-left: 3px solid var(--success);
+}
+
+.savings-transactions-list .transaction-card.spending {
+  border-left: 3px solid var(--danger);
+}
+
+.savings-transactions-list .transaction-card.income .transaction-icon {
+  background: #dcfce7;
+  color: #10b981;
+}
+
+.savings-transactions-list .transaction-card.spending .transaction-icon {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* Mobile responsiveness for savings transaction cards */
+@media (max-width: 768px) {
+  .savings-transactions-list .transaction-card {
+    padding: 0.75rem;
+    gap: 0.6rem;
+    flex-wrap: nowrap;
+  }
+
+  .savings-transactions-list .transaction-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  .savings-transactions-list .transaction-name {
+    font-size: 0.9rem;
+  }
+
+  .savings-transactions-list .transaction-amount .amount {
+    font-size: 1rem;
+  }
+}
+
 /* Settings Styles */
 .settings-grid {
   display: flex;

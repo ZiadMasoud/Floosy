@@ -788,6 +788,21 @@ function initEventListeners() {
         });
     }
 
+    // Savings Transaction Details Modal
+    const closeSavingsDetailsBtn = document.getElementById('close-savings-details-modal');
+    const savingsTransactionDetailsModal = document.getElementById('savings-transaction-details-modal');
+    if (closeSavingsDetailsBtn && savingsTransactionDetailsModal) {
+        closeSavingsDetailsBtn.addEventListener('click', () => {
+            savingsTransactionDetailsModal.classList.remove('active');
+        });
+        // Close on clicking outside
+        savingsTransactionDetailsModal.addEventListener('click', (e) => {
+            if (e.target === savingsTransactionDetailsModal) {
+                savingsTransactionDetailsModal.classList.remove('active');
+            }
+        });
+    }
+
     // Category Edit Modal
     if (cancelCategoryEditBtn) {
         cancelCategoryEditBtn.addEventListener('click', closeCategoryEditModal);
@@ -3589,7 +3604,7 @@ function renderSavings() {
             return t.type === 'withdrawal' && d.getMonth() === curMonth && d.getFullYear() === curYear;
         }).reduce((s, t) => s + t.amount, 0);
 
-        const perPage = 4;
+        const perPage = 3;
         const totalPages = Math.ceil(txs.length / perPage) || 1;
         let page = savingsPage[acc.id] || 0;
         // ensure current page is within bounds
@@ -3607,76 +3622,92 @@ function renderSavings() {
         card.innerHTML = `
             <div class="card-header">
                 <h3>${acc.name}</h3>
-                <div class="account-actions">
-                    <button class="btn-icon btn-secondary deposit-btn" data-acc-id="${acc.id}" title="Deposit"><i class="fas fa-plus"></i></button>
-                    <button class="btn-icon btn-secondary withdraw-btn" data-acc-id="${acc.id}" title="Withdraw"><i class="fas fa-minus"></i></button>
-                    <button class="btn-icon btn-secondary edit-acc-btn" data-acc-id="${acc.id}" title="Edit"><i class="fas fa-edit"></i></button>
-                    <button class="btn-icon btn-secondary delete-acc-btn" data-acc-id="${acc.id}" title="Delete"><i class="fas fa-trash"></i></button>
-                </div>
             </div>
-            <div class="kpi-container savings-kpis">
-                <div class="kpi-card balance">
-                    <div class="kpi-icon"><i class="fas fa-piggy-bank"></i></div>
-                    <div class="kpi-details">
-                        <h4>Total Balance</h4>
-                        <p>$${formatCurrency(balance)}</p>
+            <!-- New Mini Dashboard Layout -->
+            <div class="account-mini-dashboard">
+                <div class="dashboard-row top-row">
+                    <div class="mini-stat deposits">
+                        <div class="mini-stat-label">Deposits</div>
+                        <div class="mini-stat-value positive">+$${formatCurrency(monthDeposit)}</div>
+                    </div>
+                    <div class="main-balance">
+                        <div class="balance-label">Total Balance</div>
+                        <div class="balance-value">$${formatCurrency(balance)}</div>
+                    </div>
+                    <div class="mini-stat withdrawn">
+                        <div class="mini-stat-label">Withdrawn</div>
+                        <div class="mini-stat-value negative">-$${formatCurrency(monthWithdraw)}</div>
                     </div>
                 </div>
-                <div class="kpi-card month">
-                    <div class="kpi-icon"><i class="fas fa-calendar-alt"></i></div>
-                    <div class="kpi-details">
-                        <h4>Deposits This Month</h4>
-                        <p>$${formatCurrency(monthDeposit)}</p>
-                    </div>
-                </div>
-                <div class="kpi-card withdrawal">
-                    <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
-                    <div class="kpi-details">
-                        <h4>Withdrawn This Month</h4>
-                        <p>$${formatCurrency(monthWithdraw)}</p>
-                    </div>
-                </div>
-                <div class="kpi-card cashflow">
-                    <div class="kpi-icon"><i class="fas fa-exchange-alt"></i></div>
-                    <div class="kpi-details">
-                        <h4>Cashflow</h4>
-                        <p style="color: ${cashflowPositive ? '#ef4444' : 'var(--danger)'}">
+                <div class="dashboard-row bottom-row">
+                    <div class="cashflow-stat">
+                        <span class="cashflow-label">Cashflow:</span>
+                        <span class="cashflow-value ${cashflowPositive ? 'positive' : 'negative'}">
                             ${cashflowPositive ? '+' : '-'}$${formatCurrency(Math.abs(monthCashflow))}
-                            <i class="fas fa-arrow-${cashflowPositive ? 'up' : 'down'}" style="font-size: 0.8em; margin-left: 4px;"></i>
-                        </p>
+                            <i class="fas fa-arrow-${cashflowPositive ? 'down' : 'up'}"></i>
+                        </span>
                     </div>
                 </div>
             </div>
-            <div class="table-responsive">
-                <table class="savings-records-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Type</th>
-                            <th>Amount</th>
-                            <th>Notes</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${paged.map(t => `
-                            <tr>
-                                <td>${t.date}</td>
-                                <td>${t.type === 'deposit' ? 'Income' : 'Withdrawal'}</td>
-                                <td class="${t.type === 'deposit' ? 'amount-income' : 'amount-spending'}">$${formatCurrency(t.amount)}</td>
-                                <td>${t.notes || '-'}</td>
-                                <td>
-                                    <button class="btn-icon edit-btn" data-acc-id="${acc.id}" data-tx-id="${t.id}"><i class="fas fa-edit"></i></button>
-                                    <button class="btn-icon delete-btn" data-acc-id="${acc.id}" data-tx-id="${t.id}"><i class="fas fa-trash"></i></button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+            <!-- Action Buttons -->
+            <div class="account-actions-top">
+                <button class="btn btn-secondary deposit-btn" data-acc-id="${acc.id}" title="Deposit"><i class="fas fa-plus"></i></button>
+                <button class="btn btn-secondary withdraw-btn" data-acc-id="${acc.id}" title="Withdraw"><i class="fas fa-minus"></i></button>
+                <button class="btn btn-outline edit-acc-btn" data-acc-id="${acc.id}" title="Edit Account"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-outline delete-acc-btn" data-acc-id="${acc.id}" title="Delete Account"><i class="fas fa-trash"></i></button>
             </div>
-            <div class="pagination" style="margin-top:8px; text-align:right;">
-                <button class="btn btn-outline prev-page" ${page <= 0 ? 'disabled' : ''}>Prev</button>
-                <button class="btn btn-outline next-page" ${page >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+            <!-- Card-based Transactions List -->
+            <div class="savings-transactions-list">
+                ${paged.length === 0 ? `
+                    <div class="empty-state" style="padding: 1rem;">
+                        <i class="fas fa-receipt"></i>
+                        <p>No transactions yet</p>
+                        <span>Add a deposit or withdrawal to get started</span>
+                    </div>
+                ` : paged.map(t => {
+                    const dateObj = new Date(t.date);
+                    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const isDeposit = t.type === 'deposit';
+                    const icon = isDeposit ? 'fa-arrow-down' : 'fa-arrow-up';
+                    const typeClass = isDeposit ? 'income' : 'spending';
+                    const amountClass = isDeposit ? 'income' : 'spending';
+                    const amountPrefix = isDeposit ? '+' : '-';
+                    const notes = t.notes || '-';
+                    // Extract category from notes if available
+                    const categoryMatch = notes.match(/^(Income|Spending):\s*([^-]+)/);
+                    const category = categoryMatch ? categoryMatch[2].trim() : (isDeposit ? 'Deposit' : 'Withdrawal');
+                    const itemName = categoryMatch && notes.includes('-') ? notes.split('-')[1].trim() : notes;
+                    
+                    return `
+                        <div class="transaction-card ${typeClass}" onclick="openSavingsTransactionDetails(${t.id}, ${acc.id})">
+                            <div class="transaction-icon">
+                                <i class="fas ${icon}"></i>
+                            </div>
+                            <div class="transaction-info">
+                                <div class="transaction-name"><span>${itemName}</span></div>
+                                <div class="transaction-category">
+                                    <span class="category-badge badge-${typeClass}">${category}</span>
+                                </div>
+                            </div>
+                            <div class="transaction-amount">
+                                <div class="amount ${amountClass}"><span class="${amountPrefix === '+' ? 'dollar-positive' : 'dollar-negative'}">${amountPrefix}$</span><span class="amount-num">${formatCurrency(t.amount)}</span></div>
+                                <div class="date">${dateStr}</div>
+                            </div>
+                            <div class="transaction-actions">
+                                <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editSavingsTransaction(${acc.id}, ${t.id})" title="Edit">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteSavingsTransaction(${acc.id}, ${t.id})" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+            <div class="pagination" style="margin-top:6px; text-align:right;">
+                <button class="btn btn-sm btn-outline prev-page" ${page <= 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
+                <button class="btn btn-sm btn-outline next-page" ${page >= totalPages - 1 || txs.length <= perPage ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>
             </div>
         `;
         savingsListEl.appendChild(card);
@@ -3706,31 +3737,108 @@ function renderSavings() {
                 }
             });
         }
-        const editTxBtns = card.querySelectorAll('button.edit-btn');
-        editTxBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const txId = parseInt(btn.getAttribute('data-tx-id'));
-                const tx = savingsTransactions.find(t => t.id === txId);
-                if (tx) openTransactionModal(acc.id, tx.type, tx);
-            });
-        });
-        const delTxBtns = card.querySelectorAll('button.delete-btn');
-        delTxBtns.forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const txId = parseInt(btn.getAttribute('data-tx-id'));
-                if (await showConfirm('Delete this transaction?')) {
-                    const tx = savingsTransactions.find(t => t.id === txId);
-                    if (tx && tx.linkedRecordId) {
-                        await remove(STORE_RECORDS, tx.linkedRecordId);
-                    }
-                    await remove(STORE_SAVINGS_TRANSACTIONS, txId);
-                    await refreshData();
-                }
-            });
-        });
     });
+}
+
+// Helper function to edit savings transaction
+function editSavingsTransaction(accId, txId) {
+    const tx = savingsTransactions.find(t => t.id === txId);
+    if (tx) openTransactionModal(accId, tx.type, tx);
+}
+
+// Helper function to delete savings transaction
+async function deleteSavingsTransaction(accId, txId) {
+    if (await showConfirm('Delete this transaction?')) {
+        const tx = savingsTransactions.find(t => t.id === txId);
+        if (tx && tx.linkedRecordId) {
+            await remove(STORE_RECORDS, tx.linkedRecordId);
+        }
+        await remove(STORE_SAVINGS_TRANSACTIONS, txId);
+        await refreshData();
+    }
+}
+
+// Open savings transaction details modal
+async function openSavingsTransactionDetails(txId, accId) {
+    const tx = savingsTransactions.find(t => t.id === txId);
+    const acc = savingsAccounts.find(a => a.id === accId);
+    if (!tx || !acc) return;
+
+    const modal = document.getElementById('savings-transaction-details-modal');
+    const content = document.getElementById('savings-transaction-details-content');
+    if (!modal || !content) return;
+
+    const isDeposit = tx.type === 'deposit';
+    const dateObj = new Date(tx.date);
+    const dateStr = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const timeStr = tx.timestamp ? new Date(tx.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    // Parse notes to extract category and item
+    const notes = tx.notes || '-';
+    const categoryMatch = notes.match(/^(Income|Spending):\s*([^-]+)/);
+    const category = categoryMatch ? categoryMatch[2].trim() : (isDeposit ? 'Deposit' : 'Withdrawal');
+    const itemName = categoryMatch && notes.includes('-') ? notes.split('-')[1].trim() : notes;
+
+    // Calculate balance before and after
+    const allTxs = savingsTransactions
+        .filter(t => t.accountId === accId)
+        .sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+    const txIndex = allTxs.findIndex(t => t.id === txId);
+    let balanceBefore = 0;
+    for (let i = 0; i < txIndex; i++) {
+        if (allTxs[i].type === 'deposit') {
+            balanceBefore += allTxs[i].amount;
+        } else {
+            balanceBefore -= allTxs[i].amount;
+        }
+    }
+    const amount = parseFloat(tx.amount) || 0;
+    const balanceAfter = isDeposit ? balanceBefore + amount : balanceBefore - amount;
+
+    content.innerHTML = `
+        <div class="detail-row">
+            <span class="detail-label">Date & Time Recorded</span>
+            <span class="detail-value">${dateStr}${timeStr ? ' at ' + timeStr : ''}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Item & Category</span>
+            <span class="detail-value" style="color: ${isDeposit ? '#10b981' : '#ef4444'};">${itemName}<br><small style="color: var(--text-muted);">${category}</small></span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value ${isDeposit ? 'income' : 'spending'}">${isDeposit ? '+' : '-'}$${formatCurrency(amount)}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Transaction Type</span>
+            <span class="detail-value" style="color: ${isDeposit ? '#10b981' : '#ef4444'};">${isDeposit ? 'Deposit' : 'Withdrawal'}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Account</span>
+            <span class="detail-value">${acc.name}</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Notes</span>
+            <span class="detail-value notes">${tx.notes || '-'}</span>
+        </div>
+        <div class="detail-row" style="background: #f8fafc; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; width: 100%;">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Opening Balance:</div>
+                    <div style="font-weight: 600; color: var(--text-main);">$${formatCurrency(balanceBefore)}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">Closing Balance:</div>
+                    <div style="font-weight: 600; color: var(--text-main);">$${formatCurrency(balanceAfter)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Store current IDs for edit/delete buttons
+    modal.dataset.txId = txId;
+    modal.dataset.accId = accId;
+
+    modal.classList.add('active');
 }
 
 // Modal Management
@@ -3916,10 +4024,10 @@ async function handleRecordSubmit(e) {
 
             // Update savings account for each transaction
             if (savingsAccountId) {
-                await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId, recordId);
+                await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId, recordId, !!id);
             } else {
                 // Handle individual savings accounts for each transaction
-                await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date, recordId);
+                await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date, recordId, !!id);
             }
 
         } catch (error) {
@@ -3979,7 +4087,7 @@ async function handleRecordSubmit(e) {
 
             // Update savings account if selected
             if (savingsAccountId) {
-                await updateSavingsAccountForSingleTransaction(data, savingsAccountId, recordId);
+                await updateSavingsAccountForSingleTransaction(data, savingsAccountId, recordId, !!id);
             }
         } catch (error) {
             console.error('Error saving single transaction:', error);
@@ -3992,9 +4100,17 @@ async function handleRecordSubmit(e) {
     await refreshData();
 }
 
-async function updateSavingsAccountForSingleTransaction(record, accountId, linkedRecordId) {
+async function updateSavingsAccountForSingleTransaction(record, accountId, linkedRecordId, isEdit = false) {
     const account = savingsAccounts.find(acc => acc.id === parseInt(accountId));
     if (!account) return;
+
+    // If editing, remove existing linked savings transactions to avoid duplicates
+    if (isEdit) {
+        const existingTransactions = savingsTransactions.filter(t => t.linkedRecordId === parseInt(linkedRecordId));
+        for (const tx of existingTransactions) {
+            await remove(STORE_SAVINGS_TRANSACTIONS, tx.id);
+        }
+    }
 
     const transactionType = record.type === 'income' ? 'deposit' : 'withdrawal';
     const transaction = {
@@ -4012,7 +4128,15 @@ async function updateSavingsAccountForSingleTransaction(record, accountId, linke
     // So we don't need to update it again here
 }
 
-async function updateSavingsAccountForCombinedTransactions(transactions, date, accountId, linkedRecordId) {
+async function updateSavingsAccountForCombinedTransactions(transactions, date, accountId, linkedRecordId, isEdit = false) {
+    // If editing, remove existing linked savings transactions to avoid duplicates
+    if (isEdit) {
+        const existingTransactions = savingsTransactions.filter(t => t.linkedRecordId === parseInt(linkedRecordId));
+        for (const tx of existingTransactions) {
+            await remove(STORE_SAVINGS_TRANSACTIONS, tx.id);
+        }
+    }
+
     for (const transaction of transactions) {
         const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
         const savingsTransaction = {
@@ -4031,7 +4155,15 @@ async function updateSavingsAccountForCombinedTransactions(transactions, date, a
     // So we don't need to update it again here
 }
 
-async function updateSavingsAccountForCombinedTransactionsIndividual(transactions, date, linkedRecordId) {
+async function updateSavingsAccountForCombinedTransactionsIndividual(transactions, date, linkedRecordId, isEdit = false) {
+    // If editing, remove existing linked savings transactions to avoid duplicates
+    if (isEdit) {
+        const existingTransactions = savingsTransactions.filter(t => t.linkedRecordId === parseInt(linkedRecordId));
+        for (const tx of existingTransactions) {
+            await remove(STORE_SAVINGS_TRANSACTIONS, tx.id);
+        }
+    }
+
     for (const transaction of transactions) {
         if (transaction.savingsAccountId) {
             const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
