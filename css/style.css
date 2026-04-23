@@ -1942,6 +1942,10 @@ tr:last-child td {
   color: #f59e0b;
 }
 
+.savings-icon {
+  color: #3b82f6;
+}
+
 /* Carried forward indicator */
 .carried-forward-indicator {
   color: var(--primary-color);

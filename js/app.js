@@ -1709,10 +1709,12 @@ async function renderDashboard() {
     // Check if there's a carried balance from previous month (CALCULATE LIVE)
     const carriedBalance = await getLiveCarriedBalance(displayYear, displayMonth);
 
+    // Calculate the remaining balance for current month (what will be carried TO next month)
+    const currentLiveRemainingBalance = await calculateCurrentMonthRemainingBalance(displayYear, displayMonth);
+
     // Update the carry-over UI for the current month if in current period view
     if (!filterYearValue && !filterMonthValue) {
         const currentSettings = await getMonthlyBalanceSettings(displayYear, displayMonth);
-        const currentLiveRemainingBalance = await calculateCurrentMonthRemainingBalance(displayYear, displayMonth);
         updateCarryOverUI(currentSettings?.carryOver || false, currentLiveRemainingBalance);
         
         // Sync the live balance to the database cache if carry-over is active
@@ -1724,8 +1726,12 @@ async function renderDashboard() {
     // Calculate income and spending (AR does NOT affect either - it's balance-only)
     let income = 0;
     let spending = 0;
+    let saved = 0; // Track savings transfers separately
     let dashboardBalanceIncome = 0;
     let dashboardBalanceSpending = 0;
+
+    // Debug: Log all savings transfers
+    console.log('=== Processing monthly records ===', monthlyRecords.length);
 
     monthlyRecords.forEach(r => {
         // Skip projected/expected income - they don't affect actual balance
@@ -1733,10 +1739,19 @@ async function renderDashboard() {
 
         const amount = parseFloat(r.amount) || 0;
 
-        // Process savings transfers: count income for KPI, but exclude everything else from dashboard balance and spending totals
+        // Process savings transfers: income-to-savings counts as 'saved'
         if (r.isSavingsTransfer) {
+            console.log(`Savings transfer: type=${r.type}, amount=${amount}, item=${r.item || r.category}`);
             if (r.type === 'income') {
+                // Income recorded directly to savings: counts as income AND saved
                 income += amount;
+                saved += amount;
+                console.log(`  -> Added to saved. Saved now: ${saved}`);
+                // Note: doesn't add to wallet balance (goes straight to savings)
+            } else if (r.type === 'spending') {
+                // Spending from wallet to savings: affects wallet balance only
+                dashboardBalanceSpending += amount;
+                console.log(`  -> Added to dashboardBalanceSpending. Not added to saved.`);
             }
             return;
         }
@@ -1756,8 +1771,9 @@ async function renderDashboard() {
         .filter(r => r.type === 'account_receivable' && !r.collected)
         .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
 
-    // Current Balance = Wallet Income - Wallet Spending + AR Impact + Carried
-    const currentBalance = carriedBalance + dashboardBalanceIncome - dashboardBalanceSpending + arImpact;
+    // Current Balance = Money on hand = the amount that will be carried to next month
+    // This represents actual cash in wallet (Income - Spent - Saved - AR)
+    const currentBalance = currentLiveRemainingBalance;
     const openingBalance = currentBalance;
     const endingBalance = currentBalance;
     const balance = currentBalance;
@@ -1790,12 +1806,14 @@ async function renderDashboard() {
 
 
     const heroSpendingEl = document.getElementById('hero-spending');
+    const heroSavedEl = document.getElementById('hero-saved');
     const heroIncomeEl = document.getElementById('hero-income');
     const heroThisMonthValEl = document.getElementById('hero-this-month-val');
     const heroTrendIconEl = document.getElementById('hero-trend-icon');
     const heroArDisplayEl = document.getElementById('hero-ar-display');
 
     if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
+    if (heroSavedEl) heroSavedEl.innerHTML = `<span class="dollar-icon savings-icon">$</span><span class="amount-num">${formatCurrency(saved)}</span>`;
     if (heroIncomeEl) heroIncomeEl.innerHTML = `<span class="dollar-icon income-icon">$</span><span class="amount-num">${formatCurrency(income)}</span>`;
     if (heroThisMonthValEl) heroThisMonthValEl.innerHTML = `<span class="currency-sign">$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
     if (heroTrendIconEl) {
