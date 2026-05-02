@@ -1313,6 +1313,9 @@ async function handleCarryOverToggle() {
     // Toggle the setting
     const newCarryOver = !currentCarryOver;
 
+    // Save as global default for future months
+    localStorage.setItem('floosy_carry_over_default', newCarryOver);
+
     // If enabling carry-over, calculate and store the current balance as remaining balance
     // This is now just a snapshot, the actual carry-over is calculated live
     let remainingBalance = 0;
@@ -1495,6 +1498,7 @@ function testMonthlyBalanceReset() {
 async function refreshData() {
     records = await getAll(STORE_RECORDS);
     categories = await getAll(STORE_CATEGORIES);
+    categories.sort((a, b) => a.name.localeCompare(b.name));
     people = await getAll(STORE_PEOPLE);
     // new: load savings
     savingsAccounts = await getAll(STORE_SAVINGS_ACCOUNTS);
@@ -1714,11 +1718,18 @@ async function renderDashboard() {
 
     // Update the carry-over UI for the current month if in current period view
     if (!filterYearValue && !filterMonthValue) {
-        const currentSettings = await getMonthlyBalanceSettings(displayYear, displayMonth);
+        let currentSettings = await getMonthlyBalanceSettings(displayYear, displayMonth);
+        
+        if (!currentSettings) {
+            const defaultCarryOver = localStorage.getItem('floosy_carry_over_default') === 'true';
+            await setMonthlyBalanceCarryOver(displayYear, displayMonth, defaultCarryOver, currentLiveRemainingBalance);
+            currentSettings = { carryOver: defaultCarryOver, remainingBalance: currentLiveRemainingBalance };
+        }
+
         updateCarryOverUI(currentSettings?.carryOver || false, currentLiveRemainingBalance);
         
         // Sync the live balance to the database cache if carry-over is active
-        if (currentSettings && currentSettings.carryOver && Math.abs(currentSettings.remainingBalance - currentLiveRemainingBalance) > 0.001) {
+        if (currentSettings && currentSettings.carryOver && Math.abs((currentSettings.remainingBalance || 0) - currentLiveRemainingBalance) > 0.001) {
             await setMonthlyBalanceCarryOver(displayYear, displayMonth, true, currentLiveRemainingBalance);
         }
     }
@@ -5863,11 +5874,11 @@ async function handleUpcomingIncomeSubmit(e) {
         return;
     }
 
-    // Check if date is in the future
+    // Check if date is in the future for non-recurring income
     const selectedDate = new Date(date);
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    if (selectedDate < now) {
+    if (!isRecurring && selectedDate < now) {
         showToast('Expected date must be in the future', 'warning');
         return;
     }
