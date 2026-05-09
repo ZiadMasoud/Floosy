@@ -1102,6 +1102,49 @@
     </div>
   </div>
 
+  <!-- Income Collection Card Overlay -->
+  <div id="income-collection-overlay" class="ar-collection-overlay"></div>
+
+  <!-- Floating Income Collection Card (Same styling as AR) -->
+  <div id="income-collection-card" class="ar-collection-card">
+    <div class="ar-collection-header">
+      <h3 style="color: var(--success);"><i class="fas fa-hand-holding-dollar" style="color: var(--success);"></i> Receive Income</h3>
+      <button class="btn-icon" id="close-income-collection-card">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="ar-collection-body">
+      <div class="ar-collection-info">
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Expected Amount:</span>
+          <span class="ar-info-value" id="income-expected-amount" style="color: var(--success);">$0.00</span>
+        </div>
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Source:</span>
+          <span class="ar-info-value" id="income-collection-source" style="font-size: 0.9rem; color: var(--text-main);">...</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Amount Received</label>
+        <input type="number" id="income-received-amount" step="0.01" min="0.01" placeholder="Enter amount received..." />
+      </div>
+      <div class="ar-collection-quick-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="income-receive-same-btn">
+          <i class="fas fa-check"></i> Same Amount ($0.00)
+        </button>
+      </div>
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; text-align: center;">
+        If you received more or less, enter the actual amount above.
+      </p>
+    </div>
+    <div class="ar-collection-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-income-collection">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirm-income-collection" style="background: linear-gradient(135deg, var(--success) 0%, #059669 100%);">
+        <i class="fas fa-check"></i> Confirm Receipt
+      </button>
+    </div>
+  </div>
+
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
   <script src="js/db.js?v=2"></script>
   <script src="js/app.js?v=2"></script>

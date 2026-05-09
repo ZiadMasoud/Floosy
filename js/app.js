@@ -1,5 +1,13 @@
 // App State
 let currentTab = 'dashboard';
+
+// Helper to get local date string YYYY-MM-DD
+function formatDateLocal(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
 let categoryChart = null;
 let trendChart = null;
 let monthlyTrendChart = null;
@@ -130,6 +138,14 @@ let currentIncomeData = [];
 
 // Utility Notification Functions
 function showToast(message, type = 'info') {
+    console.log(`Toast (${type}): ${message}`);
+    
+    // Fallback if Toastify is not loaded
+    if (typeof Toastify === 'undefined') {
+        alert(message);
+        return;
+    }
+
     let backgroundColor = "#355872"; // default navy
     if (type === 'error') backgroundColor = "#ef4444";
     if (type === 'success') backgroundColor = "#10b981";
@@ -139,9 +155,9 @@ function showToast(message, type = 'info') {
         text: message,
         duration: 3000,
         close: true,
-        gravity: "top", // `top` or `bottom`
-        position: "center", // `left`, `center` or `right`
-        stopOnFocus: true, // Prevents dismissing of toast on hover
+        gravity: "top",
+        position: "center",
+        stopOnFocus: true,
         style: {
             background: backgroundColor,
             borderRadius: "8px",
@@ -896,6 +912,74 @@ function initEventListeners() {
     // Close upcoming income modal on click outside
     window.addEventListener('click', (e) => {
         if (e.target === upcomingIncomeModal) closeUpcomingIncomeModal();
+    });
+
+    // AR Collection Card Listeners
+    const arCard = document.getElementById('ar-collection-card');
+    const arOverlay = document.getElementById('ar-collection-overlay');
+    const closeBtn = document.getElementById('close-ar-collection-card');
+    const cancelBtn = document.getElementById('cancel-ar-collection');
+    const confirmBtn = document.getElementById('confirm-ar-collection');
+    const fullCollectBtn = document.getElementById('ar-collect-full-btn');
+    const amountInput = document.getElementById('ar-collected-amount');
+
+    closeBtn?.addEventListener('click', hideARCollectionCard);
+    cancelBtn?.addEventListener('click', hideARCollectionCard);
+    confirmBtn?.addEventListener('click', processPartialARCollection);
+    arOverlay?.addEventListener('click', hideARCollectionCard);
+    fullCollectBtn?.addEventListener('click', () => {
+        if (currentARCollection) {
+            amountInput.value = currentARCollection.remainingAmount.toFixed(2);
+            updateARProgress();
+        }
+    });
+
+    amountInput?.addEventListener('input', updateARProgress);
+
+    // Allow Enter key to confirm
+    amountInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            processPartialARCollection();
+        }
+    });
+
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && arCard?.classList.contains('active')) {
+            hideARCollectionCard();
+        }
+    });
+
+    // Income Collection Card Listeners
+    const incomeCard = document.getElementById('income-collection-card');
+    const incomeOverlay = document.getElementById('income-collection-overlay');
+    const closeIncomeBtn = document.getElementById('close-income-collection-card');
+    const cancelIncomeBtn = document.getElementById('cancel-income-collection');
+    const confirmIncomeBtn = document.getElementById('confirm-income-collection');
+    const sameAmountBtn = document.getElementById('income-receive-same-btn');
+    const incomeAmountInput = document.getElementById('income-received-amount');
+
+    closeIncomeBtn?.addEventListener('click', hideIncomeCollectionCard);
+    cancelIncomeBtn?.addEventListener('click', hideIncomeCollectionCard);
+    confirmIncomeBtn?.addEventListener('click', processIncomeCollection);
+    incomeOverlay?.addEventListener('click', hideIncomeCollectionCard);
+    sameAmountBtn?.addEventListener('click', () => {
+        if (currentIncomeCollection) {
+            incomeAmountInput.value = currentIncomeCollection.amount.toFixed(2);
+        }
+    });
+
+    incomeAmountInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            processIncomeCollection();
+        }
+    });
+
+    // Close income card on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && incomeCard?.classList.contains('active')) {
+            hideIncomeCollectionCard();
+        }
     });
 }
 
@@ -5164,44 +5248,9 @@ function getARGroupRecords(rootId) {
 
 // Global variable to store current AR being collected
 let currentARCollection = null;
+let currentIncomeCollection = null;
 
 // Initialize AR collection card event listeners
-document.addEventListener('DOMContentLoaded', () => {
-    const arCard = document.getElementById('ar-collection-card');
-    const arOverlay = document.getElementById('ar-collection-overlay');
-    const closeBtn = document.getElementById('close-ar-collection-card');
-    const cancelBtn = document.getElementById('cancel-ar-collection');
-    const confirmBtn = document.getElementById('confirm-ar-collection');
-    const fullCollectBtn = document.getElementById('ar-collect-full-btn');
-    const amountInput = document.getElementById('ar-collected-amount');
-
-    closeBtn?.addEventListener('click', hideARCollectionCard);
-    cancelBtn?.addEventListener('click', hideARCollectionCard);
-    confirmBtn?.addEventListener('click', processPartialARCollection);
-    arOverlay?.addEventListener('click', hideARCollectionCard);
-    fullCollectBtn?.addEventListener('click', () => {
-        if (currentARCollection) {
-            amountInput.value = currentARCollection.remainingAmount.toFixed(2);
-            updateARProgress();
-        }
-    });
-
-    amountInput?.addEventListener('input', updateARProgress);
-
-    // Allow Enter key to confirm
-    amountInput?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            processPartialARCollection();
-        }
-    });
-
-    // Close on escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && arCard?.classList.contains('active')) {
-            hideARCollectionCard();
-        }
-    });
-});
 
 function showARCollectionCard(id) {
     const record = records.find(r => r.id === id);
@@ -5319,7 +5368,7 @@ async function processPartialARCollection() {
 
             if (isFullyCollected) {
                 r.collected = true;
-                r.collectedDate = new Date().toISOString().split('T')[0];
+                r.collectedDate = formatDateLocal(new Date());
             }
 
             // Add collection note
@@ -5399,7 +5448,7 @@ window.processPartialARCollection = processPartialARCollection;
 window.editUpcomingIncome = editUpcomingIncome;
 window.deleteUpcomingIncome = deleteUpcomingIncome;
 window.showUpcomingIncomeDetails = showUpcomingIncomeDetails;
-window.collectRecurringIncome = collectRecurringIncome;
+window.collectIncome = collectIncome;
 window.undoRecurringIncome = undoRecurringIncome;
 window.moveSavingsAccount = moveSavingsAccount;
 
@@ -5718,7 +5767,7 @@ function renderUpcomingWidget() {
         const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
         if (currentMonthDate > now && currentMonthDate <= fiveDaysFromNow) {
             recurringOccurrences.push({
-                date: currentMonthDate.toISOString().split('T')[0],
+                date: formatDateLocal(currentMonthDate),
                 amount: template.amount,
                 category: template.category,
                 item: template.source,
@@ -5734,7 +5783,7 @@ function renderUpcomingWidget() {
         const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
         if (nextMonthDate > now && nextMonthDate <= fiveDaysFromNow) {
             recurringOccurrences.push({
-                date: nextMonthDate.toISOString().split('T')[0],
+                date: formatDateLocal(nextMonthDate),
                 amount: template.amount,
                 category: template.category,
                 item: template.source,
@@ -5848,7 +5897,7 @@ function renderUpcomingIncome() {
             // Future this month - show normally or as received
             recurringOccurrences.push({
                 id: template.id,
-                date: currentMonthDate.toISOString().split('T')[0],
+                date: formatDateLocal(currentMonthDate),
                 amount: template.amount,
                 category: template.category,
                 projectedSource: template.source,
@@ -5865,7 +5914,7 @@ function renderUpcomingIncome() {
             if (alreadyReceived || currentMonthDate.toDateString() === now.toDateString()) {
                 recurringOccurrences.push({
                     id: template.id,
-                    date: currentMonthDate.toISOString().split('T')[0],
+                    date: formatDateLocal(currentMonthDate),
                     amount: template.amount,
                     category: template.category,
                     projectedSource: template.source,
@@ -5887,7 +5936,7 @@ function renderUpcomingIncome() {
         if (nextMonthDate > now && nextMonthDate <= thirtyDaysFromNow) {
             recurringOccurrences.push({
                 id: template.id + '_next', // Unique ID for this occurrence
-                date: nextMonthDate.toISOString().split('T')[0],
+                date: formatDateLocal(nextMonthDate),
                 amount: template.amount,
                 category: template.category,
                 projectedSource: template.source,
@@ -5973,7 +6022,7 @@ function renderUpcomingIncome() {
                 ${!isAR ? `<button class="btn-icon edit-btn" onclick="event.stopPropagation(); editUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Edit Recurring' : 'Edit'}"><i class="fas fa-pen"></i></button>` : ''}
                 <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Delete Recurring' : 'Delete'}"><i class="fas fa-trash"></i></button>
                 ${isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
-                ${isRecurring ? `<button class="collect-btn" onclick="event.stopPropagation(); collectRecurringIncome(${r.id}, '${r.date}')" title="Mark as Received">Received</button>` : ''}
+                ${(isRecurring || isProjected) && !isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectIncome(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring}, '${r.date}')" title="Mark as Received">Received</button>` : ''}
             `;
         }
 
@@ -6058,8 +6107,18 @@ async function handleUpcomingIncomeSubmit(e) {
         source = category;
     }
 
-    if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31 || !amount || amount <= 0 || !category) {
-        showToast('Please fill in all required fields with valid values (day must be 1-31)', 'error');
+    if (!dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31) {
+        showToast('Please enter a valid day of month (1-31)', 'error');
+        return;
+    }
+
+    if (isNaN(amount) || amount <= 0) {
+        showToast('Please enter a valid amount greater than 0', 'error');
+        return;
+    }
+
+    if (!category || category === "") {
+        showToast('Please select a category', 'error');
         return;
     }
 
@@ -6091,7 +6150,7 @@ async function handleUpcomingIncomeSubmit(e) {
             if (targetDate <= now) {
                 targetDate = new Date(now.getFullYear(), now.getMonth() + 1, dayOfMonth);
             }
-            const dateStr = targetDate.toISOString().split('T')[0];
+            const dateStr = formatDateLocal(targetDate);
 
             const data = {
                 formatType: 'single',
@@ -6336,42 +6395,146 @@ function showUpcomingIncomeDetails(id, isRecurring = false) {
     }, 100);
 }
 
-// Function to collect/mark recurring income as received (creates actual income record)
-async function collectRecurringIncome(templateId, occurrenceDate) {
-    // Extract numeric ID from possible "1_next" format
-    const numericId = parseInt(templateId);
-    const template = recurringIncomeTemplates.find(t => t.id === numericId);
-    if (!template) return;
+// Function to collect/mark income as received (creates actual income record)
+async function collectIncome(id, isRecurring = false, occurrenceDate) {
+    let source, amount, category, notes, templateId;
 
-    // Use today's date when marking as received
-    const todayDate = new Date().toISOString().split('T')[0];
-    if (await showConfirm(`Mark this recurring income as received? This will create an actual income record for today (${todayDate}).`)) {
-        try {
-            // Create an actual income record with TODAY's date
+    if (isRecurring) {
+        // Extract numeric ID from possible "1_next" format
+        const numericId = parseInt(id);
+        const template = recurringIncomeTemplates.find(t => t.id === numericId);
+        if (!template) return;
+        source = template.source;
+        amount = parseFloat(template.amount) || 0;
+        category = template.category;
+        notes = template.notes;
+        templateId = id;
+    } else {
+        const record = records.find(r => r.id === id);
+        if (!record) return;
+        source = record.projectedSource || record.item || record.category;
+        amount = parseFloat(record.amount) || 0;
+        category = record.category;
+        notes = record.notes;
+        templateId = null;
+    }
+
+    showIncomeCollectionCard({
+        id,
+        isRecurring,
+        source,
+        amount,
+        category,
+        notes,
+        templateId,
+        occurrenceDate
+    });
+}
+
+function showIncomeCollectionCard(data) {
+    currentIncomeCollection = data;
+
+    // Update UI
+    document.getElementById('income-expected-amount').textContent = `+$${formatCurrency(data.amount)}`;
+    document.getElementById('income-collection-source').textContent = data.source;
+    
+    const receivedInput = document.getElementById('income-received-amount');
+    receivedInput.value = '';
+    receivedInput.placeholder = `Enter amount (expected $${data.amount.toFixed(2)})`;
+    
+    const sameAmountBtn = document.getElementById('income-receive-same-btn');
+    if (sameAmountBtn) {
+        sameAmountBtn.innerHTML = `<i class="fas fa-check"></i> Same Amount ($${formatCurrency(data.amount)})`;
+    }
+
+    // Show card and overlay
+    const card = document.getElementById('income-collection-card');
+    const overlay = document.getElementById('income-collection-overlay');
+    card?.classList.add('active');
+    overlay?.classList.add('active');
+
+    // Focus input
+    setTimeout(() => {
+        receivedInput?.focus();
+    }, 100);
+}
+
+function hideIncomeCollectionCard() {
+    const card = document.getElementById('income-collection-card');
+    const overlay = document.getElementById('income-collection-overlay');
+    card?.classList.remove('active');
+    overlay?.classList.remove('active');
+    currentIncomeCollection = null;
+}
+
+async function processIncomeCollection() {
+    if (!currentIncomeCollection) return;
+
+    const receivedInput = document.getElementById('income-received-amount');
+    const receivedAmount = parseFloat(receivedInput.value);
+
+    if (isNaN(receivedAmount) || receivedAmount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+
+    const { id, isRecurring, source, amount, category, notes, templateId } = currentIncomeCollection;
+    const todayDate = formatDateLocal(new Date());
+
+    try {
+        if (isRecurring) {
+            // Create an actual income record from template
             const incomeRecord = {
                 formatType: 'single',
                 type: 'income',
                 date: todayDate,
                 timestamp: Date.now(),
                 item: '',
-                category: template.category,
+                category: category,
                 person: '',
-                amount: template.amount,
+                amount: receivedAmount,
                 quantity: '1',
-                notes: template.notes ? `Received recurring income: ${template.source}. ${template.notes}` : `Received recurring income: ${template.source}`,
+                notes: notes ? `Received recurring income: ${source}. ${notes}` : `Received recurring income: ${source}`,
                 isProjected: false,
-                projectedSource: template.source,
+                projectedSource: source,
                 fromRecurringTemplate: templateId
             };
 
             await add(STORE_RECORDS, incomeRecord);
-            showToast('Income recorded successfully', 'success');
-            await refreshData();
-            renderBudget();
-        } catch (error) {
-            console.error('Error collecting recurring income:', error);
-            showToast('Error recording income: ' + error.message, 'error');
+            
+            // If amount changed, add a note about it
+            if (Math.abs(receivedAmount - amount) > 0.01) {
+                showToast(`Income recorded: $${receivedAmount.toFixed(2)} (Expected $${amount.toFixed(2)})`, 'success');
+            } else {
+                showToast('Income recorded successfully', 'success');
+            }
+        } else {
+            // Convert regular projected record to actual
+            const record = records.find(r => r.id === id);
+            if (record) {
+                const originalAmount = parseFloat(record.amount) || 0;
+                record.amount = receivedAmount;
+                record.isProjected = false;
+                record.date = todayDate;
+                record.timestamp = Date.now();
+                
+                // Add note if amount changed
+                if (Math.abs(receivedAmount - originalAmount) > 0.01) {
+                    const changeNote = `[Actual amount received: $${receivedAmount.toFixed(2)}, Expected: $${originalAmount.toFixed(2)}]`;
+                    record.notes = record.notes ? `${record.notes}\n${changeNote}` : changeNote;
+                }
+
+                await updateRecord(STORE_RECORDS, record);
+                showToast('Income recorded successfully', 'success');
+            }
         }
+
+        hideIncomeCollectionCard();
+        await refreshData();
+        renderBudget();
+    } catch (error) {
+        console.error('Error processing income collection:', error);
+        showToast('Error recording income: ' + error.message, 'error');
     }
 }
 
