@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 7; // bumped to support recurring income templates
+const DB_VERSION = 8; // bumped for account_payable / provisional record types (same object store; backward compatible)
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';

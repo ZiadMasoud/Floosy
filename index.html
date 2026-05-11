@@ -48,7 +48,7 @@
       <header style="display: none;">
         <h1 id="tab-title">Dashboard</h1>
       </header>
-      
+
       <!-- Floating User Info (outside hidden header) -->
       <div class="user-info" style="display: none;">
         <span id="tab-name-badge-userinfo">Analytics</span>
@@ -78,47 +78,60 @@
           <div class="hero-metrics">
             <div class="hero-metric-box">
               <div class="hero-metric-label">Spent</div>
-              <div class="hero-metric-value" id="hero-spending"><span class="dollar-icon spending-icon">$</span><span class="amount-num">0</span></div>
+              <div class="hero-metric-value" id="hero-spending"><span class="dollar-icon spending-icon">$</span><span
+                  class="amount-num">0</span></div>
             </div>
             <div class="hero-metric-divider"></div>
             <div class="hero-metric-box">
               <div class="hero-metric-label">Saved</div>
-              <div class="hero-metric-value" id="hero-saved"><span class="dollar-icon savings-icon">$</span><span class="amount-num">0</span></div>
+              <div class="hero-metric-value" id="hero-saved"><span class="dollar-icon savings-icon">$</span><span
+                  class="amount-num">0</span></div>
             </div>
             <div class="hero-metric-divider"></div>
             <div class="hero-metric-box">
               <div class="hero-metric-label">Income</div>
-              <div class="hero-metric-value" id="hero-income"><span class="dollar-icon income-icon">$</span><span class="amount-num">0</span></div>
+              <div class="hero-metric-value" id="hero-income"><span class="dollar-icon income-icon">$</span><span
+                  class="amount-num">0</span></div>
             </div>
           </div>
 
           <div class="hero-this-month">
-            CURRENT BALANCE <span id="hero-this-month-val"><span class="currency-sign">+$</span><span class="amount-num">0</span></span>
+            CURRENT BALANCE <span id="hero-this-month-val"><span class="currency-sign">+$</span><span
+                class="amount-num">0</span></span>
             <i class="fas fa-arrow-trend-down trend-down" id="hero-trend-icon"></i>
           </div>
 
           <!-- Monthly Balance Carry-Over Control -->
           <div class="carry-over-section" id="carry-over-section">
-            <button class="carry-over-btn" id="carry-over-btn" title="Toggle whether to carry over previous month's balance">
+            <button class="carry-over-btn" id="carry-over-btn"
+              title="Toggle whether to carry over previous month's balance">
               <i class="fas fa-exchange-alt"></i>
               <span id="carry-over-text">Start Fresh (No Carry-Over)</span>
             </button>
             <span class="carry-over-hint" id="carry-over-hint">Balance starts at 0 each month</span>
           </div>
 
-          <div class="hero-ar" id="hero-ar-display" style="display: none;">
-            Accounts Receivable: <span class="dollar-icon ar-icon">-$</span><span class="amount-num">0</span>
+          <div class="hero-extra-stats">
+            <div class="hero-ar" id="hero-ar-display" style="display: none;">
+              AR: <span class="dollar-icon ar-icon">-$</span><span class="amount-num">0</span>
+            </div>
+            <div class="hero-ar" id="hero-ap-display" style="display: none;">
+              AP: <span class="dollar-icon ap-icon">$</span><span class="amount-num">0</span>
+            </div>
+            <div class="hero-ar" id="hero-held-display" style="display: none;">
+              Held: <span class="dollar-icon held-icon">$</span><span class="amount-num">0</span>
+            </div>
           </div>
 
           <!-- Upcoming Widget -->
           <div class="upcoming-widget" id="upcoming-widget">
-              <div class="upcoming-widget-header">
-                <i class="fas fa-calendar-alt"></i>
-                <span>Upcoming (Next 5 Days)</span>
-              </div>
-              <div class="upcoming-list">
-                <div class="upcoming-empty">No upcoming transactions</div>
-              </div>
+            <div class="upcoming-widget-header">
+              <i class="fas fa-calendar-alt"></i>
+              <span>Upcoming (Next 5 Days)</span>
+            </div>
+            <div class="upcoming-list">
+              <div class="upcoming-empty">No upcoming transactions</div>
+            </div>
           </div>
         </div>
 
@@ -147,8 +160,22 @@
           <div class="kpi-card accounts-receivable">
             <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="kpi-details">
-              <h3>Accounts Receivable</h3>
+              <h3>AR</h3>
               <p id="total-ar">$0</p>
+            </div>
+          </div>
+          <div class="kpi-card account-payable">
+            <div class="kpi-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+            <div class="kpi-details">
+              <h3>AP</h3>
+              <p id="total-ap">$0</p>
+            </div>
+          </div>
+          <div class="kpi-card provisional-held">
+            <div class="kpi-icon"><i class="fas fa-hourglass-half"></i></div>
+            <div class="kpi-details">
+              <h3>Held</h3>
+              <p id="total-held">$0</p>
             </div>
           </div>
         </div>
@@ -185,6 +212,8 @@
                     <option value="income">Income</option>
                     <option value="savings">Savings</option>
                     <option value="account_receivable">Account Receivable</option>
+                    <option value="account_payable">Account Payable</option>
+                    <option value="provisional">Provisional</option>
                   </select>
                 </div>
                 <div class="filter-group">
@@ -264,6 +293,8 @@
                   <option value="income">Income</option>
                   <option value="savings">Savings</option>
                   <option value="account_receivable">Account Receivable</option>
+                  <option value="account_payable">Account Payable</option>
+                  <option value="provisional">Provisional</option>
                 </select>
               </div>
               <div class="filter-group">
@@ -328,30 +359,33 @@
           <h3 id="spending-breakdown-title">Spending by Category</h3>
           <div class="table-responsive">
             <table class="stats-table" id="spending-breakdown-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Count</th>
-                <th>Amount</th>
-                <th>%</th>
-              </tr>
-            </thead>
-            <tbody id="spending-breakdown-body"></tbody>
-            <tfoot>
-              <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
-                <td>Total</td>
-                <td id="spending-total-count">0</td>
-                <td id="spending-total-amount" class="amount-spending">$0</td>
-                <td>100%</td>
-              </tr>
-            </tfoot>
-          </table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Count</th>
+                  <th>Amount</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody id="spending-breakdown-body"></tbody>
+              <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                  <td>Total</td>
+                  <td id="spending-total-count">0</td>
+                  <td id="spending-total-amount" class="amount-spending">$0</td>
+                  <td>100%</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-          <div class="pagination-controls" id="spending-breakdown-pagination" style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+          <div class="pagination-controls" id="spending-breakdown-pagination"
+            style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
             <button class="btn btn-outline btn-sm" id="prev-spending-page">
               <i class="fas fa-chevron-left"></i> <span class="pagination-text">Previous</span>
             </button>
-            <span id="spending-page-info" style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of 1</span>
+            <span id="spending-page-info"
+              style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of
+              1</span>
             <button class="btn btn-outline btn-sm" id="next-spending-page">
               <span class="pagination-text">Next</span> <i class="fas fa-chevron-right"></i>
             </button>
@@ -362,31 +396,34 @@
         <div class="card" id="income-breakdown-card" style="display: none; margin-bottom: 1.5rem;">
           <h3 id="income-breakdown-title">Income by Category</h3>
           <div class="table-responsive">
-          <table class="stats-table" id="income-breakdown-table">
-            <thead>
-              <tr>
-                <th>Category</th>
-                <th>Count</th>
-                <th>Amount</th>
-                <th>%</th>
-              </tr>
-            </thead>
-            <tbody id="income-breakdown-body"></tbody>
-            <tfoot>
-              <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
-                <td>Total</td>
-                <td id="income-total-count">0</td>
-                <td id="income-total-amount" class="amount-income">$0</td>
-                <td>100%</td>
-              </tr>
-            </tfoot>
-          </table>
+            <table class="stats-table" id="income-breakdown-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Count</th>
+                  <th>Amount</th>
+                  <th>%</th>
+                </tr>
+              </thead>
+              <tbody id="income-breakdown-body"></tbody>
+              <tfoot>
+                <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                  <td>Total</td>
+                  <td id="income-total-count">0</td>
+                  <td id="income-total-amount" class="amount-income">$0</td>
+                  <td>100%</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
-          <div class="pagination-controls" id="income-breakdown-pagination" style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+          <div class="pagination-controls" id="income-breakdown-pagination"
+            style="display: none; margin-top: 1rem; justify-content: center; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
             <button class="btn btn-outline btn-sm" id="prev-income-page">
               <i class="fas fa-chevron-left"></i> <span class="pagination-text">Previous</span>
             </button>
-            <span id="income-page-info" style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of 1</span>
+            <span id="income-page-info"
+              style="align-self: center; font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">Page 1 of
+              1</span>
             <button class="btn btn-outline btn-sm" id="next-income-page">
               <span class="pagination-text">Next</span> <i class="fas fa-chevron-right"></i>
             </button>
@@ -450,69 +487,70 @@
 
       <!-- Budget Tab -->
       <section id="budget" class="tab-content">
-          <button class="btn btn-primary fab" id="add-budget-limit-btn" title="Add Budget Limit" onclick="openBudgetLimitModal()">
-            <i class="fas fa-plus"></i>
-            <span class="fab-label">Add Limit</span>
-          </button>
-          
-          <!-- Budget Health Cards -->
-          <div class="kpi-container" id="budget-kpis">
-            <div class="kpi-card budget">
-              <div class="kpi-icon"><i class="fas fa-bullseye"></i></div>
-              <div class="kpi-details">
-                <h3>Active Budgets</h3>
-                <p id="active-budgets-count">0</p>
-              </div>
-            </div>
-            <div class="kpi-card warning">
-              <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
-              <div class="kpi-details">
-                <h3>Near Limit</h3>
-                <p id="near-limit-count">0</p>
-              </div>
-            </div>
-            <div class="kpi-card danger">
-              <div class="kpi-icon"><i class="fas fa-ban"></i></div>
-              <div class="kpi-details">
-                <h3>Capped</h3>
-                <p id="capped-count">0</p>
-              </div>
-            </div>
-          </div>
+        <button class="btn btn-primary fab" id="add-budget-limit-btn" title="Add Budget Limit"
+          onclick="openBudgetLimitModal()">
+          <i class="fas fa-plus"></i>
+          <span class="fab-label">Add Limit</span>
+        </button>
 
-          <!-- Upcoming Income Section -->
-          <div class="card upcoming-income-section">
-            <div class="card-header">
-              <h3><i class="fas fa-calendar-check"></i> Upcoming Income</h3>
-              <button class="btn btn-primary" id="add-upcoming-income-btn">
-                <i class="fas fa-plus"></i> Add Expected Income
-              </button>
-            </div>
-            <div id="upcoming-income-list" class="upcoming-income-list">
-              <div class="upcoming-income-empty">
-                <i class="fas fa-calendar"></i>
-                <p>No upcoming income or receivables</p>
-              </div>
+        <!-- Budget Health Cards -->
+        <div class="kpi-container" id="budget-kpis">
+          <div class="kpi-card budget">
+            <div class="kpi-icon"><i class="fas fa-bullseye"></i></div>
+            <div class="kpi-details">
+              <h3>Active Budgets</h3>
+              <p id="active-budgets-count">0</p>
             </div>
           </div>
+          <div class="kpi-card warning">
+            <div class="kpi-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="kpi-details">
+              <h3>Near Limit</h3>
+              <p id="near-limit-count">0</p>
+            </div>
+          </div>
+          <div class="kpi-card danger">
+            <div class="kpi-icon"><i class="fas fa-ban"></i></div>
+            <div class="kpi-details">
+              <h3>Capped</h3>
+              <p id="capped-count">0</p>
+            </div>
+          </div>
+        </div>
 
-          <!-- Budget Limits List -->
-          <div class="card">
-            <div class="card-header">
-              <h3>Category Limits</h3>
-              <button class="btn btn-outline" id="reset-all-budgets-btn">
-                <i class="fas fa-redo"></i> Reset All Spent
-              </button>
-            </div>
-            <div id="budget-limits-list" class="budget-limits-list">
-              <!-- Budget limits will be injected here -->
-              <div class="empty-state">
-                <i class="fas fa-bullseye"></i>
-                <p>No budget limits set</p>
-                <span>Add limits to track spending by category</span>
-              </div>
+        <!-- Upcoming Income Section -->
+        <div class="card upcoming-income-section">
+          <div class="card-header">
+            <h3><i class="fas fa-calendar-check"></i> Upcoming Income</h3>
+            <button class="btn btn-primary" id="add-upcoming-income-btn">
+              <i class="fas fa-plus"></i> Add Expected Income
+            </button>
+          </div>
+          <div id="upcoming-income-list" class="upcoming-income-list">
+            <div class="upcoming-income-empty">
+              <i class="fas fa-calendar"></i>
+              <p>No upcoming income or receivables</p>
             </div>
           </div>
+        </div>
+
+        <!-- Budget Limits List -->
+        <div class="card">
+          <div class="card-header">
+            <h3>Category Limits</h3>
+            <button class="btn btn-outline" id="reset-all-budgets-btn">
+              <i class="fas fa-redo"></i> Reset All Spent
+            </button>
+          </div>
+          <div id="budget-limits-list" class="budget-limits-list">
+            <!-- Budget limits will be injected here -->
+            <div class="empty-state">
+              <i class="fas fa-bullseye"></i>
+              <p>No budget limits set</p>
+              <span>Add limits to track spending by category</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Settings Tab -->
@@ -825,6 +863,8 @@
                 <option value="spending">Spending</option>
                 <option value="income">Income</option>
                 <option value="account_receivable">Account Receivable</option>
+                <option value="account_payable">Account Payable</option>
+                <option value="provisional">Provisional</option>
               </select>
             </div>
             <div class="form-group">
@@ -847,7 +887,8 @@
                 <option value="">No owner assigned to this account</option>
                 <!-- Options will be loaded dynamically -->
               </select>
-              <small style="color: var(--text-muted); font-size: 0.75rem;">This is the person this savings account belongs to</small>
+              <small style="color: var(--text-muted); font-size: 0.75rem;">This is the person this savings account
+                belongs to</small>
             </div>
             <div class="form-group">
               <label>Quantity (Optional)</label>
@@ -1016,7 +1057,8 @@
           <div class="record-form-body">
             <div class="form-group">
               <label>Source</label>
-              <input type="text" id="upcoming-income-source" placeholder="e.g. Salary, Freelance, Gift... (optional if category selected)" />
+              <input type="text" id="upcoming-income-source"
+                placeholder="e.g. Salary, Freelance, Gift... (optional if category selected)" />
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -1039,11 +1081,15 @@
               <textarea id="upcoming-income-notes" rows="2" placeholder="Additional details..."></textarea>
             </div>
             <div class="form-group">
-              <div class="recurring-checkbox-wrapper" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius); transition: all 0.2s ease;">
-                <input type="checkbox" id="upcoming-income-recurring" style="position: absolute; opacity: 0; width: 0; height: 0; cursor: pointer; margin: 0;">
-                <label for="upcoming-income-recurring" style="cursor: pointer; font-weight: 500; margin: 0;">Recurring Monthly (Same day every month)</label>
+              <div class="recurring-checkbox-wrapper"
+                style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius); transition: all 0.2s ease;">
+                <input type="checkbox" id="upcoming-income-recurring"
+                  style="position: absolute; opacity: 0; width: 0; height: 0; cursor: pointer; margin: 0;">
+                <label for="upcoming-income-recurring" style="cursor: pointer; font-weight: 500; margin: 0;">Recurring
+                  Monthly (Same day every month)</label>
               </div>
-              <small style="color: var(--text-muted); display: block; margin-top: 0.25rem; margin-left: 0.5rem;">This income will appear every month on the same day until deleted</small>
+              <small style="color: var(--text-muted); display: block; margin-top: 0.25rem; margin-left: 0.5rem;">This
+                income will appear every month on the same day until deleted</small>
             </div>
           </div>
           <div class="modal-actions">
@@ -1054,6 +1100,117 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- AP Pay Debt Card Overlay -->
+  <div id="ap-collection-overlay" class="ar-collection-overlay"></div>
+
+  <!-- Floating AP Pay Debt Card -->
+  <div id="ap-collection-card" class="ar-collection-card ap-pay-card">
+    <div class="ar-collection-header">
+      <h3>Pay Debt</h3>
+      <button class="btn-icon" id="close-ap-collection-card">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="ar-collection-body">
+      <div class="ar-collection-info">
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Total Owed:</span>
+          <span class="ar-info-value" id="ap-total-amount">$0.00</span>
+        </div>
+        <div class="ar-collection-remaining" id="ap-remaining-row">
+          <span class="ar-info-label">Remaining:</span>
+          <span class="ar-info-value" id="ap-remaining-amount">$0.00</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Amount Paid</label>
+        <input type="number" id="ap-paid-amount" step="0.01" min="0.01" placeholder="Enter amount paid..." />
+      </div>
+      <div class="ar-collection-quick-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="ap-pay-full-btn">
+          <i class="fas fa-check-double"></i> Pay Full Amount
+        </button>
+      </div>
+      <div class="ar-collection-progress" id="ap-collection-progress">
+        <div class="ar-progress-bar">
+          <div class="ar-progress-fill ap-progress-fill" id="ap-progress-fill" style="width: 0%"></div>
+        </div>
+        <span class="ar-progress-text" id="ap-progress-text">0% paid</span>
+      </div>
+    </div>
+    <div class="ar-collection-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-ap-collection">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirm-ap-collection">
+        <i class="fas fa-check"></i> Confirm Payment
+      </button>
+    </div>
+  </div>
+
+  <!-- Provisional Resolve Overlay -->
+  <div id="provisional-resolve-overlay" class="ar-collection-overlay"></div>
+
+  <div id="provisional-resolve-card" class="ar-collection-card provisional-resolve-card">
+    <div class="ar-collection-header">
+      <h3>Resolve Provisional</h3>
+      <button class="btn-icon" id="close-provisional-resolve-card">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="ar-collection-body">
+      <div class="ar-collection-info">
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Original amount:</span>
+          <span class="ar-info-value" id="prov-original-amount">$0.00</span>
+        </div>
+        <div class="ar-collection-remaining">
+          <span class="ar-info-label">Held (remaining):</span>
+          <span class="ar-info-value" id="prov-held-remaining">$0.00</span>
+        </div>
+      </div>
+
+      <div class="prov-resolve-section">
+        <h4 class="prov-resolve-subtitle">Money returned</h4>
+        <div class="form-group">
+          <label>Return amount</label>
+          <input type="number" id="prov-return-amount" step="0.01" min="0" placeholder="0.00" />
+        </div>
+        <div class="ar-collection-quick-actions" style="margin-top: 0.5rem; justify-content: flex-start;">
+          <button type="button" class="btn btn-outline btn-sm" id="prov-return-full-btn">
+            <i class="fas fa-check-double"></i> Return full held amount
+          </button>
+        </div>
+      </div>
+
+      <div class="prov-resolve-section">
+        <h4 class="prov-resolve-subtitle">Record as spending</h4>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="prov-spend-category" class="btn btn-outline"
+            style="width: 100%; text-align: left; height: 44px;"></select>
+        </div>
+        <div class="form-group">
+          <label>Spend amount</label>
+          <input type="number" id="prov-spend-amount" step="0.01" min="0" placeholder="0.00" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <textarea id="prov-resolve-notes" rows="2" placeholder="Optional notes for this resolution"></textarea>
+      </div>
+    </div>
+    <div class="ar-collection-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-provisional-resolve">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirm-provisional-return">
+        <i class="fas fa-rotate-left"></i> Apply Return
+      </button>
+      <button type="button" class="btn btn-primary" id="confirm-provisional-spend"
+        style="background: linear-gradient(135deg, #355872 0%, #7AAACE 100%);">
+        <i class="fas fa-cart-shopping"></i> Apply Spend
+      </button>
+    </div>
   </div>
 
   <!-- AR Collection Card Overlay -->
@@ -1108,7 +1265,8 @@
   <!-- Floating Income Collection Card (Same styling as AR) -->
   <div id="income-collection-card" class="ar-collection-card">
     <div class="ar-collection-header">
-      <h3 style="color: var(--success);"><i class="fas fa-hand-holding-dollar" style="color: var(--success);"></i> Receive Income</h3>
+      <h3 style="color: var(--success);"><i class="fas fa-hand-holding-dollar" style="color: var(--success);"></i>
+        Receive Income</h3>
       <button class="btn-icon" id="close-income-collection-card">
         <i class="fas fa-times"></i>
       </button>
@@ -1121,12 +1279,14 @@
         </div>
         <div class="ar-collection-total">
           <span class="ar-info-label">Source:</span>
-          <span class="ar-info-value" id="income-collection-source" style="font-size: 0.9rem; color: var(--text-main);">...</span>
+          <span class="ar-info-value" id="income-collection-source"
+            style="font-size: 0.9rem; color: var(--text-main);">...</span>
         </div>
       </div>
       <div class="form-group">
         <label>Amount Received</label>
-        <input type="number" id="income-received-amount" step="0.01" min="0.01" placeholder="Enter amount received..." />
+        <input type="number" id="income-received-amount" step="0.01" min="0.01"
+          placeholder="Enter amount received..." />
       </div>
       <div class="ar-collection-quick-actions">
         <button type="button" class="btn btn-outline btn-sm" id="income-receive-same-btn">
@@ -1139,7 +1299,8 @@
     </div>
     <div class="ar-collection-actions">
       <button type="button" class="btn btn-secondary" id="cancel-income-collection">Cancel</button>
-      <button type="button" class="btn btn-primary" id="confirm-income-collection" style="background: linear-gradient(135deg, var(--success) 0%, #059669 100%);">
+      <button type="button" class="btn btn-primary" id="confirm-income-collection"
+        style="background: linear-gradient(135deg, var(--success) 0%, #059669 100%);">
         <i class="fas fa-check"></i> Confirm Receipt
       </button>
     </div>

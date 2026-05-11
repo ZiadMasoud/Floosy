@@ -169,7 +169,7 @@ class MonthlySummaryPDF {
     }
 
     calculateSummary(recs, savingsTx) {
-        let totalIncome = 0, totalSpending = 0, totalAR = 0;
+        let totalIncome = 0, totalSpending = 0, totalAR = 0, totalAP = 0;
         const catBreakdown = {}, incomeBreakdown = {}, peopleBreakdown = {}, dailySpending = {};
 
         recs.forEach(r => {
@@ -186,7 +186,7 @@ class MonthlySummaryPDF {
                 return;
             }
 
-            if (r.type === 'income') {
+            if (r.type === 'income' && !r.excludeFromIncomeTotals) {
                 totalIncome += amt;
                 const cat = r.category || 'Other Income';
                 incomeBreakdown[cat] = (incomeBreakdown[cat] || 0) + amt;
@@ -198,6 +198,18 @@ class MonthlySummaryPDF {
                 dailySpending[dateKey] = (dailySpending[dateKey] || 0) + amt;
             } else if (r.type === 'account_receivable' && !r.collected) {
                 totalAR += Math.max(0, amt - (r.collectedAmount || 0));
+            } else if (r.type === 'account_payable' && !r.paid) {
+                totalAP += Math.max(0, amt - (r.paidAmount || 0));
+            } else if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+                r.resolutions.forEach(res => {
+                    if (res.action !== 'spend') return;
+                    const rAmt = (parseFloat(res.amount) || 0);
+                    const c = res.category || 'Uncategorized';
+                    totalSpending += rAmt;
+                    catBreakdown[c] = (catBreakdown[c] || 0) + rAmt;
+                    const resDate = res.date ? res.date.substring(0, 10) : dateKey;
+                    dailySpending[resDate] = (dailySpending[resDate] || 0) + rAmt;
+                });
             }
 
             // expand combined transactions
@@ -236,7 +248,7 @@ class MonthlySummaryPDF {
         const avgDailySpending = activeDays > 0 ? totalSpending / activeDays : 0;
 
         return {
-            totalIncome, totalSpending, totalAR, netSavings, totalSavingsDeposited,
+            totalIncome, totalSpending, totalAR, totalAP, netSavings, totalSavingsDeposited,
             netBalance: totalIncome - totalSpending,
             savingsRate: totalIncome > 0 ? ((totalIncome - totalSpending) / totalIncome) * 100 : 0,
             catBreakdown, incomeBreakdown, peopleBreakdown, dailySpending,
@@ -726,6 +738,15 @@ class MonthlySummaryPDF {
             });
         }
 
+        if (sum.totalAP > 0) {
+            ins.push({
+                color: [234, 88, 12],
+                bg: [255, 247, 237],
+                title: 'Accounts Payable',
+                body: `${this.fmtMoney(sum.totalAP)} owed — not included in spending until paid.`
+            });
+        }
+
         return ins;
     }
 
@@ -1089,8 +1110,16 @@ class MonthlySummaryPDF {
                 const txDate = new Date(r.timestamp);
                 timeStr = txDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             }
-            const typeColor = r.type === 'income' ? C.success : r.type === 'account_receivable' ? C.info : C.danger;
-            const typeLabel = r.type === 'income' ? 'INC' : r.type === 'account_receivable' ? 'A/R' : 'EXP';
+            const typeColor = r.type === 'income' ? C.success
+                : r.type === 'account_receivable' ? C.info
+                    : r.type === 'account_payable' ? [234, 88, 12]
+                        : r.type === 'provisional' ? [100, 116, 139]
+                            : C.danger;
+            const typeLabel = r.type === 'income' ? 'INC'
+                : r.type === 'account_receivable' ? 'A/R'
+                    : r.type === 'account_payable' ? 'A/P'
+                        : r.type === 'provisional' ? 'HLD'
+                            : 'EXP';
             const amt = (parseFloat(r.amount) || 0) * (parseInt(r.quantity) || 1);
             const rawItem = r.item || r.notes || (r.formatType === 'combined' ? 'Combined tx' : '—');
             const item = rawItem.substring(0, 30);

@@ -8,6 +8,87 @@ function formatDateLocal(date) {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
+
+function incomeExcludedFromTotals(r) {
+    return !!(r && (r.isProjected || r.excludeFromIncomeTotals));
+}
+
+function getAROutstandingAmount(r) {
+    if (!r || r.type !== 'account_receivable' || r.collected) return 0;
+    return Math.max(0, (parseFloat(r.amount) || 0) - (parseFloat(r.collectedAmount) || 0));
+}
+
+function getAPOutstandingAmount(r) {
+    if (!r || r.type !== 'account_payable' || r.paid) return 0;
+    return Math.max(0, (parseFloat(r.amount) || 0) - (parseFloat(r.paidAmount) || 0));
+}
+
+function getProvisionalHeld(r) {
+    if (!r || r.type !== 'provisional') return 0;
+    if (r.status === 'closed') return 0;
+    if (r.heldAmount !== undefined && r.heldAmount !== null) {
+        const h = parseFloat(r.heldAmount);
+        if (!Number.isNaN(h)) return Math.max(0, h);
+    }
+    return Math.max(0, (parseFloat(r.amount) || 0) - provisionalReturnedTotal(r) - provisionalSpentTotal(r));
+}
+
+function provisionalReturnedTotal(r) {
+    return (r.resolutions || []).filter(x => x.action === 'return' && !x.undone).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+}
+
+function provisionalSpentTotal(r) {
+    return (r.resolutions || []).filter(x => x.action === 'spend' && !x.undone).reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+}
+
+function refreshProvisionalDerivedFields(rec) {
+    if (!rec || rec.type !== 'provisional') return;
+    const total = parseFloat(rec.amount) || 0;
+    const ret = provisionalReturnedTotal(rec);
+    const sp = provisionalSpentTotal(rec);
+    rec.heldAmount = Math.max(0, total - ret - sp);
+    if (rec.heldAmount <= 0.0001) {
+        rec.heldAmount = 0;
+        rec.status = 'closed';
+    } else if ((rec.resolutions || []).length > 0) {
+        rec.status = 'partially_resolved';
+    } else {
+        rec.status = 'open';
+    }
+}
+
+function provisionalBalanceEffectInMonth(r, year, month) {
+    let n = 0;
+    const created = new Date(r.date);
+    if (created.getFullYear() === year && created.getMonth() === month - 1) {
+        n -= parseFloat(r.amount) || 0;
+    }
+    (r.resolutions || []).forEach(res => {
+        if (res.action !== 'return' || res.undone) return;
+        const rd = new Date(res.date);
+        if (rd.getFullYear() === year && rd.getMonth() === month - 1) {
+            n += parseFloat(res.amount) || 0;
+        }
+    });
+    return n;
+}
+
+function provisionalBalanceEffectPriorToTimestamp(r, targetTimestamp, excludeRecordId) {
+    let n = 0;
+    const createdTs = new Date(r.date).getTime();
+    if (createdTs < targetTimestamp || (createdTs === targetTimestamp && r.id < excludeRecordId)) {
+        n -= parseFloat(r.amount) || 0;
+    }
+    (r.resolutions || []).forEach(res => {
+        if (res.action !== 'return' || res.undone) return;
+        const rdTs = new Date(res.date).getTime();
+        if (rdTs < targetTimestamp) {
+            n += parseFloat(res.amount) || 0;
+        }
+    });
+    return n;
+}
+
 let categoryChart = null;
 let trendChart = null;
 let monthlyTrendChart = null;
@@ -981,6 +1062,43 @@ function initEventListeners() {
             hideIncomeCollectionCard();
         }
     });
+
+    const apCard = document.getElementById('ap-collection-card');
+    const apOverlay = document.getElementById('ap-collection-overlay');
+    document.getElementById('close-ap-collection-card')?.addEventListener('click', hideAPCollectionCard);
+    document.getElementById('cancel-ap-collection')?.addEventListener('click', hideAPCollectionCard);
+    document.getElementById('confirm-ap-collection')?.addEventListener('click', processPartialAPPayment);
+    apOverlay?.addEventListener('click', hideAPCollectionCard);
+    document.getElementById('ap-pay-full-btn')?.addEventListener('click', () => {
+        const inp = document.getElementById('ap-paid-amount');
+        if (currentAPCollection && inp) {
+            inp.value = currentAPCollection.remainingAmount.toFixed(2);
+            updateAPProgress();
+        }
+    });
+    document.getElementById('ap-paid-amount')?.addEventListener('input', updateAPProgress);
+    document.getElementById('ap-paid-amount')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') processPartialAPPayment();
+    });
+
+    const provCard = document.getElementById('provisional-resolve-card');
+    const provOverlay = document.getElementById('provisional-resolve-overlay');
+    document.getElementById('close-provisional-resolve-card')?.addEventListener('click', hideProvisionalResolveCard);
+    document.getElementById('cancel-provisional-resolve')?.addEventListener('click', hideProvisionalResolveCard);
+    provOverlay?.addEventListener('click', hideProvisionalResolveCard);
+    document.getElementById('confirm-provisional-return')?.addEventListener('click', processProvisionalReturn);
+    document.getElementById('confirm-provisional-spend')?.addEventListener('click', processProvisionalSpend);
+    document.getElementById('prov-return-full-btn')?.addEventListener('click', () => {
+        const inp = document.getElementById('prov-return-amount');
+        if (currentProvisionalResolve && inp) {
+            inp.value = currentProvisionalResolve.heldRemaining.toFixed(2);
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && apCard?.classList.contains('active')) hideAPCollectionCard();
+        if (e.key === 'Escape' && provCard?.classList.contains('active')) hideProvisionalResolveCard();
+    });
 }
 
 function toggleItemField() {
@@ -992,7 +1110,7 @@ function toggleItemField() {
         itemFieldContainer.style.display = 'none';
         recordItem.removeAttribute('required');
     } else {
-        // Show item field for spending and account_receivable
+        // Show item field for spending, A/R, A/P, and provisional
         itemFieldContainer.style.display = 'block';
         // Item field is optional - if empty, category name will be used
         recordItem.removeAttribute('required');
@@ -1368,16 +1486,39 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
         } else if (r.type === 'spending') {
             spending += amount;
         }
-        // account_receivable excluded - affects balance only, not income/spending
+        // account_receivable / account_payable excluded from income/spending here — balance handled below
     });
 
-    // Calculate AR impact from prior records in this month (only pending AR)
+    // Calculate AR impact from prior records in this month (only pending AR, partial-aware)
     const arImpact = priorRecords
         .filter(r => r.type === 'account_receivable' && !r.collected)
-        .reduce((sum, r) => sum - (parseFloat(r.amount) || 0), 0);
+        .reduce((sum, r) => sum - getAROutstandingAmount(r), 0);
 
-    // Opening Balance = Carried Balance + Income (this month) - Spending (this month) + AR Impact (this month)
-    const openingBalance = carriedBalance + income - spending + arImpact;
+    const apImpact = priorRecords
+        .filter(r => r.type === 'account_payable')
+        .reduce((sum, r) => sum - (parseFloat(r.paidAmount) || 0), 0);
+
+    const targetTs = targetDate.getTime();
+    let provImpact = 0;
+    records.forEach(r => {
+        if (r.type !== 'provisional' || r.isProjected) return;
+        const d = new Date(r.date);
+        if (d.getFullYear() !== recordYear || d.getMonth() + 1 !== recordMonth) {
+            (r.resolutions || []).forEach(res => {
+                if (res.action !== 'return' || res.undone) return;
+                const rd = new Date(res.date);
+                if (rd.getFullYear() !== recordYear || rd.getMonth() + 1 !== recordMonth) return;
+                if (rd.getTime() < targetTs) {
+                    provImpact += parseFloat(res.amount) || 0;
+                }
+            });
+            return;
+        }
+        provImpact += provisionalBalanceEffectPriorToTimestamp(r, targetTs, excludeRecordId);
+    });
+
+    // Opening Balance = Carried Balance + Income (this month) - Spending (this month) + AR Impact (this month) + AP paid impact + provisional
+    const openingBalance = carriedBalance + income - spending + arImpact + apImpact + provImpact;
 
     return openingBalance;
 }
@@ -1459,6 +1600,8 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     let income = 0;
     let spending = 0;
     let arImpact = 0;
+    let apImpact = 0;
+    let provImpact = 0;
 
     monthRecords.forEach(r => {
         // Skip projected/expected income - they don't affect actual balance
@@ -1505,8 +1648,19 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
                 spending += amount;
             } else if (r.type === 'account_receivable' && !r.collected) {
                 arImpact -= Math.max(0, amount - (r.collectedAmount || 0));
+            } else if (r.type === 'account_payable') {
+                apImpact -= parseFloat(r.paidAmount) || 0;
+            } else if (r.type === 'provisional') {
+                provImpact += provisionalBalanceEffectInMonth(r, year, month);
             }
         }
+    });
+
+    records.forEach(r => {
+        if (r.type !== 'provisional' || r.isProjected) return;
+        const d = new Date(r.date);
+        if (d.getFullYear() === year && d.getMonth() === month - 1) return;
+        provImpact += provisionalBalanceEffectInMonth(r, year, month);
     });
 
     // We need to calculate the balance by excluding the portion of income that went to savings
@@ -1525,7 +1679,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
             return sum;
         }, 0);
 
-    return carriedBalance + walletIncome - spending + arImpact;
+    return carriedBalance + walletIncome - spending + arImpact + apImpact + provImpact;
 }
 
 // Update the carry-over button UI
@@ -1778,6 +1932,8 @@ async function renderDashboard() {
             else if (filterType === 'spending') typeMatch = r.type === 'spending' && !isSavings;
             else if (filterType === 'income') typeMatch = r.type === 'income'; // Include savings income
             else if (filterType === 'account_receivable') typeMatch = r.type === 'account_receivable';
+            else if (filterType === 'account_payable') typeMatch = r.type === 'account_payable';
+            else if (filterType === 'provisional') typeMatch = r.type === 'provisional';
         }
 
         // Person/Category filters
@@ -1788,7 +1944,7 @@ async function renderDashboard() {
             if (filterCategoryValue === 'all-income') {
                 categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategoryValue === 'all-spending') {
-                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable' || r.type === 'account_payable' || r.type === 'provisional') && !isSavings;
             } else {
                 categoryMatch = catToMatch === filterCategoryValue;
             }
@@ -1874,7 +2030,9 @@ async function renderDashboard() {
         }
 
         if (r.type === 'income') {
-            income += amount;
+            if (!incomeExcludedFromTotals(r)) {
+                income += amount;
+            }
             dashboardBalanceIncome += amount;
         } else if (r.type === 'spending') {
             spending += amount;
@@ -1907,16 +2065,37 @@ async function renderDashboard() {
         })
         .reduce((sum, r) => sum + Math.max(0, (parseFloat(r.amount) || 0) - (r.collectedAmount || 0)), 0);
 
+    const apOutstanding = expandedRecords
+        .filter(r => {
+            if (r.type !== 'account_payable' || r.paid) return false;
+            const personMatch = !filterPerson || r.person === filterPerson;
+            const categoryMatch = !filterCategoryValue || (r.isCombinedComponent ? r.actualCategory : r.category) === filterCategoryValue;
+            return personMatch && categoryMatch;
+        })
+        .reduce((sum, r) => sum + getAPOutstandingAmount(r), 0);
+
+    const heldTotal = expandedRecords
+        .filter(r => {
+            if (r.type !== 'provisional') return false;
+            const personMatch = !filterPerson || r.person === filterPerson;
+            const categoryMatch = !filterCategoryValue || (r.isCombinedComponent ? r.actualCategory : r.category) === filterCategoryValue;
+            return personMatch && categoryMatch;
+        })
+        .reduce((sum, r) => sum + getProvisionalHeld(r), 0);
 
     const incomeEl = document.getElementById('total-income');
     const spendingEl = document.getElementById('total-spending');
     const balanceEl = document.getElementById('total-balance');
     const arEl = document.getElementById('total-ar');
+    const apEl = document.getElementById('total-ap');
+    const heldEl = document.getElementById('total-held');
 
     if (incomeEl) incomeEl.innerHTML = `<span class="dollar-positive">+$</span><span class="amount-num">${formatCurrency(income)}</span>`;
     if (spendingEl) spendingEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
     if (balanceEl) balanceEl.innerHTML = `<span class="${balance >= 0 ? 'dollar-positive' : 'dollar-negative'}">${balance >= 0 ? '+' : '-'}$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
     if (arEl) arEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(arPending)}</span>`;
+    if (apEl) apEl.innerHTML = `<span class="ap-kpi-amount">$</span><span class="amount-num">${formatCurrency(apOutstanding)}</span>`;
+    if (heldEl) heldEl.innerHTML = `<span class="held-kpi-amount">$</span><span class="amount-num">${formatCurrency(heldTotal)}</span>`;
 
     // Update Mobile Hero Metrics
     // heroMonthEl update already handled above
@@ -1928,6 +2107,8 @@ async function renderDashboard() {
     const heroThisMonthValEl = document.getElementById('hero-this-month-val');
     const heroTrendIconEl = document.getElementById('hero-trend-icon');
     const heroArDisplayEl = document.getElementById('hero-ar-display');
+    const heroApDisplayEl = document.getElementById('hero-ap-display');
+    const heroHeldDisplayEl = document.getElementById('hero-held-display');
 
     if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
     if (heroSavedEl) heroSavedEl.innerHTML = `<span class="dollar-icon savings-icon">$</span><span class="amount-num">${formatCurrency(saved)}</span>`;
@@ -1943,7 +2124,15 @@ async function renderDashboard() {
     }
     if (heroArDisplayEl) {
         heroArDisplayEl.style.display = 'block';
-        heroArDisplayEl.innerHTML = `Accounts Receivable: <span class="dollar-icon ar-icon">$</span><span class="amount-num">${formatCurrency(arPending)}</span>`;
+        heroArDisplayEl.innerHTML = `AR: <span class="dollar-icon ar-icon">$</span><span class="amount-num">${formatCurrency(arPending)}</span>`;
+    }
+    if (heroApDisplayEl) {
+        heroApDisplayEl.style.display = 'block';
+        heroApDisplayEl.innerHTML = `AP: <span class="dollar-icon ap-icon">$</span><span class="amount-num">${formatCurrency(apOutstanding)}</span>`;
+    }
+    if (heroHeldDisplayEl) {
+        heroHeldDisplayEl.style.display = 'block';
+        heroHeldDisplayEl.innerHTML = `Held: <span class="dollar-icon held-icon">$</span><span class="amount-num">${formatCurrency(heldTotal)}</span>`;
     }
 
     // Render records - pass ORIGINAL records (not expanded) so combined transactions appear as single entries
@@ -1992,6 +2181,10 @@ function renderDashboardRecords(recordsToRender) {
             typeMatch = r.type === 'income'; // Include savings income
         } else if (filterType === 'account_receivable') {
             typeMatch = r.type === 'account_receivable';
+        } else if (filterType === 'account_payable') {
+            typeMatch = r.type === 'account_payable';
+        } else if (filterType === 'provisional') {
+            typeMatch = r.type === 'provisional';
         }
 
         const recordDate = new Date(r.date);
@@ -2003,7 +2196,9 @@ function renderDashboardRecords(recordsToRender) {
             // Default Dashboard View: Current month transactions OR any currently pending AR
             const isCurrentMonth = recordDate.getMonth() === now.getMonth() && recordDate.getFullYear() === now.getFullYear();
             const isPendingAR = r.type === 'account_receivable' && !r.collected;
-            periodMatch = isCurrentMonth || isPendingAR;
+            const isPendingAP = r.type === 'account_payable' && !r.paid;
+            const isOpenProv = r.type === 'provisional' && r.status !== 'closed' && getProvisionalHeld(r) > 0;
+            periodMatch = isCurrentMonth || isPendingAR || isPendingAP || isOpenProv;
         } else {
             // Explicit Filter View: Match the selected Year and/or Month
             const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
@@ -2013,6 +2208,12 @@ function renderDashboardRecords(recordsToRender) {
             // Special Dashboard Case: Pending AR is often kept visible on the dashboard even when filtering by month,
             // as it represents outstanding action items. Only show if it matches other active filters.
             if (r.type === 'account_receivable' && !r.collected && (filterType === 'all' || filterType === 'account_receivable')) {
+                periodMatch = true;
+            }
+            if (r.type === 'account_payable' && !r.paid && (filterType === 'all' || filterType === 'account_payable')) {
+                periodMatch = true;
+            }
+            if (r.type === 'provisional' && r.status !== 'closed' && getProvisionalHeld(r) > 0 && (filterType === 'all' || filterType === 'provisional')) {
                 periodMatch = true;
             }
         }
@@ -2025,7 +2226,7 @@ function renderDashboardRecords(recordsToRender) {
             if (filterCategory === 'all-income') {
                 categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategory === 'all-spending') {
-                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable' || r.type === 'account_payable' || r.type === 'provisional') && !isSavings;
             } else {
                 categoryMatch = catToMatch === filterCategory;
             }
@@ -2167,9 +2368,14 @@ function renderDashboardRecords(recordsToRender) {
             }
         }
         const isAR = r.type === 'account_receivable';
+        const isAP = r.type === 'account_payable';
+        const isProv = r.type === 'provisional';
         const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
         const isCarriedForward = r.carriedForwardFrom;
         const arStatus = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+        const apStatus = isAP ? (r.paid ? ' (Paid)' : ' (Open)') : '';
+        const provStatusLabel = isProv ? (r.status === 'closed' ? 'Closed' : r.status === 'partially_resolved' ? 'Partial' : 'Open') : '';
+        const provStatus = isProv ? ` (${provStatusLabel})` : '';
 
         // For combined transactions, calculate net and breakdown
         let combinedIncome = 0;
@@ -2238,6 +2444,16 @@ function renderDashboardRecords(recordsToRender) {
             typeClass = 'account_receivable';
             amountClass = r.collected ? 'income' : 'account_receivable';
             amountPrefix = '';
+        } else if (r.type === 'account_payable') {
+            icon = 'fa-file-invoice-dollar';
+            typeClass = 'account_payable';
+            amountClass = r.paid ? 'income' : 'account_payable';
+            amountPrefix = '';
+        } else if (r.type === 'provisional') {
+            icon = 'fa-hourglass-half';
+            typeClass = 'provisional';
+            amountClass = r.status === 'closed' ? 'provisional-closed' : 'provisional';
+            amountPrefix = '-';
         } else {
             icon = 'fa-dollar-sign';
             typeClass = 'spending';
@@ -2259,7 +2475,8 @@ function renderDashboardRecords(recordsToRender) {
 
         const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer);
         const card = document.createElement('div');
-        card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}`;
+        const provResolvedClass = isProv && r.status === 'closed' ? ' provisional-resolved' : '';
+        card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}${provResolvedClass}`;
         card.onclick = async (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
@@ -2270,21 +2487,44 @@ function renderDashboardRecords(recordsToRender) {
         const combinedBadge = '';
 
         // Show amount - for combined, show the net
-        const displayAmount = isCombined ? Math.abs(combinedNet) : parseFloat(r.amount);
+        let displayAmount = parseFloat(r.amount);
+        if (isCombined) {
+            displayAmount = Math.abs(combinedNet);
+        } else if (isProv) {
+            displayAmount = r.status === 'closed' ? 0 : getProvisionalHeld(r);
+        } else if (isAR) {
+            displayAmount = getAROutstandingAmount(r);
+        } else if (isAP) {
+            displayAmount = getAPOutstandingAmount(r);
+        }
+
+        const badgeType = isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type;
+        const typeExtraStatus = isAR ? arStatus : (isAP ? apStatus : (isProv ? provStatus : ''));
+        const amountIconClass = isAR ? 'ar-icon' : isAP ? 'ap-icon' : isProv ? 'held-icon' : (amountPrefix === '+' ? 'dollar-positive' : 'dollar-negative');
+        const amountPrefixOut = isProv ? '-' : amountPrefix;
 
         card.innerHTML = `
             <div class="transaction-icon">
                 <i class="fas ${icon}"></i>
             </div>
             <div class="transaction-info">
-                <div class="transaction-name"><span>${displayName}</span></div>
+                <div class="transaction-name"><span>${displayName}</span>${isProv && r.status === 'closed' ? ' <i class="fas fa-check-circle prov-closed-icon" title="Resolved"></i>' : ''}</div>
                 <div class="transaction-category">
-                    <span class="category-badge badge-${isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type}">${isCombined ? 'Combined' : categoryName}${arStatus}</span>
+                    <span class="category-badge badge-${badgeType}">${isCombined ? 'Combined' : categoryName}${typeExtraStatus}</span>
                     ${r.person ? `<span><i class="fas fa-user" style="font-size: 0.7rem;"></i> ${r.person}</span>` : ''}
                 </div>
             </div>
             <div class="transaction-amount">
-                <div class="amount ${amountClass}"><span class="${isAR ? 'ar-icon' : (amountPrefix === '+' ? 'dollar-positive' : 'dollar-negative')}">${amountPrefix}$</span><span class="amount-num">${formatCurrency(displayAmount)}</span></div>
+                <div class="amount ${amountClass}">
+                    <div style="display: flex; align-items: baseline; justify-content: flex-end; gap: 2px;">
+                        <span class="${amountIconClass}">${amountPrefixOut}$</span><span class="amount-num">${formatCurrency(displayAmount)}</span>
+                    </div>
+                    ${((isAR || isAP) && displayAmount < parseFloat(r.amount) - 0.001) ? `
+                        <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500; text-align: right; margin-top: -2px;">
+                            of $${formatCurrency(parseFloat(r.amount))}
+                        </div>
+                    ` : ''}
+                </div>
                 <div class="date">${dateStr}</div>
             </div>
             <div class="transaction-actions">
@@ -2298,6 +2538,27 @@ function renderDashboardRecords(recordsToRender) {
                             <i class="fas fa-undo"></i>
                         </button>
                     `}
+                ` : ''}
+                ${isAP ? `
+                    ${!r.paid ? `
+                        <button class="btn-icon collect-btn" onclick="event.stopPropagation(); payDebtAP(${r.isCombinedComponent ? r.originalId : r.id})" title="Pay Debt">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </button>
+                    ` : `
+                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoPayAP(${r.isCombinedComponent ? r.originalId : r.id})" title="Undo Payment">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    `}
+                ` : ''}
+                ${isProv && r.status !== 'closed' && getProvisionalHeld(r) > 0 ? `
+                        <button class="btn-icon collect-btn" onclick="event.stopPropagation(); resolveProvisional(${r.isCombinedComponent ? r.originalId : r.id})" title="Resolve Held Funds">
+                            <i class="fas fa-sliders-h"></i>
+                        </button>
+                ` : ''}
+                ${isProv && r.resolutions && r.resolutions.filter(res => !res.undone).length > 0 ? `
+                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoLastProvisionalResolution(${r.isCombinedComponent ? r.originalId : r.id})" title="Undo Last Resolution">
+                            <i class="fas fa-undo"></i>
+                        </button>
                 ` : ''}
                 <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Edit">
                     <i class="fas fa-pen"></i>
@@ -2522,7 +2783,7 @@ function renderCategoryBreakdown(records, type) {
             spendingStats[categoryKey].count += 1;
             totalSpending += amt;
             spendingCount += 1;
-        } else if (r.type === 'income') {
+        } else if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
             if (!incomeStats[categoryKey]) {
                 incomeStats[categoryKey] = { 
                     name: categoryName, 
@@ -2535,6 +2796,22 @@ function renderCategoryBreakdown(records, type) {
             incomeStats[categoryKey].count += 1;
             totalIncome += amt;
             incomeCount += 1;
+        }
+
+        if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+            r.resolutions.forEach(res => {
+                if (res.action !== 'spend') return;
+                const cname = res.category || 'Uncategorized';
+                const sk = `${cname}|normal`;
+                const samt = parseFloat(res.amount) || 0;
+                if (!spendingStats[sk]) {
+                    spendingStats[sk] = { name: cname, amount: 0, count: 0, isSavingsAccount: false };
+                }
+                spendingStats[sk].amount += samt;
+                spendingStats[sk].count += 1;
+                totalSpending += samt;
+                spendingCount += 1;
+            });
         }
     });
 
@@ -2917,6 +3194,8 @@ function renderRecords() {
              (r.type === filterType && !isSavings));
         const recordDate = new Date(r.date);
         const isPendingAR = r.type === 'account_receivable' && !r.collected;
+        const isPendingAP = r.type === 'account_payable' && !r.paid;
+        const isOpenProv = r.type === 'provisional' && r.status !== 'closed' && getProvisionalHeld(r) > 0;
 
         // Default year/month match behavior
         let yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
@@ -2924,6 +3203,14 @@ function renderRecords() {
 
         // Carry-forward behavior for pending A/R when filtering by a specific month+year
         if (filterMonthEnd && isPendingAR) {
+            yearMatch = true;
+            monthMatch = recordDate <= filterMonthEnd;
+        }
+        if (filterMonthEnd && isPendingAP) {
+            yearMatch = true;
+            monthMatch = recordDate <= filterMonthEnd;
+        }
+        if (filterMonthEnd && isOpenProv) {
             yearMatch = true;
             monthMatch = recordDate <= filterMonthEnd;
         }
@@ -2935,7 +3222,7 @@ function renderRecords() {
             if (filterCategory === 'all-income') {
                 categoryMatch = r.type === 'income' && !isSavings;
             } else if (filterCategory === 'all-spending') {
-                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable' || r.type === 'account_payable' || r.type === 'provisional') && !isSavings;
             } else {
                 categoryMatch = catToMatch === filterCategory;
             }
@@ -3037,22 +3324,41 @@ function renderRecords() {
             tr.onclick = async () => await openDetailsModal(r);
 
             const isAR = r.type === 'account_receivable';
+            const isAP = r.type === 'account_payable';
+            const isProv = r.type === 'provisional';
             const arClass = isAR ? (r.collected ? 'collected' : 'pending') : '';
             const arStatusText = isAR ? (r.collected ? ' (Collected)' : ' (Pending)') : '';
+            const apClass = isAP ? (r.paid ? 'collected' : 'pending') : '';
+            const apStatusText = isAP ? (r.paid ? ' (Paid)' : ' (Open)') : '';
+            const provLabel = isProv ? (r.status === 'closed' ? 'Closed' : r.status === 'partially_resolved' ? 'Partial' : 'Open') : '';
+            const provStatusText = isProv ? ` (${provLabel})` : '';
             const isSavingsTransfer = !!r.isSavingsTransfer || r.category === 'Savings Transfer' || r.type === 'savings_transfer';
             const savingsTransferText = `<span class="category-badge badge-savings">Saving</span>`;
+            const badgeExtra = isAR ? arClass : (isAP ? apClass : '');
+            const typeExtra = isAR ? arStatusText : (isAP ? apStatusText : (isProv ? provStatusText : ''));
+            const rowAmt = isProv ? getProvisionalHeld(r) : parseFloat(r.amount);
+            const amtCellClass = r.type === 'income' ? 'amount-income'
+                : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass
+                    : (r.type === 'account_payable' ? 'amount-account_payable ' + apClass
+                        : (r.type === 'provisional' ? 'amount-provisional' : 'amount-spending')));
+            const amtSpanClass = r.type === 'income' ? 'dollar-positive'
+                : (r.type === 'account_receivable' ? 'ar-icon'
+                    : (r.type === 'account_payable' ? 'ap-icon'
+                        : (r.type === 'provisional' ? 'held-icon' : 'dollar-negative')));
+            const amtPrefix = r.type === 'income' ? '+' : (r.type === 'account_receivable' || r.type === 'account_payable' ? '' : '-');
 
             tr.innerHTML = `
                 <td>${r.isParentGroupHeader ? '' : r.date}</td>
                 <td class="item-cell">${(r.isCombinedComponent ? (r.item || '-') : (isCombined ? r.item : (r.type === 'income' ? r.category : r.item))) + (r.isCombinedComponent ? '' : carriedForwardText)}</td>
                 <td>
                     ${r.isParentGroupHeader ? '' : (isSavingsTransfer ? savingsTransferText : `
-                        <span class="category-badge badge-${r.type} ${arClass}">${r.isCombinedComponent ? r.actualCategory : r.category}${arStatusText}</span>
+                        <span class="category-badge badge-${r.type} ${badgeExtra}">${r.isCombinedComponent ? r.actualCategory : r.category}${typeExtra}</span>
                     `)}
                 </td>
                 <td>${r.isParentGroupHeader ? '' : (r.person || '-')}</td>
-                <td class="${r.type === 'income' ? 'amount-income' : (r.type === 'account_receivable' ? 'amount-account_receivable ' + arClass : 'amount-spending')}">
-                    <span class="${r.type === 'income' ? 'dollar-positive' : (r.type === 'account_receivable' ? 'ar-icon' : 'dollar-negative')}">${r.type === 'income' ? '+' : (r.type === 'account_receivable' ? '' : '-')}$</span><span class="amount-num">${formatCurrency(parseFloat(r.amount))}</span>
+                <td class="${amtCellClass}">
+                    <span class="${amtSpanClass}">${amtPrefix}$</span><span class="amount-num">${formatCurrency(rowAmt)}</span>
+                    ${((isAR || isAP) && rowAmt < parseFloat(r.amount) - 0.001) ? `<br><small style="color: var(--text-muted);">of $${formatCurrency(parseFloat(r.amount))}</small>` : ''}
                     ${isCombined && !r.isCombinedComponent && !r.isParentGroupHeader ? `<br><small style="color: var(--text-muted);">(${r.quantity} items)</small>` : ''}
                 </td>
                 <td>${r.isParentGroupHeader ? '' : (r.quantity || '-')}</td>
@@ -3067,6 +3373,21 @@ function renderRecords() {
                         ${isAR && r.collected && !r.isParentGroupHeader ? `
                             <button class="btn-icon uncollect-btn" onclick="event.stopPropagation(); uncollectAR(${r.isCombinedComponent ? r.originalId : r.id})" title="Mark Pending">
                                 <i class="fas fa-undo"></i>
+                            </button>
+                        ` : ''}
+                        ${isAP && !r.paid && !r.isParentGroupHeader ? `
+                            <button class="btn-icon collect-btn" onclick="event.stopPropagation(); payDebtAP(${r.isCombinedComponent ? r.originalId : r.id})" title="Pay Debt">
+                                <i class="fas fa-money-bill-wave"></i>
+                            </button>
+                        ` : ''}
+                        ${isAP && r.paid && !r.isParentGroupHeader ? `
+                            <button class="btn-icon uncollect-btn" onclick="event.stopPropagation(); undoPayAP(${r.isCombinedComponent ? r.originalId : r.id})" title="Undo Payment">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                        ` : ''}
+                        ${isProv && r.status !== 'closed' && getProvisionalHeld(r) > 0 && !r.isParentGroupHeader ? `
+                            <button class="btn-icon collect-btn" onclick="event.stopPropagation(); resolveProvisional(${r.isCombinedComponent ? r.originalId : r.id})" title="Resolve">
+                                <i class="fas fa-sliders-h"></i>
                             </button>
                         ` : ''}
                         <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : (r.isParentGroupHeader ? r.id : r.id)})"><i class="fas fa-edit"></i></button>
@@ -3157,7 +3478,7 @@ function renderAnalytics() {
             if (filterCategory === 'all-income') {
                 categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategory === 'all-spending') {
-                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable') && !isSavings;
+                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable' || r.type === 'account_payable' || r.type === 'provisional') && !isSavings;
             } else {
                 categoryMatch = r.category === filterCategory;
             }
@@ -3180,13 +3501,40 @@ function renderAnalytics() {
 
         const amount = parseFloat(r.amount) || 0;
 
-        if (r.type === 'income') {
+        if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
             monthlyStats[monthKey].income += amount;
         } else if (r.type === 'spending') {
             monthlyStats[monthKey].spending += parseFloat(r.amount);
             monthlyStats[monthKey].categories[r.category] = (monthlyStats[monthKey].categories[r.category] || 0) + parseFloat(r.amount);
         }
         // account_receivable excluded - affects balance only, not income/spending
+
+        if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+            r.resolutions.forEach(res => {
+                if (res.action !== 'spend') return;
+                const rd = new Date(res.date);
+                const resYearMatch = !filterYear || rd.getFullYear().toString() === filterYear;
+                const resMonthMatch = filterMonth === '' || (rd.getMonth() + 1).toString() === filterMonth;
+                if (!resYearMatch || !resMonthMatch) return;
+                const resPersonMatch = !filterPerson || r.person === filterPerson || r.savingsBeneficiary === filterPerson;
+                let resCatMatch = !filterCategory;
+                if (filterCategory) {
+                    if (filterCategory === 'all-spending') resCatMatch = true;
+                    else if (filterCategory === 'all-income') resCatMatch = false;
+                    else resCatMatch = (res.category || '') === filterCategory;
+                }
+                const typeOk = filterType === 'all' || filterType === 'spending' || filterType === 'provisional';
+                if (!typeOk || !resPersonMatch || !resCatMatch) return;
+                const resMonthKey = `${rd.getFullYear()}-${String(rd.getMonth() + 1).padStart(2, '0')}`;
+                if (!monthlyStats[resMonthKey]) {
+                    monthlyStats[resMonthKey] = { income: 0, spending: 0, arPending: 0, arCollected: 0, categories: {} };
+                }
+                const samt = parseFloat(res.amount) || 0;
+                const cat = res.category || 'Uncategorized';
+                monthlyStats[resMonthKey].spending += samt;
+                monthlyStats[resMonthKey].categories[cat] = (monthlyStats[resMonthKey].categories[cat] || 0) + samt;
+            });
+        }
     });
 
     const sortedMonths = Object.keys(monthlyStats).sort().reverse();
@@ -3273,20 +3621,30 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
         const amount = parseFloat(r.amount) || 0;
 
         // General totals for whatever is in filteredRecords (include savings income)
-        if (r.type === 'income') contextIncome += amount;
+        if (r.type === 'income' && !incomeExcludedFromTotals(r)) contextIncome += amount;
         else if (r.type === 'spending') contextSpending += amount;
+        else if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+            r.resolutions.forEach(res => {
+                if (res.action === 'spend') contextSpending += parseFloat(res.amount) || 0;
+            });
+        }
 
         // Grouping records (for finding "Tops")
         if (r.category) {
             if (!categoryTotals[r.category]) categoryTotals[r.category] = { income: 0, spending: 0 };
-            if (r.type === 'income') categoryTotals[r.category].income += amount;
+            if (r.type === 'income' && !incomeExcludedFromTotals(r)) categoryTotals[r.category].income += amount;
             else if (r.type === 'spending') categoryTotals[r.category].spending += amount;
         }
 
         if (r.person) {
             if (!personTotals[r.person]) personTotals[r.person] = { income: 0, spending: 0 };
-            if (r.type === 'income') personTotals[r.person].income += amount;
+            if (r.type === 'income' && !incomeExcludedFromTotals(r)) personTotals[r.person].income += amount;
             else if (r.type === 'spending') personTotals[r.person].spending += amount;
+            else if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+                r.resolutions.forEach(res => {
+                    if (res.action === 'spend') personTotals[r.person].spending += parseFloat(res.amount) || 0;
+                });
+            }
         }
     });
 
@@ -3383,12 +3741,21 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
             const dayIdx = d.getDate() - 1;
             const amount = parseFloat(r.amount) || 0;
 
-            if (r.type === 'income') {
+            if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
                 incomeData[dayIdx] += amount;
             } else if (r.type === 'spending') {
                 spendingData[dayIdx] += amount;
             }
             // account_receivable excluded - affects balance only, not income/spending
+
+            if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+                r.resolutions.forEach(res => {
+                    if (res.action !== 'spend') return;
+                    const rd = new Date(res.date);
+                    if (rd.getFullYear() !== view.year || rd.getMonth() !== view.monthIndex) return;
+                    spendingData[rd.getDate() - 1] += parseFloat(res.amount) || 0;
+                });
+            }
         });
     } else {
         const months = Object.keys(monthlyStats).sort();
@@ -4249,6 +4616,43 @@ async function handleRecordSubmit(e) {
             savingsTransactionType: savingsAccountId ? (type === 'income' ? 'deposit' : 'withdrawal') : null
         };
 
+        if (type === 'account_payable') {
+            if (existingRecord && existingRecord.type === 'account_payable') {
+                data.paid = !!existingRecord.paid;
+                data.paidAmount = parseFloat(existingRecord.paidAmount) || 0;
+                data.remainingAmount = Math.max(0, amount - data.paidAmount);
+                if (data.remainingAmount <= 0.0001) {
+                    data.paid = true;
+                    data.remainingAmount = 0;
+                }
+            } else {
+                data.paid = false;
+                data.paidAmount = 0;
+                data.remainingAmount = amount;
+            }
+        }
+
+        if (type === 'provisional') {
+            if (existingRecord && existingRecord.type === 'provisional') {
+                data.resolutions = Array.isArray(existingRecord.resolutions) ? [...existingRecord.resolutions] : [];
+                const oldAmt = parseFloat(existingRecord.amount) || 0;
+                const delta = amount - oldAmt;
+                let held = parseFloat(existingRecord.heldAmount);
+                if (Number.isNaN(held)) {
+                    refreshProvisionalDerivedFields(existingRecord);
+                    held = parseFloat(existingRecord.heldAmount) || 0;
+                }
+                data.heldAmount = Math.max(0, held + delta);
+                data.amount = amount;
+                refreshProvisionalDerivedFields(data);
+            } else {
+                data.resolutions = [];
+                data.heldAmount = amount;
+                data.status = 'open';
+                refreshProvisionalDerivedFields(data);
+            }
+        }
+
         try {
             let recordId;
             if (id) {
@@ -4259,8 +4663,8 @@ async function handleRecordSubmit(e) {
                 recordId = await add(STORE_RECORDS, data);
             }
 
-            // Update savings account if selected
-            if (savingsAccountId) {
+            // Update savings account if selected (not used for A/R, A/P, or provisional)
+            if (savingsAccountId && type !== 'account_receivable' && type !== 'account_payable' && type !== 'provisional') {
                 await updateSavingsAccountForSingleTransaction(data, savingsAccountId, recordId, !!id);
             }
         } catch (error) {
@@ -4362,6 +4766,45 @@ async function editRecord(id) {
 
 async function deleteRecord(id) {
     if (await showConfirm('Are you sure you want to delete this record?')) {
+        const rec = records.find(r => r.id === parseInt(id, 10));
+        
+        // Handle recurring income deletion: don't show it in upcoming again
+        if (rec && rec.fromRecurringTemplate) {
+            const template = recurringIncomeTemplates.find(t => t.id === parseInt(rec.fromRecurringTemplate));
+            if (template) {
+                const date = new Date(rec.date);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                if (!template.ignoredOccurrences) template.ignoredOccurrences = [];
+                if (!template.ignoredOccurrences.includes(monthKey)) {
+                    template.ignoredOccurrences.push(monthKey);
+                    await updateRecord(STORE_RECURRING_INCOME, template);
+                }
+            }
+        }
+
+        // Restore remaining held funds to wallet balance (not counted as income)
+        if (rec && rec.type === 'provisional') {
+            refreshProvisionalDerivedFields(rec);
+            const held = getProvisionalHeld(rec);
+            if (held > 0) {
+                await add(STORE_RECORDS, {
+                    formatType: 'single',
+                    type: 'income',
+                    date: formatDateLocal(new Date()),
+                    timestamp: Date.now(),
+                    item: 'Held funds restored (deleted provisional)',
+                    category: 'Held Funds Restore',
+                    person: rec.person || '',
+                    amount: held,
+                    quantity: '1',
+                    notes: `Automatic balance restoration. Deleted provisional record #${rec.id}.`,
+                    savingsAccountId: '',
+                    excludeFromIncomeTotals: true,
+                    isSavingsTransfer: false
+                });
+            }
+        }
+
         // Find and delete linked savings transactions
         const linkedSavings = savingsTransactions.filter(t => t.linkedRecordId === parseInt(id));
         for (const tx of linkedSavings) {
@@ -4391,7 +4834,27 @@ async function openDetailsModal(record) {
     // Calculate balance at the time of this transaction
     const balanceBefore = await calculateBalanceAtTransaction(record.date, record.id);
     const recordAmount = parseFloat(record.amount) || 0;
-    const balanceAfter = record.type === 'income' ? balanceBefore + recordAmount : balanceBefore - recordAmount;
+    let balanceAfter = balanceBefore;
+    if (record.type === 'income') {
+        balanceAfter = balanceBefore + recordAmount;
+    } else if (record.type === 'spending') {
+        balanceAfter = balanceBefore - recordAmount;
+    } else if (record.type === 'provisional') {
+        balanceAfter = balanceBefore - recordAmount;
+    } else if (record.type === 'account_receivable' && !record.collected) {
+        balanceAfter = balanceBefore - getAROutstandingAmount(record);
+    } else if (record.type === 'account_payable') {
+        balanceAfter = balanceBefore;
+    } else {
+        balanceAfter = record.type === 'income' ? balanceBefore + recordAmount : balanceBefore - recordAmount;
+    }
+
+    const typeDisplayName = record.type === 'income' ? 'Income'
+        : record.type === 'spending' ? 'Spending'
+            : record.type === 'account_receivable' ? 'AR'
+                : record.type === 'account_payable' ? 'Account Payable'
+                    : record.type === 'provisional' ? 'Provisional (Held Funds)'
+                        : record.type;
 
     const itemLabel = record.type === 'income' ? 'Source (Where money came from)' : 'Item (What was purchased)';
     const itemValue = record.type === 'income' ? record.category : (record.item || '-');
@@ -4430,11 +4893,27 @@ async function openDetailsModal(record) {
         `}
         <div class="detail-row">
             <span class="detail-label">Amount</span>
-            <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : '-'}$${formatCurrency(parseFloat(record.amount))}</span>
+            <span class="detail-value ${record.type}">${record.type === 'income' ? '+' : (record.type === 'account_receivable' || record.type === 'account_payable' ? '' : '-')}$${formatCurrency(parseFloat(record.amount))}</span>
+        </div>
+        ${record.type === 'provisional' ? `
+        <div class="detail-row">
+            <span class="detail-label">Held (unresolved)</span>
+            <span class="detail-value">$${formatCurrency(getProvisionalHeld(record))}</span>
         </div>
         <div class="detail-row">
+            <span class="detail-label">Status</span>
+            <span class="detail-value">${record.status === 'closed' ? 'Closed' : record.status === 'partially_resolved' ? 'Partial' : 'Open'}</span>
+        </div>
+        ` : ''}
+        ${record.type === 'account_payable' ? `
+        <div class="detail-row">
+            <span class="detail-label">Paid / Remaining</span>
+            <span class="detail-value">$${formatCurrency(parseFloat(record.paidAmount) || 0)} / $${formatCurrency(getAPOutstandingAmount(record))}</span>
+        </div>
+        ` : ''}
+        <div class="detail-row">
             <span class="detail-label">Transaction Type</span>
-            <span class="detail-value ${record.type}">${record.type === 'income' ? 'Income' : 'Spending'}</span>
+            <span class="detail-value ${record.type}">${typeDisplayName}</span>
         </div>
         ${record.person ? `
         <div class="detail-row">
@@ -4532,7 +5011,35 @@ async function openDetailsModal(record) {
         ${record.notes ? `
         <div class="detail-row">
             <span class="detail-label">Notes</span>
-            <span class="detail-value notes">${record.notes}</span>
+            <span class="detail-value notes">${record.notes.replace(/\[Return \$[\d.]+(\.\d+)?\]( .*)?/g, '').replace(/\[Held spend \$[\d.]+(\.\d+)? → .*?\]/g, '').split('\n').filter(line => line.trim()).join('\n').trim()}</span>
+        </div>
+        ` : ''}
+
+        ${record.type === 'provisional' && record.resolutions && record.resolutions.length > 0 ? `
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Resolution History</div>
+        <div class="resolution-history" style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: var(--radius-sm); overflow: hidden;">
+            ${record.resolutions.map((res, idx) => `
+                <div class="resolution-item" style="padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; ${res.undone ? 'opacity: 0.5; background: #f8fafc;' : ''}">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                            <span class="badge-${res.action === 'return' ? 'income' : 'spending'}" style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: 700;">
+                                ${res.action === 'return' ? 'Return' : 'Spend'}
+                            </span>
+                            <span style="font-weight: 600; color: var(--primary-color); font-size: 0.9rem;">$${formatCurrency(res.amount)}</span>
+                            ${res.undone ? '<span style="font-size: 0.7rem; font-style: italic; color: #ef4444;">(Undone)</span>' : ''}
+                        </div>
+                        <div style="font-size: 0.8rem; color: #64748b;">
+                            ${res.date} ${res.category ? `• ${res.category}` : ''}
+                        </div>
+                        ${res.notes ? `<div style="font-size: 0.8rem; margin-top: 0.25rem; font-style: italic; color: #475569;">"${res.notes}"</div>` : ''}
+                    </div>
+                    ${!res.undone ? `
+                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoProvisionalResolution(${record.id}, ${idx})" title="Undo this resolution" style="background: #fee2e2; color: #ef4444; border-radius: 6px; width: 32px; height: 32px;">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `).join('')}
         </div>
         ` : ''}
     `;
@@ -4934,8 +5441,8 @@ async function deleteCategory(id) {
 function updateCategoryDropdowns() {
     if (!recordTypeSelect || !recordCategorySelect) return;
     const type = recordTypeSelect.value;
-    // For account_receivable, use spending categories
-    const categoryType = type === 'account_receivable' ? 'spending' : type;
+    // For account_receivable, account_payable, and provisional, use spending categories
+    const categoryType = (type === 'account_receivable' || type === 'account_payable' || type === 'provisional') ? 'spending' : type;
     const filtered = categories.filter(c => c.type === categoryType);
     const currentValue = recordCategorySelect.value;
     recordCategorySelect.innerHTML = '<option value="">-- Select Category --</option>' +
@@ -5444,6 +5951,417 @@ window.showARCollectionCard = showARCollectionCard;
 window.hideARCollectionCard = hideARCollectionCard;
 window.processPartialARCollection = processPartialARCollection;
 
+// --- Accounts Payable (mirror of A/R) ---
+function getAPRootId(record) {
+    if (!record) return null;
+    let current = record;
+    const seen = new Set();
+    while (current && current.type === 'account_payable' && current.carriedForwardFrom) {
+        if (seen.has(current.id)) break;
+        seen.add(current.id);
+        const parent = records.find(r => r.id === current.carriedForwardFrom);
+        if (!parent) return current.carriedForwardFrom;
+        current = parent;
+    }
+    return current?.id ?? record.id;
+}
+
+function getAPGroupRecords(rootId) {
+    if (rootId == null) return [];
+    return records.filter(r => r.type === 'account_payable' && getAPRootId(r) === rootId);
+}
+
+let currentAPCollection = null;
+
+function showAPCollectionCard(id) {
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+
+    const rootId = getAPRootId(record);
+    const group = getAPGroupRecords(rootId);
+
+    const totalAmount = group.reduce((sum, r) => {
+        const amt = parseFloat(r.originalAmount || r.amount) || 0;
+        return sum + amt;
+    }, 0);
+
+    const alreadyPaid = group.length > 0
+        ? Math.max(...group.map(r => parseFloat(r.paidAmount) || 0))
+        : 0;
+    const remainingAmount = Math.max(0, totalAmount - alreadyPaid);
+
+    if (record.paid === true && remainingAmount <= 0) {
+        showToast('This debt has already been fully paid', 'info');
+        return;
+    }
+
+    currentAPCollection = {
+        recordId: id,
+        rootId,
+        group,
+        totalAmount,
+        alreadyPaid,
+        remainingAmount
+    };
+
+    document.getElementById('ap-total-amount').textContent = formatCurrency(totalAmount);
+    document.getElementById('ap-remaining-amount').textContent = formatCurrency(remainingAmount);
+    const amountInput = document.getElementById('ap-paid-amount');
+    if (amountInput) {
+        amountInput.value = '';
+        amountInput.max = remainingAmount.toFixed(2);
+        amountInput.placeholder = `Enter amount (max $${remainingAmount.toFixed(2)})`;
+    }
+    updateAPProgress();
+
+    document.getElementById('ap-collection-card')?.classList.add('active');
+    document.getElementById('ap-collection-overlay')?.classList.add('active');
+    setTimeout(() => document.getElementById('ap-paid-amount')?.focus(), 100);
+}
+
+function hideAPCollectionCard() {
+    document.getElementById('ap-collection-card')?.classList.remove('active');
+    document.getElementById('ap-collection-overlay')?.classList.remove('active');
+    currentAPCollection = null;
+}
+
+function updateAPProgress() {
+    if (!currentAPCollection) return;
+    const amountInput = document.getElementById('ap-paid-amount');
+    const paid = parseFloat(amountInput?.value) || 0;
+    const total = currentAPCollection.totalAmount;
+    const alreadyPaid = currentAPCollection.alreadyPaid;
+    const newTotalPaid = alreadyPaid + paid;
+    const percentage = total > 0 ? (newTotalPaid / total) * 100 : 0;
+    const fill = document.getElementById('ap-progress-fill');
+    const txt = document.getElementById('ap-progress-text');
+    if (fill) fill.style.width = `${Math.min(percentage, 100)}%`;
+    if (txt) txt.textContent = `${percentage.toFixed(0)}% paid ($${newTotalPaid.toFixed(2)} of $${total.toFixed(2)})`;
+    const remEl = document.getElementById('ap-remaining-amount');
+    if (remEl) remEl.textContent = formatCurrency(Math.max(0, total - newTotalPaid));
+}
+
+async function processPartialAPPayment() {
+    if (!currentAPCollection) return;
+    const amountInput = document.getElementById('ap-paid-amount');
+    const paidAmount = parseFloat(amountInput?.value);
+    if (!paidAmount || paidAmount <= 0) {
+        showToast('Please enter a valid amount', 'error');
+        return;
+    }
+    if (paidAmount > currentAPCollection.remainingAmount) {
+        showToast(`Cannot pay more than remaining amount ($${currentAPCollection.remainingAmount.toFixed(2)})`, 'error');
+        return;
+    }
+
+    const { group, totalAmount, alreadyPaid } = currentAPCollection;
+    const newTotalPaid = alreadyPaid + paidAmount;
+    const isFullyPaid = newTotalPaid >= totalAmount;
+    const remainingAfter = totalAmount - newTotalPaid;
+    const paidDateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+    try {
+        for (const r of group) {
+            if (!r.originalAmount) {
+                r.originalAmount = parseFloat(r.amount) || 0;
+            }
+            r.paidAmount = newTotalPaid;
+            if (isFullyPaid) {
+                r.paid = true;
+                r.paidDate = formatDateLocal(new Date());
+            }
+            r.remainingAmount = Math.max(0, totalAmount - newTotalPaid);
+            const payNote = `[Paid $${paidAmount.toFixed(2)} on ${paidDateStr}]`;
+            if (!r.notes || !r.notes.includes(payNote)) {
+                r.notes = r.notes ? `${r.notes}\n${payNote}` : payNote;
+            }
+            await updateRecord(STORE_RECORDS, r);
+        }
+        await refreshData();
+        if (isFullyPaid) {
+            showToast(`Paid $${paidAmount.toFixed(2)} — debt fully settled`, 'success');
+        } else {
+            showToast(`Paid $${paidAmount.toFixed(2)} — $${remainingAfter.toFixed(2)} remaining`, 'success');
+        }
+        hideAPCollectionCard();
+    } catch (error) {
+        console.error('Error processing AP payment:', error);
+        showToast('Error processing payment: ' + error.message, 'error');
+    }
+}
+
+function payDebtAP(id) {
+    showAPCollectionCard(id);
+}
+
+async function undoPayAP(id) {
+    const record = records.find(r => r.id === id);
+    if (!record) return;
+    const rootId = getAPRootId(record);
+    const group = getAPGroupRecords(rootId);
+    try {
+        for (const r of group) {
+            r.paid = false;
+            r.paidDate = null;
+            r.paidAmount = 0;
+            r.remainingAmount = parseFloat(r.amount) || 0;
+            r.originalAmount = null;
+            if (r.notes) {
+                r.notes = r.notes.replace(/\n?\[Paid \$[\d.]+ on [^\]]+\]/g, '').trim();
+            }
+            await updateRecord(STORE_RECORDS, r);
+        }
+        await refreshData();
+        showToast('AP payment reset', 'success');
+    } catch (error) {
+        console.error('Error undoing AP payment:', error);
+        showToast('Error undoing payment: ' + error.message, 'error');
+    }
+}
+
+window.payDebtAP = payDebtAP;
+window.undoPayAP = undoPayAP;
+window.showAPCollectionCard = showAPCollectionCard;
+window.hideAPCollectionCard = hideAPCollectionCard;
+window.processPartialAPPayment = processPartialAPPayment;
+
+// --- Provisional (held funds) ---
+let currentProvisionalResolve = null;
+
+function populateProvisionalSpendCategories() {
+    const sel = document.getElementById('prov-spend-category');
+    if (!sel) return;
+    const spendingCats = categories.filter(c => c.type === 'spending');
+    sel.innerHTML = '<option value="">Select category</option>' +
+        spendingCats.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
+function showProvisionalResolveCard(id) {
+    const record = records.find(r => r.id === id);
+    if (!record || record.type !== 'provisional') return;
+    refreshProvisionalDerivedFields(record);
+    const held = getProvisionalHeld(record);
+    if (held <= 0) {
+        showToast('Nothing left to resolve on this provisional record', 'info');
+        return;
+    }
+    currentProvisionalResolve = {
+        recordId: id,
+        heldRemaining: held,
+        originalAmount: parseFloat(record.amount) || 0
+    };
+    document.getElementById('prov-original-amount').textContent = formatCurrency(currentProvisionalResolve.originalAmount);
+    document.getElementById('prov-held-remaining').textContent = formatCurrency(held);
+    const ra = document.getElementById('prov-return-amount');
+    const sa = document.getElementById('prov-spend-amount');
+    const notes = document.getElementById('prov-resolve-notes');
+    if (ra) ra.value = '';
+    if (sa) sa.value = '';
+    if (notes) notes.value = '';
+    ra.max = held.toFixed(2);
+    sa.max = held.toFixed(2);
+    populateProvisionalSpendCategories();
+    document.getElementById('provisional-resolve-card')?.classList.add('active');
+    document.getElementById('provisional-resolve-overlay')?.classList.add('active');
+}
+
+function hideProvisionalResolveCard() {
+    document.getElementById('provisional-resolve-card')?.classList.remove('active');
+    document.getElementById('provisional-resolve-overlay')?.classList.remove('active');
+    currentProvisionalResolve = null;
+}
+
+function resolveProvisional(id) {
+    showProvisionalResolveCard(id);
+}
+
+async function processProvisionalReturn() {
+    if (!currentProvisionalResolve) return;
+    const record = records.find(r => r.id === currentProvisionalResolve.recordId);
+    if (!record) return;
+    refreshProvisionalDerivedFields(record);
+    const held = getProvisionalHeld(record);
+    const inp = document.getElementById('prov-return-amount');
+    const amt = parseFloat(inp?.value);
+    if (!amt || amt <= 0) {
+        showToast('Enter a valid return amount', 'error');
+        return;
+    }
+    if (amt > held + 0.0001) {
+        showToast(`Return cannot exceed held amount ($${held.toFixed(2)})`, 'error');
+        return;
+    }
+    const notesExtra = (document.getElementById('prov-resolve-notes')?.value || '').trim();
+    if (!record.resolutions) record.resolutions = [];
+    record.resolutions.push({
+        date: formatDateLocal(new Date()),
+        action: 'return',
+        amount: amt,
+        notes: notesExtra,
+        timestamp: Date.now()
+    });
+    refreshProvisionalDerivedFields(record);
+    
+    try {
+        await updateRecord(STORE_RECORDS, record);
+        await refreshData();
+        showToast(`Returned $${amt.toFixed(2)} to balance`, 'success');
+        hideProvisionalResolveCard();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+async function processProvisionalSpend() {
+    if (!currentProvisionalResolve) return;
+    const record = records.find(r => r.id === currentProvisionalResolve.recordId);
+    if (!record) return;
+    refreshProvisionalDerivedFields(record);
+    const held = getProvisionalHeld(record);
+    const cat = document.getElementById('prov-spend-category')?.value;
+    const amt = parseFloat(document.getElementById('prov-spend-amount')?.value);
+    if (!cat) {
+        showToast('Select a spending category', 'error');
+        return;
+    }
+    if (!amt || amt <= 0) {
+        showToast('Enter a valid spend amount', 'error');
+        return;
+    }
+    if (amt > held + 0.0001) {
+        showToast(`Spend cannot exceed held amount ($${held.toFixed(2)})`, 'error');
+        return;
+    }
+    const notesExtra = (document.getElementById('prov-resolve-notes')?.value || '').trim();
+    
+    try {
+        // 1. Create a derived spending transaction
+        const derivedSpending = {
+            date: formatDateLocal(new Date()),
+            type: 'spending',
+            category: cat,
+            amount: amt,
+            item: `Spend from Provisional: ${record.item || record.category}`,
+            notes: notesExtra || `Resolved from provisional record #${record.id}`,
+            timestamp: Date.now(),
+            provisionalRef: record.id
+        };
+        
+        const newRecordId = await add(STORE_RECORDS, derivedSpending);
+        
+        // 2. Add to resolutions
+        if (!record.resolutions) record.resolutions = [];
+        record.resolutions.push({
+            date: derivedSpending.date,
+            action: 'spend',
+            amount: amt,
+            category: cat,
+            notes: notesExtra,
+            derivedRecordId: newRecordId,
+            timestamp: derivedSpending.timestamp
+        });
+        
+        refreshProvisionalDerivedFields(record);
+        
+        await updateRecord(STORE_RECORDS, record);
+        await refreshData();
+        showToast(`Recorded $${amt.toFixed(2)} spending in ${cat}`, 'success');
+        hideProvisionalResolveCard();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+async function undoProvisionalResolution(recordId, resolutionIndex) {
+    const record = records.find(r => r.id === recordId);
+    if (!record || !record.resolutions || !record.resolutions[resolutionIndex]) return;
+    
+    const resolution = record.resolutions[resolutionIndex];
+    if (resolution.undone) return;
+    
+    if (resolution.action === 'spend') {
+        // Find and delete derived spending transaction
+        const derivedId = resolution.derivedRecordId;
+        const derivedRecord = records.find(r => r.id === derivedId);
+        
+        if (derivedRecord) {
+            // Block undo if derived transaction was modified (how to detect? simple check for now)
+            // If amount or category changed, it's modified.
+            if (parseFloat(derivedRecord.amount) !== resolution.amount || derivedRecord.category !== resolution.category) {
+                showToast('Cannot undo: the associated spending transaction has been modified.', 'warning');
+                return;
+            }
+            
+            if (await showConfirm('Undo this spend resolution? The associated spending transaction will be deleted.')) {
+                try {
+                    await deleteRecord(derivedId);
+                } catch (e) {
+                    showToast('Error deleting derived record: ' + e.message, 'error');
+                    return;
+                }
+            } else {
+                return;
+            }
+        } else {
+            // Even if derived record is gone, we might want to allow undoing the resolution status
+            // but the user said "find and delete". If already gone, just continue?
+            // Let's warn.
+            if (!await showConfirm('The associated spending record was not found. Undo resolution anyway?')) {
+                return;
+            }
+        }
+    } else {
+        // For return action
+        if (!await showConfirm('Undo this return resolution?')) {
+            return;
+        }
+    }
+    
+    resolution.undone = true;
+    resolution.undoneAt = Date.now();
+    refreshProvisionalDerivedFields(record);
+    
+    try {
+        await updateRecord(STORE_RECORDS, record);
+        await refreshData();
+        showToast('Resolution undone successfully', 'success');
+        
+        // Re-open details modal to show updated state
+        if (currentDetailRecordId === recordId) {
+            await openDetailsModal(record);
+        }
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+async function undoLastProvisionalResolution(recordId) {
+    const record = records.find(r => r.id === recordId);
+    if (!record || !record.resolutions || record.resolutions.length === 0) return;
+    
+    // Find last resolution that isn't undone
+    let lastIdx = -1;
+    for (let i = record.resolutions.length - 1; i >= 0; i--) {
+        if (!record.resolutions[i].undone) {
+            lastIdx = i;
+            break;
+        }
+    }
+    
+    if (lastIdx !== -1) {
+        await undoProvisionalResolution(recordId, lastIdx);
+    }
+}
+
+window.undoLastProvisionalResolution = undoLastProvisionalResolution;
+window.undoProvisionalResolution = undoProvisionalResolution;
+
+window.resolveProvisional = resolveProvisional;
+window.showProvisionalResolveCard = showProvisionalResolveCard;
+window.hideProvisionalResolveCard = hideProvisionalResolveCard;
+window.processProvisionalReturn = processProvisionalReturn;
+window.processProvisionalSpend = processProvisionalSpend;
+
 // Make upcoming income functions globally available
 window.editUpcomingIncome = editUpcomingIncome;
 window.deleteUpcomingIncome = deleteUpcomingIncome;
@@ -5528,6 +6446,18 @@ function renderBudget() {
                     }
                 }
             }
+        }
+        if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
+            r.resolutions.forEach(res => {
+                if (res.action !== 'spend' || !res.category) return;
+                const recordDate = new Date(res.date);
+                if (recordDate.getMonth() !== currentMonth || recordDate.getFullYear() !== currentYear) return;
+                const limit = budgetLimits.find(l => l.category === res.category);
+                const lastReset = limit?.lastResetDate ? new Date(limit.lastResetDate) : null;
+                if (lastReset && recordDate < lastReset) return;
+                const amt = parseFloat(res.amount) || 0;
+                monthlySpending[res.category] = (monthlySpending[res.category] || 0) + amt;
+            });
         }
     });
     // Update budget limits with current spending
@@ -5763,33 +6693,40 @@ function renderUpcomingWidget() {
     recurringIncomeTemplates.forEach(template => {
         if (receivedThisMonth.has(template.id)) return; // Skip if already received
 
-        // Current month occurrence
-        const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
-        if (currentMonthDate > now && currentMonthDate <= fiveDaysFromNow) {
-            recurringOccurrences.push({
-                date: formatDateLocal(currentMonthDate),
-                amount: template.amount,
-                category: template.category,
-                item: template.source,
-                type: 'income',
-                isRecurring: true
-            });
-        }
-
-        // Check next month occurrence (if within 5 days)
+        const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
         const nextMonth = now.getMonth() + 1;
         const nextYear = now.getFullYear() + (nextMonth > 11 ? 1 : 0);
         const adjustedNextMonth = nextMonth % 12;
-        const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
-        if (nextMonthDate > now && nextMonthDate <= fiveDaysFromNow) {
-            recurringOccurrences.push({
-                date: formatDateLocal(nextMonthDate),
-                amount: template.amount,
-                category: template.category,
-                item: template.source,
-                type: 'income',
-                isRecurring: true
-            });
+        const nextMonthKey = `${nextYear}-${String(adjustedNextMonth + 1).padStart(2, '0')}`;
+
+        // Current month occurrence
+        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
+            const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
+            if (currentMonthDate > now && currentMonthDate <= fiveDaysFromNow) {
+                recurringOccurrences.push({
+                    date: formatDateLocal(currentMonthDate),
+                    amount: template.amount,
+                    category: template.category,
+                    item: template.source,
+                    type: 'income',
+                    isRecurring: true
+                });
+            }
+        }
+
+        // Check next month occurrence (if within 5 days)
+        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) {
+            const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
+            if (nextMonthDate > now && nextMonthDate <= fiveDaysFromNow) {
+                recurringOccurrences.push({
+                    date: formatDateLocal(nextMonthDate),
+                    amount: template.amount,
+                    category: template.category,
+                    item: template.source,
+                    type: 'income',
+                    isRecurring: true
+                });
+            }
         }
     });
 
@@ -5890,28 +6827,18 @@ function renderUpcomingIncome() {
     recurringIncomeTemplates.forEach(template => {
         const numericId = template.id;
         const alreadyReceived = receivedThisMonth.hasOwnProperty(numericId);
+        
+        const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        const nextMonth = now.getMonth() + 1;
+        const nextYear = now.getFullYear() + (nextMonth > 11 ? 1 : 0);
+        const adjustedNextMonth = nextMonth % 12;
+        const nextMonthKey = `${nextYear}-${String(adjustedNextMonth + 1).padStart(2, '0')}`;
 
-        // Current month occurrence - always show if not yet past OR if already received (show as received)
-        const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
-        if (currentMonthDate > now && currentMonthDate <= thirtyDaysFromNow) {
-            // Future this month - show normally or as received
-            recurringOccurrences.push({
-                id: template.id,
-                date: formatDateLocal(currentMonthDate),
-                amount: template.amount,
-                category: template.category,
-                projectedSource: template.source,
-                notes: template.notes,
-                isRecurring: true,
-                isProjected: true,
-                templateId: template.id,
-                dayOfMonth: template.dayOfMonth,
-                receivedRecordId: alreadyReceived ? receivedThisMonth[numericId] : null
-            });
-        } else if (currentMonthDate.getMonth() === currentMonth && currentMonthDate.getFullYear() === currentYear) {
-            // Day has passed this month - only show if received (so user can undo)
-            // or if it's today
-            if (alreadyReceived || currentMonthDate.toDateString() === now.toDateString()) {
+        // Current month occurrence
+        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
+            const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
+            if (currentMonthDate > now && currentMonthDate <= thirtyDaysFromNow) {
+                // Future this month - show normally or as received
                 recurringOccurrences.push({
                     id: template.id,
                     date: formatDateLocal(currentMonthDate),
@@ -5925,28 +6852,45 @@ function renderUpcomingIncome() {
                     dayOfMonth: template.dayOfMonth,
                     receivedRecordId: alreadyReceived ? receivedThisMonth[numericId] : null
                 });
+            } else if (currentMonthDate.getMonth() === currentMonth && currentMonthDate.getFullYear() === currentYear) {
+                // Day has passed this month - only show if received (so user can undo)
+                // or if it's today
+                if (alreadyReceived || currentMonthDate.toDateString() === now.toDateString()) {
+                    recurringOccurrences.push({
+                        id: template.id,
+                        date: formatDateLocal(currentMonthDate),
+                        amount: template.amount,
+                        category: template.category,
+                        projectedSource: template.source,
+                        notes: template.notes,
+                        isRecurring: true,
+                        isProjected: true,
+                        templateId: template.id,
+                        dayOfMonth: template.dayOfMonth,
+                        receivedRecordId: alreadyReceived ? receivedThisMonth[numericId] : null
+                    });
+                }
             }
         }
 
         // Check next month occurrence
-        const nextMonth = now.getMonth() + 1;
-        const nextYear = now.getFullYear() + (nextMonth > 11 ? 1 : 0);
-        const adjustedNextMonth = nextMonth % 12;
-        const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
-        if (nextMonthDate > now && nextMonthDate <= thirtyDaysFromNow) {
-            recurringOccurrences.push({
-                id: template.id + '_next', // Unique ID for this occurrence
-                date: formatDateLocal(nextMonthDate),
-                amount: template.amount,
-                category: template.category,
-                projectedSource: template.source,
-                notes: template.notes,
-                isRecurring: true,
-                isProjected: true,
-                templateId: template.id,
-                dayOfMonth: template.dayOfMonth,
-                receivedRecordId: null // Next month can't be received yet
-            });
+        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) {
+            const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
+            if (nextMonthDate > now && nextMonthDate <= thirtyDaysFromNow) {
+                recurringOccurrences.push({
+                    id: template.id + '_next', // Unique ID for this occurrence
+                    date: formatDateLocal(nextMonthDate),
+                    amount: template.amount,
+                    category: template.category,
+                    projectedSource: template.source,
+                    notes: template.notes,
+                    isRecurring: true,
+                    isProjected: true,
+                    templateId: template.id,
+                    dayOfMonth: template.dayOfMonth,
+                    receivedRecordId: null // Next month can't be received yet
+                });
+            }
         }
     });
 
@@ -6327,7 +7271,7 @@ function showUpcomingIncomeDetails(id, isRecurring = false) {
     let popup = document.getElementById('upcoming-income-details-popup');
     if (popup) popup.remove();
 
-    const title = isAR ? 'Accounts Receivable' : (isRecurring ? 'Recurring Income' : (isProjected ? 'Expected Income' : 'Upcoming Income'));
+    const title = isAR ? 'AR' : (isRecurring ? 'Recurring Income' : (isProjected ? 'Expected Income' : 'Upcoming Income'));
     const recurringInfo = isRecurring ? `
                 <div class="detail-row">
                     <span class="detail-label">Recurring</span>
