@@ -1252,11 +1252,24 @@ header.dashboard-header-hide {
 
 .hero-header {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
   position: relative;
   z-index: 1;
+  gap: 0.75rem;
+}
+
+.hero-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hero-header-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
 .hero-month-selector {
@@ -1272,13 +1285,55 @@ header.dashboard-header-hide {
   transition: all 0.2s ease;
 }
 
+.hero-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  min-width: 2.4rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.hero-export-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.hero-export-btn i {
+  font-size: 1rem;
+}
+
+.export-status {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.export-status.fresh {
+  color: #a8ffb0;
+}
+
+.export-status.warning {
+  color: #ffd36e;
+}
+
+.export-status.danger {
+  color: #ff8a8a;
+}
+
 .hero-month-selector:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
 .hero-eye-icon {
-  position: absolute;
-  right: 0;
   background: none;
   border: none;
   color: white;
@@ -2669,7 +2724,7 @@ tr:last-child td {
 }
 
 .dashboard-row.bottom-row {
-  justify-content: center;
+  justify-content: space-between;
 }
 
 /* Mini stats (Withdrawn & Deposits) - smaller side elements */
@@ -5378,6 +5433,9 @@ tr:last-child td {
 /* Ensure card header doesn't overlap with reorder buttons */
 .savings-card .card-header h3 {
   padding-right: 80px;
+  display: inline-block;
+  flex: 0 1 auto;
+  max-width: calc(100% - 110px);
 }
 
 /* Upcoming Income Popup */

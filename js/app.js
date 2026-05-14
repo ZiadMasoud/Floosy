@@ -133,6 +133,7 @@ const personList = document.getElementById('person-list');
 const newCategoryBtn = document.getElementById('add-category-btn');
 const newPersonBtn = document.getElementById('add-person-btn');
 const exportBtn = document.getElementById('export-btn');
+const heroExportBtn = document.getElementById('hero-export-btn');
 const importFile = document.getElementById('import-file');
 const resetBtn = document.getElementById('reset-btn');
 const selectiveResetBtn = document.getElementById('selective-reset-btn');
@@ -669,6 +670,9 @@ function initEventListeners() {
 
     // Data Management
     exportBtn.addEventListener('click', handleExport);
+    if (heroExportBtn) {
+        heroExportBtn.addEventListener('click', handleExport);
+    }
     importFile.addEventListener('change', handleImport);
     if (resetBtn) {
         resetBtn.addEventListener('click', handleReset);
@@ -1879,6 +1883,7 @@ async function renderDashboard() {
 
     if (monthDisplay) monthDisplay.textContent = displayLabel;
     if (heroMonthEl) heroMonthEl.textContent = displayLabel;
+    updateExportStatusUI();
 
 
     // Process records to expand combined transactions for KPI calculations
@@ -4040,6 +4045,7 @@ async function handleTransactionSubmit(e) {
     if (id) {
         const tx = savingsTransactions.find(t => t.id === parseInt(id));
         if (tx) {
+            tx.type = type;
             tx.amount = amount;
             tx.date = date;
             tx.notes = notes;
@@ -4121,6 +4127,7 @@ function renderSavings() {
 
         const monthCashflow = monthDeposit - monthWithdraw;
         const cashflowPositive = monthCashflow >= 0;
+        const totalIncome = totalDeposit;
 
         const card = document.createElement('div');
         card.className = 'savings-card card';
@@ -4160,6 +4167,10 @@ function renderSavings() {
                             ${cashflowPositive ? '+' : '-'}$${formatCurrency(Math.abs(monthCashflow))}
                             <i class="fas fa-arrow-${cashflowPositive ? 'down' : 'up'}"></i>
                         </span>
+                    </div>
+                    <div class="cashflow-stat">
+                        <span class="cashflow-label">Income:</span>
+                        <span class="cashflow-value positive">+$${formatCurrency(totalIncome)}</span>
                     </div>
                 </div>
             </div>
@@ -5526,6 +5537,52 @@ async function handleExport() {
     a.download = `Floosy_${dateStr}_${timeStr}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    try {
+        localStorage.setItem('floosyLastExportedAt', new Date().toISOString());
+    } catch (error) {
+        console.warn('Unable to save export timestamp', error);
+    }
+    updateExportStatusUI();
+}
+
+function getLastExportedAt() {
+    try {
+        const storedValue = localStorage.getItem('floosyLastExportedAt');
+        return storedValue ? new Date(storedValue) : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function updateExportStatusUI() {
+    const label = document.getElementById('export-status');
+    if (!label) return;
+
+    const lastExportedAt = getLastExportedAt();
+    if (!lastExportedAt || Number.isNaN(lastExportedAt.getTime())) {
+        label.textContent = 'Never exported';
+        label.className = 'export-status danger';
+        return;
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - lastExportedAt.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) {
+        label.textContent = '0d';
+    } else if (diffDays === 1) {
+        label.textContent = '1d';
+    } else {
+        label.textContent = `${diffDays}d`;
+    }
+
+    if (diffDays <= 3) {
+        label.className = 'export-status fresh';
+    } else if (diffDays <= 7) {
+        label.className = 'export-status warning';
+    } else {
+        label.className = 'export-status danger';
+    }
 }
 
 async function handleImport(e) {
@@ -6801,7 +6858,9 @@ function renderUpcomingIncome() {
             if (rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear) {
                 // Store the record id so we can delete it on undo
                 const numericTemplateId = parseInt(r.fromRecurringTemplate);
-                receivedThisMonth[numericTemplateId] = r.id;
+                if (!Number.isNaN(numericTemplateId)) {
+                    receivedThisMonth[numericTemplateId] = r.id;
+                }
             }
         }
     });
@@ -7350,9 +7409,9 @@ async function collectIncome(id, isRecurring = false, occurrenceDate) {
         amount = parseFloat(template.amount) || 0;
         category = template.category;
         notes = template.notes;
-        templateId = id;
+        templateId = numericId;
     } else {
-        const record = records.find(r => r.id === id);
+        const record = records.find(r => r.id === id || r.id === parseInt(id));
         if (!record) return;
         source = record.projectedSource || record.item || record.category;
         amount = parseFloat(record.amount) || 0;
