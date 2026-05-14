@@ -1460,8 +1460,10 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
 
-                // Skip savings transfer components
+                // Process savings transfer components: deduct from balance but don't count as income/spending
                 if (r.savingsAccountId || ct.savingsAccountId) {
+                    // Both income-to-savings and spending-to-savings should deduct from wallet balance
+                    spending += totalAmount;
                     return;
                 }
 
@@ -1476,8 +1478,10 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
 
         const amount = parseFloat(r.amount) || 0;
 
-        // Skip savings transfers - they don't affect main balance
+        // Process savings transfers: deduct from balance but don't count as income/spending
         if (r.isSavingsTransfer) {
+            // Both income-to-savings and spending-to-savings should deduct from wallet balance
+            spending += amount;
             return;
         }
 
@@ -1613,14 +1617,11 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
 
-                // Process savings transfers: only count towards income total if requested, but always exclude from main wallet balance
+                // Process savings transfers: deduct from balance but don't count as income/spending
                 const isComponentSavingsTransfer = !!(r.savingsAccountId || ct.savingsAccountId);
                 if (isComponentSavingsTransfer) {
-                    if (ct.type === 'income') {
-                        income += totalAmount;
-                    }
-                    // Exclude from balance by not adding to spending or arImpact, 
-                    // and we must subtract this income from the final balance return if we use the 'income' variable
+                    // Both income-to-savings and spending-to-savings should deduct from wallet balance
+                    spending += totalAmount;
                     return;
                 }
 
@@ -1633,12 +1634,10 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
         } else {
             const amount = parseFloat(r.amount) || 0;
 
-            // Process savings transfers: only count towards income total if requested, but always exclude from main wallet balance
+            // Process savings transfers: deduct from balance but don't count as income/spending
             if (r.isSavingsTransfer) {
-                if (r.type === 'income') {
-                    income += amount;
-                }
-                // Exclude from balance by not adding to spending or arImpact
+                // Both income-to-savings and spending-to-savings should deduct from wallet balance
+                spending += amount;
                 return;
             }
 
@@ -1930,7 +1929,7 @@ async function renderDashboard() {
         if (filterType !== 'all') {
             if (filterType === 'savings') typeMatch = isSavings;
             else if (filterType === 'spending') typeMatch = r.type === 'spending' && !isSavings;
-            else if (filterType === 'income') typeMatch = r.type === 'income'; // Include savings income
+            else if (filterType === 'income') typeMatch = r.type === 'income' && !isSavings; // Exclude savings transfers from income filter
             else if (filterType === 'account_receivable') typeMatch = r.type === 'account_receivable';
             else if (filterType === 'account_payable') typeMatch = r.type === 'account_payable';
             else if (filterType === 'provisional') typeMatch = r.type === 'provisional';
@@ -2012,15 +2011,15 @@ async function renderDashboard() {
 
         const amount = parseFloat(r.amount) || 0;
 
-        // Process savings transfers: income-to-savings counts as 'saved'
+        // Process savings transfers: income-to-savings counts as 'saved' and deducts from balance
         if (r.isSavingsTransfer) {
             console.log(`Savings transfer: type=${r.type}, amount=${amount}, item=${r.item || r.category}`);
             if (r.type === 'income') {
-                // Income recorded directly to savings: counts as income AND saved
-                income += amount;
+                // Income recorded directly to savings: counts as saved only, NOT as income
+                // Deducts from wallet balance (like spending) but doesn't affect income/spending totals
                 saved += amount;
-                console.log(`  -> Added to saved. Saved now: ${saved}`);
-                // Note: doesn't add to wallet balance (goes straight to savings)
+                dashboardBalanceSpending += amount;
+                console.log(`  -> Added to saved. Saved now: ${saved}. Deducted from wallet balance.`);
             } else if (r.type === 'spending') {
                 // Spending from wallet to savings: affects wallet balance only
                 dashboardBalanceSpending += amount;
@@ -2461,9 +2460,9 @@ function renderDashboardRecords(recordsToRender) {
             amountPrefix = '-';
         }
 
-        // Get display name
-        let displayName = r.isCombinedComponent ? (r.item || 'Combined Transaction') :
-            (isCombined ? r.item : (r.type === 'income' ? r.category : r.item));
+        // Get display name - fallback to category if item is empty
+        let displayName = r.isCombinedComponent ? (r.item || r.actualCategory || 'Combined Transaction') :
+            (isCombined ? (r.item || 'Combined Transaction') : (r.item || r.category));
         if (isCarriedForward) displayName += ' ↻';
 
         // Get category name
@@ -3349,7 +3348,7 @@ function renderRecords() {
 
             tr.innerHTML = `
                 <td>${r.isParentGroupHeader ? '' : r.date}</td>
-                <td class="item-cell">${(r.isCombinedComponent ? (r.item || '-') : (isCombined ? r.item : (r.type === 'income' ? r.category : r.item))) + (r.isCombinedComponent ? '' : carriedForwardText)}</td>
+                <td class="item-cell">${(r.isCombinedComponent ? (r.item || r.actualCategory || '-') : (isCombined ? (r.item || 'Combined Transaction') : (r.item || r.category))) + (r.isCombinedComponent ? '' : carriedForwardText)}</td>
                 <td>
                     ${r.isParentGroupHeader ? '' : (isSavingsTransfer ? savingsTransferText : `
                         <span class="category-badge badge-${r.type} ${badgeExtra}">${r.isCombinedComponent ? r.actualCategory : r.category}${typeExtra}</span>
@@ -4590,8 +4589,7 @@ async function handleRecordSubmit(e) {
         const category = document.getElementById('record-category')?.value || '';
         const itemInput = document.getElementById('record-item')?.value || '';
         // Use item if provided, otherwise use category name for spending/AR (income doesn't need item)
-        // For savings transactions, item and category are optional
-        const item = type === 'income' ? '' : (itemInput || (savingsAccountId ? '' : category));
+        const item = type === 'income' ? '' : (itemInput || category);
         const finalCategory = savingsAccountId && !category ? 'Savings Transfer' : category;
 
         // Get original record to preserve timestamp when editing
@@ -4857,7 +4855,7 @@ async function openDetailsModal(record) {
                         : record.type;
 
     const itemLabel = record.type === 'income' ? 'Source (Where money came from)' : 'Item (What was purchased)';
-    const itemValue = record.type === 'income' ? record.category : (record.item || '-');
+    const itemValue = record.type === 'income' ? record.category : (record.item || record.category);
 
     const timeRecorded = record.timestamp ? new Date(record.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
     const itemName = (record.item || '').trim().toLowerCase();
@@ -4875,7 +4873,7 @@ async function openDetailsModal(record) {
             <span class="detail-value">
                 <div style="display: flex; flex-direction: column; gap: 0.25rem;">
                     <div style="color: ${record.type === 'income' ? '#059669' : '#dc2626'}; font-weight: 500;">
-                        ${record.type === 'income' ? record.category : (record.item || '-')}
+                        ${record.type === 'income' ? record.category : (record.item || record.category)}
                     </div>
                     ${!isSameName ? `
                     <div style="color: #6b7280; font-size: 0.85rem;">
@@ -4888,7 +4886,7 @@ async function openDetailsModal(record) {
         ` : `
         <div class="detail-row">
             <span class="detail-label">Item</span>
-            <span class="detail-value" style="color: #dc2626; font-weight: 500;">${record.item || '-'}</span>
+            <span class="detail-value" style="color: #dc2626; font-weight: 500;">${record.item || record.category}</span>
         </div>
         `}
         <div class="detail-row">
