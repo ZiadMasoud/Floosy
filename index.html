@@ -66,9 +66,17 @@
         <!-- Mobile Summary Hero (Visible only on mobile) -->
         <div class="mobile-summary-hero" id="mobile-hero">
           <div class="hero-header">
-            <div class="hero-month-selector">
-              <span id="hero-month-display">April 2027</span>
-              <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+            <div class="hero-header-left">
+              <button id="hero-export-btn" class="hero-export-btn" title="Export data now">
+                <i class="fas fa-download"></i>
+              </button>
+              <span id="export-status" class="export-status">Never</span>
+            </div>
+            <div class="hero-header-center">
+              <div class="hero-month-selector">
+                <span id="hero-month-display">April 2027</span>
+                <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
+              </div>
             </div>
             <button id="hero-privacy-toggle" title="Toggle Privacy Mode" class="hero-eye-icon">
               <i class="fas fa-eye"></i>
@@ -111,14 +119,16 @@
             <span class="carry-over-hint" id="carry-over-hint">Balance starts at 0 each month</span>
           </div>
 
-          <div class="hero-ar" id="hero-ar-display" style="display: none;">
-            AR: <span class="dollar-icon ar-icon">-$</span><span class="amount-num">0</span>
-          </div>
-          <div class="hero-ar" id="hero-ap-display" style="display: none;">
-            AP: <span class="dollar-icon ap-icon">$</span><span class="amount-num">0</span>
-          </div>
-          <div class="hero-ar" id="hero-held-display" style="display: none;">
-            Held: <span class="dollar-icon held-icon">$</span><span class="amount-num">0</span>
+          <div class="hero-extra-stats">
+            <div class="hero-ar" id="hero-ar-display" style="display: none;">
+              AR: <span class="dollar-icon ar-icon">-$</span><span class="amount-num">0</span>
+            </div>
+            <div class="hero-ar" id="hero-ap-display" style="display: none;">
+              AP: <span class="dollar-icon ap-icon">$</span><span class="amount-num">0</span>
+            </div>
+            <div class="hero-ar" id="hero-held-display" style="display: none;">
+              Held: <span class="dollar-icon held-icon">$</span><span class="amount-num">0</span>
+            </div>
           </div>
 
           <!-- Upcoming Widget -->

@@ -196,6 +196,13 @@ class MonthlySummaryPDF {
                 catBreakdown[cat] = (catBreakdown[cat] || 0) + amt;
                 if (r.person) peopleBreakdown[r.person] = (peopleBreakdown[r.person] || 0) + amt;
                 dailySpending[dateKey] = (dailySpending[dateKey] || 0) + amt;
+            } else if (r.type === 'provisional') {
+                const held = typeof getProvisionalHeld === 'function' ? getProvisionalHeld(r) : 0;
+                totalSpending += held;
+                const cat = r.category || 'Uncategorized';
+                catBreakdown[cat] = (catBreakdown[cat] || 0) + held;
+                if (r.person) peopleBreakdown[r.person] = (peopleBreakdown[r.person] || 0) + held;
+                dailySpending[dateKey] = (dailySpending[dateKey] || 0) + held;
             } else if (r.type === 'account_receivable' && !r.collected) {
                 totalAR += Math.max(0, amt - (r.collectedAmount || 0));
             } else if (r.type === 'account_payable' && !r.paid) {
@@ -245,7 +252,7 @@ class MonthlySummaryPDF {
             peakDay, avgDailySpending,
             transactionCount: recs.length,
             incomeCount: recs.filter(r => r.type === 'income' && !r.isSavingsTransfer).length,
-            spendingCount: recs.filter(r => r.type === 'spending' || (r.type === 'income' && r.isSavingsTransfer)).length,
+            spendingCount: recs.filter(r => r.type === 'spending' || r.type === 'provisional' || (r.type === 'income' && r.isSavingsTransfer)).length,
         };
     }
 

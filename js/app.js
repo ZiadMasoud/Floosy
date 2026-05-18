@@ -2103,6 +2103,10 @@ async function renderDashboard() {
         } else if (r.type === 'spending') {
             spending += amount;
             dashboardBalanceSpending += amount;
+        } else if (r.type === 'provisional') {
+            const held = getProvisionalHeld(r);
+            spending += held;
+            dashboardBalanceSpending += held;
         }
         // account_receivable excluded - affects balance only, not income/spending
     });
@@ -2242,7 +2246,7 @@ function renderDashboardRecords(recordsToRender) {
         } else if (filterType === 'savings') {
             typeMatch = isSavings;
         } else if (filterType === 'spending') {
-            typeMatch = r.type === 'spending' && !isSavings;
+            typeMatch = (r.type === 'spending' || r.type === 'provisional') && !isSavings;
         } else if (filterType === 'income') {
             typeMatch = r.type === 'income'; // Include savings income
         } else if (filterType === 'account_receivable') {
@@ -2279,7 +2283,7 @@ function renderDashboardRecords(recordsToRender) {
             if (r.type === 'account_payable' && !r.paid && (filterType === 'all' || filterType === 'account_payable')) {
                 periodMatch = true;
             }
-            if (r.type === 'provisional' && r.status !== 'closed' && getProvisionalHeld(r) > 0 && (filterType === 'all' || filterType === 'provisional')) {
+            if (r.type === 'provisional' && r.status !== 'closed' && getProvisionalHeld(r) > 0 && (filterType === 'all' || filterType === 'provisional' || filterType === 'spending')) {
                 periodMatch = true;
             }
         }
@@ -2796,7 +2800,12 @@ function renderCharts(monthlyRecords) {
         if (trendChart) trendChart.destroy();
 
         const totalIncome = monthlyRecords.filter(r => r.type === 'income' && !r.isProjected).reduce((s, r) => s + parseFloat(r.amount), 0);
-        const totalSpending = monthlyRecords.filter(r => r.type === 'spending' && !r.isProjected).reduce((s, r) => s + parseFloat(r.amount), 0);
+        const totalSpending = monthlyRecords.reduce((s, r) => {
+            if (r.isProjected) return s;
+            if (r.type === 'spending') return s + parseFloat(r.amount);
+            if (r.type === 'provisional') return s + getProvisionalHeld(r);
+            return s;
+        }, 0);
         
         const trendCard = canvasTrend.closest('.card');
         if (totalIncome === 0 && totalSpending === 0) {
@@ -2860,6 +2869,22 @@ function renderCategoryBreakdown(records, type) {
             spendingStats[categoryKey].count += 1;
             totalSpending += amt;
             spendingCount += 1;
+        } else if (r.type === 'provisional') {
+            const held = getProvisionalHeld(r);
+            if (held > 0) {
+                if (!spendingStats[categoryKey]) {
+                    spendingStats[categoryKey] = { 
+                        name: categoryName, 
+                        amount: 0, 
+                        count: 0, 
+                        isSavingsAccount: isSavingsAccount 
+                    };
+                }
+                spendingStats[categoryKey].amount += held;
+                spendingStats[categoryKey].count += 1;
+                totalSpending += held;
+                spendingCount += 1;
+            }
         } else if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
             if (!incomeStats[categoryKey]) {
                 incomeStats[categoryKey] = { 
@@ -3268,7 +3293,8 @@ function renderRecords() {
         const typeMatch =
             filterType === 'all' ||
             (filterType === 'savings' ? isSavings :
-             filterType === 'income' ? r.type === 'income' : // Include savings income
+             filterType === 'income' ? r.type === 'income' :
+             filterType === 'spending' ? (r.type === 'spending' || r.type === 'provisional') && !isSavings :
              (r.type === filterType && !isSavings));
         const recordDate = new Date(r.date);
         const isPendingAR = r.type === 'account_receivable' && !r.collected;
@@ -3599,6 +3625,10 @@ function renderAnalytics() {
         } else if (r.type === 'spending') {
             monthlyStats[monthKey].spending += parseFloat(r.amount);
             monthlyStats[monthKey].categories[r.category] = (monthlyStats[monthKey].categories[r.category] || 0) + parseFloat(r.amount);
+        } else if (r.type === 'provisional') {
+            const held = getProvisionalHeld(r);
+            monthlyStats[monthKey].spending += held;
+            monthlyStats[monthKey].categories[r.category] = (monthlyStats[monthKey].categories[r.category] || 0) + held;
         }
         // account_receivable excluded - affects balance only, not income/spending
 
@@ -3689,21 +3719,36 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
         const amount = parseFloat(r.amount) || 0;
 
         // General totals for whatever is in filteredRecords (include savings income)
-        if (r.type === 'income' && !incomeExcludedFromTotals(r)) contextIncome += amount;
-        else if (r.type === 'spending') contextSpending += amount;
+        if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
+            contextIncome += amount;
+        } else if (r.type === 'spending') {
+            contextSpending += amount;
+        } else if (r.type === 'provisional') {
+            contextSpending += getProvisionalHeld(r);
+        }
 
 
         // Grouping records (for finding "Tops")
         if (r.category) {
             if (!categoryTotals[r.category]) categoryTotals[r.category] = { income: 0, spending: 0 };
-            if (r.type === 'income' && !incomeExcludedFromTotals(r)) categoryTotals[r.category].income += amount;
-            else if (r.type === 'spending') categoryTotals[r.category].spending += amount;
+            if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
+                categoryTotals[r.category].income += amount;
+            } else if (r.type === 'spending') {
+                categoryTotals[r.category].spending += amount;
+            } else if (r.type === 'provisional') {
+                categoryTotals[r.category].spending += getProvisionalHeld(r);
+            }
         }
 
         if (r.person) {
             if (!personTotals[r.person]) personTotals[r.person] = { income: 0, spending: 0 };
-            if (r.type === 'income' && !incomeExcludedFromTotals(r)) personTotals[r.person].income += amount;
-            else if (r.type === 'spending') personTotals[r.person].spending += amount;
+            if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
+                personTotals[r.person].income += amount;
+            } else if (r.type === 'spending') {
+                personTotals[r.person].spending += amount;
+            } else if (r.type === 'provisional') {
+                personTotals[r.person].spending += getProvisionalHeld(r);
+            }
 
         }
     });
@@ -3805,6 +3850,8 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
                 incomeData[dayIdx] += amount;
             } else if (r.type === 'spending') {
                 spendingData[dayIdx] += amount;
+            } else if (r.type === 'provisional') {
+                spendingData[dayIdx] += getProvisionalHeld(r);
             }
             // account_receivable excluded - affects balance only, not income/spending
 
@@ -3884,10 +3931,13 @@ function renderPersonChart(filteredRecords = null) {
 
     const recordsToUse = filteredRecords || records;
     const dataByPerson = {};
-    const relevantRecords = recordsToUse.filter(r => r.person && r.type === dataFocus);
+    const relevantRecords = recordsToUse.filter(r => r.person && (r.type === dataFocus || (dataFocus === 'spending' && r.type === 'provisional')));
 
     relevantRecords.forEach(r => {
-        dataByPerson[r.person] = (dataByPerson[r.person] || 0) + parseFloat(r.amount);
+        const amt = r.type === 'provisional' ? getProvisionalHeld(r) : parseFloat(r.amount);
+        if (amt > 0) {
+            dataByPerson[r.person] = (dataByPerson[r.person] || 0) + amt;
+        }
     });
 
     const labels = Object.keys(dataByPerson);
@@ -6626,7 +6676,7 @@ function renderBudget() {
     // Get spending records for current month (after last reset)
     const monthlySpending = {};
     records.forEach(r => {
-        if (r.type === 'spending') {
+        if (r.type === 'spending' || r.type === 'provisional') {
             const recordDate = new Date(r.date);
             if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
                 // Find the budget limit for this category to check last reset date
@@ -6644,8 +6694,10 @@ function renderBudget() {
                             }
                         });
                     } else {
-                        const amount = parseFloat(r.amount) || 0;
-                        monthlySpending[r.category] = (monthlySpending[r.category] || 0) + amount;
+                        const amount = r.type === 'provisional' ? getProvisionalHeld(r) : (parseFloat(r.amount) || 0);
+                        if (amount > 0) {
+                            monthlySpending[r.category] = (monthlySpending[r.category] || 0) + amount;
+                        }
                     }
                 }
             }
