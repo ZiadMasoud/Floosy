@@ -67,17 +67,17 @@ class MonthlySummaryPDF {
         try {
             // Use a web-safe Arabic font from Google Fonts or CDN
             const fontUrl = 'https://cdn.jsdelivr.net/gh/khaledalam0/WebFont@main/fonts/Cairo/Cairo-Regular.ttf';
-            
+
             const response = await fetch(fontUrl);
             if (!response.ok) throw new Error('Failed to fetch Arabic font');
-            
+
             const fontBytes = await response.arrayBuffer();
             const base64Font = btoa(String.fromCharCode(...new Uint8Array(fontBytes)));
-            
+
             // Store the base64 font for later use
             this.arabicFontBase64 = base64Font;
             this.arabicFontLoaded = true;
-            
+
             console.log('Arabic font loaded successfully');
         } catch (error) {
             console.warn('Failed to load Arabic font, falling back to default:', error);
@@ -200,24 +200,24 @@ class MonthlySummaryPDF {
                 totalAR += Math.max(0, amt - (r.collectedAmount || 0));
             } else if (r.type === 'account_payable' && !r.paid) {
                 totalAP += Math.max(0, amt - (r.paidAmount || 0));
-            }
 
-            // expand combined transactions
-            if (r.formatType === 'combined' && Array.isArray(r.combinedTransactions)) {
-                r.combinedTransactions.forEach(ct => {
-                    const cAmt = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
-                    if (ct.type === 'spending') {
-                        totalSpending += cAmt;
-                        const cat = ct.category || 'Uncategorized';
-                        catBreakdown[cat] = (catBreakdown[cat] || 0) + cAmt;
-                        if (ct.person) peopleBreakdown[ct.person] = (peopleBreakdown[ct.person] || 0) + cAmt;
-                        dailySpending[dateKey] = (dailySpending[dateKey] || 0) + cAmt;
-                    } else if (ct.type === 'income') {
-                        totalIncome += cAmt;
-                        const cat = ct.category || 'Other Income';
-                        incomeBreakdown[cat] = (incomeBreakdown[cat] || 0) + cAmt;
-                    }
-                });
+                // expand combined transactions
+                if (r.formatType === 'combined' && Array.isArray(r.combinedTransactions)) {
+                    r.combinedTransactions.forEach(ct => {
+                        const cAmt = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
+                        if (ct.type === 'spending') {
+                            totalSpending += cAmt;
+                            const cat = ct.category || 'Uncategorized';
+                            catBreakdown[cat] = (catBreakdown[cat] || 0) + cAmt;
+                            if (ct.person) peopleBreakdown[ct.person] = (peopleBreakdown[ct.person] || 0) + cAmt;
+                            dailySpending[dateKey] = (dailySpending[dateKey] || 0) + cAmt;
+                        } else if (ct.type === 'income') {
+                            totalIncome += cAmt;
+                            const cat = ct.category || 'Other Income';
+                            incomeBreakdown[cat] = (incomeBreakdown[cat] || 0) + cAmt;
+                        }
+                    });
+                }
             }
         });
 
@@ -287,7 +287,7 @@ class MonthlySummaryPDF {
 
     processTextForPDF(text) {
         if (!text) return text;
-        
+
         // Check if text contains Arabic
         if (this.containsArabic(text)) {
             // For PDF rendering, we'll handle Arabic text specially
@@ -297,7 +297,7 @@ class MonthlySummaryPDF {
                 processed: text // We'll process this in the text rendering methods
             };
         }
-        
+
         return {
             text: text,
             isArabic: false,
@@ -321,7 +321,7 @@ class MonthlySummaryPDF {
 
     renderText(pdf, textObj, x, y, options = {}) {
         const { text, isArabic, processed } = textObj;
-        
+
         if (isArabic && this.arabicFontLoaded) {
             // Use Arabic font for Arabic text
             const fontSet = this.setArabicFont(pdf);
@@ -335,7 +335,7 @@ class MonthlySummaryPDF {
                 return;
             }
         }
-        
+
         // Fallback to default font handling
         pdf.setFont('helvetica', options.fontStyle || 'normal');
         pdf.text(processed, x, y, options);
