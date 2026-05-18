@@ -9,6 +9,63 @@ function formatDateLocal(date) {
     return `${year}-${month}-${day}`;
 }
 
+// Convert hex color to lighter transparent RGBA format
+function getLighterColor(hex, opacity = 0.08) {
+    if (!hex) return 'transparent';
+    let cleanHex = hex.replace('#', '');
+    if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(char => char + char).join('');
+    }
+    if (cleanHex.length !== 6) return 'transparent';
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
+// Helper to determine readable text color (white or black) based on hex background color
+function getContrastColor(hexColor) {
+    if (!hexColor) return '#ffffff';
+    let cleanHex = hexColor.replace('#', '');
+    if (cleanHex.length === 3) {
+        cleanHex = cleanHex.split('').map(char => char + char).join('');
+    }
+    if (cleanHex.length !== 6) return '#ffffff';
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+}
+
+// Helper to calculate usage frequency for all categories and people
+function getUsageMaps() {
+    const categoryUsage = {};
+    const personUsage = {};
+    if (Array.isArray(records)) {
+        records.forEach(r => {
+            if (r.carriedForwardFrom) return;
+            if (r.category) {
+                categoryUsage[r.category] = (categoryUsage[r.category] || 0) + 1;
+            }
+            if (r.person) {
+                personUsage[r.person] = (personUsage[r.person] || 0) + 1;
+            }
+            if (r.formatType === 'combined' && Array.isArray(r.combinedTransactions)) {
+                r.combinedTransactions.forEach(ct => {
+                    if (ct.category) {
+                        categoryUsage[ct.category] = (categoryUsage[ct.category] || 0) + 1;
+                    }
+                    if (ct.person) {
+                        personUsage[ct.person] = (personUsage[ct.person] || 0) + 1;
+                    }
+                });
+            }
+        });
+    }
+    return { categoryUsage, personUsage };
+}
+
 function incomeExcludedFromTotals(r) {
     return !!(r && (r.isProjected || r.excludeFromIncomeTotals));
 }
@@ -198,8 +255,8 @@ const showMoreCategoriesBtn = document.getElementById('show-more-categories');
 const showMorePeopleBtn = document.getElementById('show-more-people');
 
 // Pagination State
-let categoriesVisible = 2;
-let peopleVisible = 2;
+let categoriesVisible = window.innerWidth > 768 ? 3 : 2;
+let peopleVisible = window.innerWidth > 768 ? 3 : 2;
 let categoriesExpanded = false;
 let peopleExpanded = false;
 
@@ -873,6 +930,11 @@ function initEventListeners() {
                 const neededHeight = Math.max(300, 250 + (categoryCount * 25));
                 chartContainer.style.height = neededHeight + 'px';
             }
+        }
+        
+        // Re-render settings to dynamically adjust category/people collapsed limits on resize
+        if (currentTab === 'settings') {
+            renderSettings();
         }
     });
 
@@ -2481,6 +2543,13 @@ function renderDashboardRecords(recordsToRender) {
         const card = document.createElement('div');
         const provResolvedClass = isProv && r.status === 'closed' ? ' provisional-resolved' : '';
         card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}${provResolvedClass}`;
+
+        // Apply custom category color as background and left border
+        const catObj = categories.find(c => c.name === categoryName);
+        const catColor = catObj?.color || '#355872';
+        const lightBg = getLighterColor(catColor, 0.08);
+        card.style.backgroundColor = lightBg;
+        card.style.borderLeft = `4px solid ${catColor}`;
         card.onclick = async (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
@@ -2515,7 +2584,11 @@ function renderDashboardRecords(recordsToRender) {
                 <div class="transaction-name"><span>${displayName}</span>${isProv && r.status === 'closed' ? ' <i class="fas fa-check-circle prov-closed-icon" title="Resolved"></i>' : ''}</div>
                 <div class="transaction-category">
                     <span class="category-badge badge-${badgeType}">${isCombined ? 'Combined' : categoryName}${typeExtraStatus}</span>
-                    ${r.person ? `<span><i class="fas fa-user" style="font-size: 0.7rem;"></i> ${r.person}</span>` : ''}
+                    ${r.person ? (() => {
+                        const personObj = people.find(p => p.name === r.person);
+                        const personColor = personObj?.color || '#355872';
+                        return `<span><i class="fas fa-user" style="font-size: 0.7rem; color: ${personColor};"></i> <strong style="color: ${personColor}; font-weight: 600;">${r.person}</strong></span>`;
+                    })() : ''}
                 </div>
             </div>
             <div class="transaction-amount">
@@ -3053,20 +3126,41 @@ function populateAnalyticsFilterDropdowns() {
     const dashboardPersonSelect = document.getElementById('dashboard-filter-person');
     const dashboardCategorySelect = document.getElementById('dashboard-filter-category');
 
+    const { categoryUsage, personUsage } = getUsageMaps();
+
+    // Sort people by usage frequency (descending)
+    const sortedPeople = [...people].sort((a, b) => {
+        const usageA = personUsage[a.name] || 0;
+        const usageB = personUsage[b.name] || 0;
+        if (usageB !== usageA) return usageB - usageA;
+        return compareStringsAlphabetically(a.name, b.name);
+    });
+
+    // Sort categories by type and usage frequency
+    const incomeCategories = categories.filter(c => c.type === 'income').sort((a, b) => {
+        const usageA = categoryUsage[a.name] || 0;
+        const usageB = categoryUsage[b.name] || 0;
+        if (usageB !== usageA) return usageB - usageA;
+        return compareStringsAlphabetically(a.name, b.name);
+    });
+    const spendingCategories = categories.filter(c => c.type === 'spending').sort((a, b) => {
+        const usageA = categoryUsage[a.name] || 0;
+        const usageB = categoryUsage[b.name] || 0;
+        if (usageB !== usageA) return usageB - usageA;
+        return compareStringsAlphabetically(a.name, b.name);
+    });
+
     // Populate analytics person dropdown
     if (analyticsPersonSelect) {
         const currentValue = analyticsPersonSelect.value;
         analyticsPersonSelect.innerHTML = '<option value="">All People</option>' +
-            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+            sortedPeople.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         analyticsPersonSelect.value = currentValue;
     }
 
     // Populate analytics category dropdown
     if (analyticsCategorySelect) {
         const currentValue = analyticsCategorySelect.value;
-        const incomeCategories = categories.filter(c => c.type === 'income');
-        const spendingCategories = categories.filter(c => c.type === 'spending');
-
         analyticsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
             '<option value="all-income">All Income Categories</option>' +
             '<option value="all-spending">All Spending Categories</option>' +
@@ -3081,16 +3175,13 @@ function populateAnalyticsFilterDropdowns() {
     if (recordsPersonSelect) {
         const currentValue = recordsPersonSelect.value;
         recordsPersonSelect.innerHTML = '<option value="">All People</option>' +
-            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+            sortedPeople.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         recordsPersonSelect.value = currentValue;
     }
 
     // Populate records category dropdown
     if (recordsCategorySelect) {
         const currentValue = recordsCategorySelect.value;
-        const incomeCategories = categories.filter(c => c.type === 'income');
-        const spendingCategories = categories.filter(c => c.type === 'spending');
-
         recordsCategorySelect.innerHTML = '<option value="">All Categories</option>' +
             '<option value="all-income">All Income Categories</option>' +
             '<option value="all-spending">All Spending Categories</option>' +
@@ -3105,16 +3196,13 @@ function populateAnalyticsFilterDropdowns() {
     if (dashboardPersonSelect) {
         const currentValue = dashboardPersonSelect.value;
         dashboardPersonSelect.innerHTML = '<option value="">All People</option>' +
-            people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+            sortedPeople.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
         dashboardPersonSelect.value = currentValue;
     }
 
     // Populate dashboard category dropdown
     if (dashboardCategorySelect) {
         const currentValue = dashboardCategorySelect.value;
-        const incomeCategories = categories.filter(c => c.type === 'income');
-        const spendingCategories = categories.filter(c => c.type === 'spending');
-
         dashboardCategorySelect.innerHTML = '<option value="">All Categories</option>' +
             '<option value="all-income">All Income Categories</option>' +
             '<option value="all-spending">All Spending Categories</option>' +
@@ -3327,6 +3415,16 @@ function renderRecords() {
             tr.className = rowClass;
             tr.onclick = async () => await openDetailsModal(r);
 
+            // Apply dynamic background color based on category color
+            if (!r.isParentGroupHeader) {
+                const recCat = r.isCombinedComponent ? r.actualCategory : r.category;
+                const catObj = categories.find(c => c.name === recCat);
+                const catColor = catObj?.color || '#355872';
+                const lightBg = getLighterColor(catColor, 0.08);
+                tr.style.backgroundColor = lightBg;
+                tr.style.borderLeft = `3px solid ${catColor}`;
+            }
+
             const isAR = r.type === 'account_receivable';
             const isAP = r.type === 'account_payable';
             const isProv = r.type === 'provisional';
@@ -3359,7 +3457,12 @@ function renderRecords() {
                         <span class="category-badge badge-${r.type} ${badgeExtra}">${r.isCombinedComponent ? r.actualCategory : r.category}${typeExtra}</span>
                     `)}
                 </td>
-                <td>${r.isParentGroupHeader ? '' : (r.person || '-')}</td>
+                <td>${r.isParentGroupHeader ? '' : (() => {
+                    if (!r.person) return '-';
+                    const personObj = people.find(p => p.name === r.person);
+                    const personColor = personObj?.color || '#355872';
+                    return `<span style="color: ${personColor}; font-weight: 600;"><i class="fas fa-user" style="font-size: 0.7rem; color: ${personColor};"></i> ${r.person}</span>`;
+                })()}</td>
                 <td class="${amtCellClass}">
                     <span class="${amtSpanClass}">${amtPrefix}$</span><span class="amount-num">${formatCurrency(rowAmt)}</span>
                     ${((isAR || isAP) && rowAmt < parseFloat(r.amount) - 0.001) ? `<br><small style="color: var(--text-muted);">of $${formatCurrency(parseFloat(r.amount))}</small>` : ''}
@@ -5124,6 +5227,12 @@ function openCategoryEditModal(category) {
     editCategoryIdInput.value = category.id;
     editCategoryNameInput.value = category.name;
     editCategoryTypeSelect.value = category.type;
+
+    const editCategoryColorInput = document.getElementById('edit-category-color');
+    if (editCategoryColorInput) {
+        editCategoryColorInput.value = category.color || '#355872';
+    }
+
     categoryEditModal.classList.add('active');
     editCategoryNameInput.focus();
 }
@@ -5163,6 +5272,7 @@ async function handleCategoryEdit(e) {
     const id = parseInt(editCategoryIdInput.value);
     const name = editCategoryNameInput.value.trim();
     const type = editCategoryTypeSelect.value;
+    const color = document.getElementById('edit-category-color')?.value || '#355872';
 
     if (!name) {
         showToast('Please enter a category name', 'warning');
@@ -5174,7 +5284,7 @@ async function handleCategoryEdit(e) {
         const oldCategory = categories.find(c => c.id === id);
 
         // Update the category
-        await updateRecord(STORE_CATEGORIES, { id, name, type });
+        await updateRecord(STORE_CATEGORIES, { id, name, type, color });
 
         // Update all records that reference the old category name
         if (oldCategory && oldCategory.name !== name) {
@@ -5245,6 +5355,12 @@ function openPersonEditModal(person) {
 
     editCategoryIdInput.value = person.id;
     editCategoryNameInput.value = person.name;
+
+    const editCategoryColorInput = document.getElementById('edit-category-color');
+    if (editCategoryColorInput) {
+        editCategoryColorInput.value = person.color || '#355872';
+    }
+
     // Hide type select for people (they don't have types)
     const typeContainer = editCategoryTypeSelect.parentElement;
     const typeLabel = typeContainer.querySelector('label');
@@ -5267,6 +5383,7 @@ async function handlePersonEdit(e) {
 
     const id = parseInt(editCategoryIdInput.value);
     const name = editCategoryNameInput.value.trim();
+    const color = document.getElementById('edit-category-color')?.value || '#355872';
 
     if (!name) {
         showToast('Please enter a person name', 'warning');
@@ -5278,7 +5395,7 @@ async function handlePersonEdit(e) {
         const oldPerson = people.find(p => p.id === id);
 
         // Update the person
-        await updateRecord(STORE_PEOPLE, { id, name });
+        await updateRecord(STORE_PEOPLE, { id, name, color });
 
         // Update all records that reference the old person name
         if (oldPerson && oldPerson.name !== name) {
@@ -5343,29 +5460,67 @@ function renderSettings() {
     if (!categoryList) return;
     categoryList.innerHTML = '';
 
+    const collapsedLimit = window.innerWidth > 768 ? 3 : 2;
+    const { categoryUsage, personUsage } = getUsageMaps();
+
     if (categories.length === 0) {
         categoryList.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; padding: 2rem; color: var(--text-muted); width: 100%;">No categories defined</p>';
     } else {
-        // Sort categories alphabetically with Arabic support
+        // Sort categories by usage frequency (descending), then alphabetically
         const sortedCategories = [...categories].sort((a, b) => {
+            const usageA = categoryUsage[a.name] || 0;
+            const usageB = categoryUsage[b.name] || 0;
+            if (usageB !== usageA) {
+                return usageB - usageA;
+            }
             return compareStringsAlphabetically(a.name, b.name);
         });
 
-        const visibleCategories = categoriesExpanded ? sortedCategories : sortedCategories.slice(0, categoriesVisible);
+        const visibleLimit = categoriesExpanded ? sortedCategories.length : collapsedLimit;
+        const visibleCategories = sortedCategories.slice(0, visibleLimit);
         visibleCategories.forEach(cat => {
             const div = document.createElement('div');
-            div.className = 'category-item';
+            const catColor = cat.color || '#355872';
+            const isIncome = cat.type === 'income';
+            
+            div.className = 'category-item colored';
+            
+            if (isIncome) {
+                // Background color remains the selected category color (lighter tint)
+                div.style.backgroundColor = getLighterColor(catColor, 0.18);
+                // ONLY the border color is distinct green (success color)
+                div.style.borderColor = '#10b981';
+                div.style.borderWidth = '2px';
+                div.style.borderStyle = 'solid';
+                div.style.boxShadow = '0 4px 10px rgba(16, 185, 129, 0.06)';
+            } else {
+                div.style.backgroundColor = getLighterColor(catColor, 0.18);
+                div.style.borderColor = getLighterColor(catColor, 0.35);
+                div.style.borderWidth = '1px';
+                div.style.borderStyle = 'solid';
+                div.style.boxShadow = 'none';
+            }
+
+            const badgeBg = isIncome ? 'rgba(16, 185, 129, 0.12)' : getLighterColor(catColor, 0.25);
+            const badgeColor = isIncome ? '#10b981' : catColor;
+            const badgeBorder = isIncome ? '1px solid rgba(16, 185, 129, 0.3)' : `1px solid ${getLighterColor(catColor, 0.4)}`;
+            const titleColor = catColor; // Selected category color for title
+
+            const btnBg = 'rgba(0, 0, 0, 0.05)';
+
             div.innerHTML = `
-                <div>
-                    <strong>${cat.name}</strong>
-                    <span class="category-badge badge-${cat.type}">${cat.type}</span>
+                <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1;">
+                    <div style="min-width: 0; flex: 1;">
+                        <strong style="color: ${titleColor}; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.15rem; font-weight: 700;">${cat.name}</strong>
+                        <span class="category-badge" style="background: ${badgeBg}; color: ${badgeColor}; border: ${badgeBorder}; padding: 0.15rem 0.5rem; font-size: 0.72rem; border-radius: var(--radius-sm); text-transform: capitalize; font-weight: 600;">${cat.type}</span>
+                    </div>
                 </div>
-                <div>
-                    <button class="btn-icon edit-btn" onclick="editCategory(${cat.id})" title="Edit Category">
-                        <i class="fas fa-edit"></i>
+                <div style="display: flex; gap: 0.4rem; flex-shrink: 0;">
+                    <button class="btn-icon edit-btn" onclick="editCategory(${cat.id})" title="Edit Category" style="background: ${btnBg}; color: var(--text-main); border: none; border-radius: var(--radius-sm); width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s;">
+                        <i class="fas fa-edit" style="font-size: 0.85rem;"></i>
                     </button>
-                    <button class="btn-icon delete-btn" onclick="deleteCategory(${cat.id})" title="Delete Category">
-                        <i class="fas fa-trash"></i>
+                    <button class="btn-icon delete-btn" onclick="deleteCategory(${cat.id})" title="Delete Category" style="background: ${btnBg}; color: var(--text-main); border: none; border-radius: var(--radius-sm); width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s;">
+                        <i class="fas fa-trash" style="font-size: 0.85rem;"></i>
                     </button>
                 </div>
             `;
@@ -5375,7 +5530,7 @@ function renderSettings() {
 
     // Update Show More button for categories
     if (showMoreCategoriesBtn) {
-        if (categories.length > 2) {
+        if (categories.length > collapsedLimit) {
             showMoreCategoriesBtn.style.display = 'block';
             showMoreCategoriesBtn.textContent = categoriesExpanded ? 'Show Less' : 'Show More';
         } else {
@@ -5389,25 +5544,40 @@ function renderSettings() {
         if (people.length === 0) {
             personList.innerHTML = '<p style="grid-column: 1 / -1; text-align:center; padding: 2rem; color: var(--text-muted); width: 100%;">No people defined</p>';
         } else {
-            // Sort people alphabetically with Arabic support
+            // Sort people by usage frequency (descending), then alphabetically
             const sortedPeople = [...people].sort((a, b) => {
+                const usageA = personUsage[a.name] || 0;
+                const usageB = personUsage[b.name] || 0;
+                if (usageB !== usageA) {
+                    return usageB - usageA;
+                }
                 return compareStringsAlphabetically(a.name, b.name);
             });
 
-            const visiblePeople = peopleExpanded ? sortedPeople : sortedPeople.slice(0, peopleVisible);
+            const visibleLimit = peopleExpanded ? sortedPeople.length : collapsedLimit;
+            const visiblePeople = sortedPeople.slice(0, visibleLimit);
             visiblePeople.forEach(person => {
                 const div = document.createElement('div');
-                div.className = 'category-item';
+                const personColor = person.color || '#355872';
+                
+                div.className = 'category-item colored';
+                div.style.backgroundColor = getLighterColor(personColor, 0.18);
+                div.style.borderColor = getLighterColor(personColor, 0.35);
+
+                const btnBg = 'rgba(0, 0, 0, 0.05)';
+
                 div.innerHTML = `
-                    <div>
-                        <strong>${person.name}</strong>
+                    <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1;">
+                        <div style="min-width: 0; flex: 1;">
+                            <strong style="color: ${personColor}; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700;">${person.name}</strong>
+                        </div>
                     </div>
-                    <div>
-                        <button class="btn-icon edit-btn" onclick="editPerson(${person.id})" title="Edit Person">
-                            <i class="fas fa-edit"></i>
+                    <div style="display: flex; gap: 0.4rem; flex-shrink: 0;">
+                        <button class="btn-icon edit-btn" onclick="editPerson(${person.id})" title="Edit Person" style="background: ${btnBg}; color: var(--text-main); border: none; border-radius: var(--radius-sm); width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-edit" style="font-size: 0.85rem;"></i>
                         </button>
-                        <button class="btn-icon delete-btn" onclick="deletePerson(${person.id})" title="Delete Person">
-                            <i class="fas fa-trash"></i>
+                        <button class="btn-icon delete-btn" onclick="deletePerson(${person.id})" title="Delete Person" style="background: ${btnBg}; color: var(--text-main); border: none; border-radius: var(--radius-sm); width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.2s;">
+                            <i class="fas fa-trash" style="font-size: 0.85rem;"></i>
                         </button>
                     </div>
                 `;
@@ -5417,7 +5587,7 @@ function renderSettings() {
 
         // Update Show More button for people
         if (showMorePeopleBtn) {
-            if (people.length > 2) {
+            if (people.length > collapsedLimit) {
                 showMorePeopleBtn.style.display = 'block';
                 showMorePeopleBtn.textContent = peopleExpanded ? 'Show Less' : 'Show More';
             } else {
@@ -5430,12 +5600,15 @@ function renderSettings() {
 async function handleAddCategory() {
     const nameInput = document.getElementById('new-category-name');
     const typeSelect = document.getElementById('new-category-type');
+    const colorInput = document.getElementById('new-category-color');
     const name = nameInput.value.trim();
     const type = typeSelect.value;
+    const color = colorInput ? colorInput.value : '#355872';
 
     if (name) {
-        await add(STORE_CATEGORIES, { name, type });
+        await add(STORE_CATEGORIES, { name, type, color });
         nameInput.value = '';
+        if (colorInput) colorInput.value = '#355872';
         await refreshData();
     }
 }
@@ -5453,6 +5626,18 @@ function updateCategoryDropdowns() {
     // For account_receivable, account_payable, and provisional, use spending categories
     const categoryType = (type === 'account_receivable' || type === 'account_payable' || type === 'provisional') ? 'spending' : type;
     const filtered = categories.filter(c => c.type === categoryType);
+    
+    // Sort by usage frequency
+    const { categoryUsage } = getUsageMaps();
+    filtered.sort((a, b) => {
+        const usageA = categoryUsage[a.name] || 0;
+        const usageB = categoryUsage[b.name] || 0;
+        if (usageB !== usageA) {
+            return usageB - usageA;
+        }
+        return compareStringsAlphabetically(a.name, b.name);
+    });
+
     const currentValue = recordCategorySelect.value;
     recordCategorySelect.innerHTML = '<option value="">-- Select Category --</option>' +
         filtered.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
@@ -5461,22 +5646,36 @@ function updateCategoryDropdowns() {
 
 function updatePersonDropdown() {
     if (!recordPersonSelect) return;
+    
+    // Sort by usage frequency
+    const { personUsage } = getUsageMaps();
+    const sortedPeople = [...people].sort((a, b) => {
+        const usageA = personUsage[a.name] || 0;
+        const usageB = personUsage[b.name] || 0;
+        if (usageB !== usageA) {
+            return usageB - usageA;
+        }
+        return compareStringsAlphabetically(a.name, b.name);
+    });
+
     const selectedValue = recordPersonSelect.value;
     recordPersonSelect.innerHTML = '<option value="">Select Person (Optional)</option>' +
-        people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+        sortedPeople.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
     recordPersonSelect.value = selectedValue;
 }
 
 // Show More Toggle Functions
 function toggleCategoriesVisibility() {
     categoriesExpanded = !categoriesExpanded;
-    categoriesVisible = categoriesExpanded ? categories.length : 2;
+    const collapsedLimit = window.innerWidth > 768 ? 3 : 2;
+    categoriesVisible = categoriesExpanded ? categories.length : collapsedLimit;
     renderSettings();
 }
 
 function togglePeopleVisibility() {
     peopleExpanded = !peopleExpanded;
-    peopleVisible = peopleExpanded ? people.length : 2;
+    const collapsedLimit = window.innerWidth > 768 ? 3 : 2;
+    peopleVisible = peopleExpanded ? people.length : collapsedLimit;
     renderSettings();
 }
 
@@ -5499,11 +5698,14 @@ function toggleChartCategoriesVisibility() {
 // People Management Functions
 async function handleAddPerson() {
     const nameInput = document.getElementById('new-person-name');
+    const colorInput = document.getElementById('new-person-color');
     const name = nameInput.value.trim();
+    const color = colorInput ? colorInput.value : '#355872';
 
     if (name) {
-        await add(STORE_PEOPLE, { name });
+        await add(STORE_PEOPLE, { name, color });
         nameInput.value = '';
+        if (colorInput) colorInput.value = '#355872';
         await refreshData();
     }
 }
@@ -6619,8 +6821,16 @@ function openBudgetLimitModal(limit = null) {
     const thresholdInput = document.getElementById('budget-limit-threshold');
     const idInput = document.getElementById('budget-limit-id');
 
-    // Populate categories (only spending categories)
-    const spendingCategories = categories.filter(c => c.type === 'spending');
+    // Populate categories (only spending categories) sorted by usage frequency
+    const { categoryUsage } = getUsageMaps();
+    const spendingCategories = categories.filter(c => c.type === 'spending').sort((a, b) => {
+        const usageA = categoryUsage[a.name] || 0;
+        const usageB = categoryUsage[b.name] || 0;
+        if (usageB !== usageA) {
+            return usageB - usageA;
+        }
+        return compareStringsAlphabetically(a.name, b.name);
+    });
     categorySelect.innerHTML = '<option value="">Select a category</option>' +
         spendingCategories.map(c => {
             const isUsed = budgetLimits.some(l => l.category === c.name && (!limit || l.id !== limit.id));
@@ -6952,7 +7162,7 @@ function renderUpcomingIncome() {
     });
 
     // Combine all upcoming income items
-    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences];
 
     if (allUpcomingIncome.length === 0) {
         container.innerHTML = `
@@ -6964,8 +7174,28 @@ function renderUpcomingIncome() {
         return;
     }
 
+    // Split into pending and collected this month
+    const pendingUpcoming = allUpcomingIncome.filter(r => !r.receivedRecordId);
+    const collectedUpcoming = allUpcomingIncome.filter(r => !!r.receivedRecordId);
+
+    // Sort pending upcoming by most near to be upcoming first
+    pendingUpcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Sort collected items too
+    collectedUpcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
+
     container.innerHTML = '';
-    allUpcomingIncome.forEach(r => {
+
+    // Create container for active pending upcoming items
+    const pendingContainer = document.createElement('div');
+    pendingContainer.className = 'pending-upcoming-list';
+    pendingContainer.style.display = 'flex';
+    pendingContainer.style.flexDirection = 'column';
+    pendingContainer.style.gap = '0.75rem';
+    container.appendChild(pendingContainer);
+
+    // Helper function to render a single card item
+    const createUpcomingCard = (r) => {
         const dateObj = new Date(r.date);
         const isToday = dateObj.toDateString() === now.toDateString();
         const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === dateObj.toDateString();
@@ -6994,6 +7224,10 @@ function renderUpcomingIncome() {
         const isRecurring = r.isRecurring;
         const amount = parseFloat(r.amount) || 0;
         const description = r.projectedSource || r.item || r.category;
+
+        // Find chosen category color
+        const cat = categories.find(c => c.name === r.category);
+        const catColor = cat ? cat.color : '#355872'; // Fallback to primary color
 
         // Generate appropriate icon and label
         let iconClass = 'fa-arrow-trend-up';
@@ -7029,6 +7263,36 @@ function renderUpcomingIncome() {
 
         const item = document.createElement('div');
         item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''} ${isProjected ? 'upcoming-projected' : ''} ${isRecurring ? 'upcoming-recurring' : ''} ${isReceivedThisMonth ? 'received-this-month' : ''}`;
+        
+        // Dynamic background styling based on category color
+        if (!isReceivedThisMonth) {
+            item.style.backgroundColor = getLighterColor(catColor, 0.08);
+            item.style.borderLeft = `4px solid ${catColor}`;
+        }
+
+        // Setup badge for next occurrence if collected & recurring
+        let awaitingBadgeHtml = '';
+        if (isReceivedThisMonth && isRecurring && r.dayOfMonth) {
+            const getNextMonthDateLabel = (day) => {
+                const today = new Date();
+                let nextMonth = today.getMonth() + 1;
+                let nextYear = today.getFullYear() + (nextMonth > 11 ? 1 : 0);
+                nextMonth = nextMonth % 12;
+                const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const suffix = (d) => {
+                    if (d > 3 && d < 21) return 'th';
+                    switch (d % 10) {
+                        case 1:  return "st";
+                        case 2:  return "nd";
+                        case 3:  return "rd";
+                        default: return "th";
+                    }
+                };
+                return `${monthNames[nextMonth]} ${day}${suffix(day)}`;
+            };
+            awaitingBadgeHtml = `<span class="awaiting-badge"><i class="fas fa-arrows-spin"></i> Awaiting ${getNextMonthDateLabel(r.dayOfMonth)}</span>`;
+        }
+
         item.innerHTML = `
             <div class="income-info" onclick="showUpcomingIncomeDetails(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring})">
                 <div class="income-icon">
@@ -7037,6 +7301,7 @@ function renderUpcomingIncome() {
                 <div class="income-details">
                     <span class="income-name">${description}</span>
                     <span class="income-date">${dateLabel}${statusLabel}</span>
+                    ${awaitingBadgeHtml}
                 </div>
             </div>
             <div class="income-actions">
@@ -7044,8 +7309,47 @@ function renderUpcomingIncome() {
                 ${actionButtons}
             </div>
         `;
-        container.appendChild(item);
-    });
+
+        // Accent the icon background and color using the category color if pending
+        const iconEl = item.querySelector('.income-icon');
+        if (iconEl && !isReceivedThisMonth) {
+            iconEl.style.backgroundColor = getLighterColor(catColor, 0.16);
+            iconEl.style.color = catColor;
+        }
+
+        return item;
+    };
+
+    // Render pending items
+    if (pendingUpcoming.length === 0) {
+        pendingContainer.innerHTML = `
+            <div class="upcoming-income-empty" style="padding: 1rem 0;">
+                <p style="font-size: 0.9rem;">No active upcoming income or receivables</p>
+            </div>
+        `;
+    } else {
+        pendingUpcoming.forEach(r => {
+            pendingContainer.appendChild(createUpcomingCard(r));
+        });
+    }
+
+    // Render collected items under a separate beautiful sub-section
+    if (collectedUpcoming.length > 0) {
+        const collectedSection = document.createElement('div');
+        collectedSection.className = 'collected-upcoming-section';
+        collectedSection.innerHTML = `
+            <div class="collected-section-header">
+                <h4><i class="fas fa-circle-check"></i> Collected This Month (Waiting for Next Month)</h4>
+                <span class="collected-count-badge">${collectedUpcoming.length}</span>
+            </div>
+            <div class="collected-upcoming-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+        `;
+        const collectedList = collectedSection.querySelector('.collected-upcoming-list');
+        collectedUpcoming.forEach(r => {
+            collectedList.appendChild(createUpcomingCard(r));
+        });
+        container.appendChild(collectedSection);
+    }
 }
 
 // ========================================

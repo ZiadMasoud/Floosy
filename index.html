@@ -580,11 +580,18 @@
                       <option value="income">Income</option>
                     </select>
                   </div>
-                  <div class="form-group" style="display: flex; align-items: flex-end">
-                    <button class="btn btn-primary" id="add-category-btn" style="width: 100%">
-                      Add Category
-                    </button>
+                  <div class="form-group">
+                    <label>Color</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                      <input type="color" id="new-category-color" value="#355872" style="border: 1px solid var(--border-color); padding: 0; width: 42px; height: 38px; border-radius: var(--radius-sm); cursor: pointer; background: none; flex-shrink: 0;" />
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">Color</span>
+                    </div>
                   </div>
+                </div>
+                <div class="form-group" style="margin-top: 0.5rem;">
+                  <button class="btn btn-primary" id="add-category-btn" style="width: 100%">
+                    Add Category
+                  </button>
                 </div>
               </div>
               <div class="category-list" id="category-list">
@@ -603,10 +610,19 @@
                   <label>New Person Name</label>
                   <input type="text" id="new-person-name" placeholder="e.g. John, Sarah..." />
                 </div>
-                <div class="form-group" style="display: flex; align-items: flex-end">
-                  <button class="btn btn-primary" id="add-person-btn" style="width: 100%">
-                    Add Person
-                  </button>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Color</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                      <input type="color" id="new-person-color" value="#355872" style="border: 1px solid var(--border-color); padding: 0; width: 42px; height: 38px; border-radius: var(--radius-sm); cursor: pointer; background: none; flex-shrink: 0;" />
+                      <span style="font-size: 0.75rem; color: var(--text-muted);">Color</span>
+                    </div>
+                  </div>
+                  <div class="form-group" style="display: flex; align-items: flex-end">
+                    <button class="btn btn-primary" id="add-person-btn" style="width: 100%">
+                      Add Person
+                    </button>
+                  </div>
                 </div>
               </div>
               <div class="category-list" id="person-list">
@@ -1003,6 +1019,13 @@
               <option value="spending">Spending</option>
               <option value="income">Income</option>
             </select>
+          </div>
+          <div class="form-group">
+            <label>Color</label>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="color" id="edit-category-color" value="#355872" style="border: 1px solid var(--border-color); padding: 0; width: 42px; height: 38px; border-radius: var(--radius-sm); cursor: pointer; background: none; flex-shrink: 0;" />
+              <span style="font-size: 0.75rem; color: var(--text-muted);">Color</span>
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="cancel-category-edit-modal">

@@ -337,8 +337,6 @@ body.privacy-mode #record-details-content [style*="text-align: right"] {
   color: var(--primary-color);
   text-transform: capitalize;
   letter-spacing: 0.05em;
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: 0.5rem;
 }
 
 .card-header {
@@ -3204,7 +3202,7 @@ tr:last-child td {
   background: #f7f8f0;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-color);
-  transition: border-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 60px;
   overflow: hidden;
   width: 100%;
@@ -3213,6 +3211,27 @@ tr:last-child td {
 
 .category-item:hover {
   border-color: var(--primary-color);
+}
+
+.category-item.colored {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.category-item.colored:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.06);
+}
+
+.category-item.colored .btn-icon {
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--text-main);
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.category-item.colored .btn-icon:hover {
+  background-color: rgba(0, 0, 0, 0.12) !important;
+  transform: scale(1.05);
 }
 
 .category-item>div:first-child {
@@ -6197,4 +6216,87 @@ tr:last-child td {
 
 .provisional-resolve-card #prov-spend-category {
   width: 100%;
+}
+
+/* ========================================
+   COLLECTED UPCOMING INCOME STYLES
+   ======================================== */
+.collected-upcoming-section {
+  margin-top: 1.75rem;
+  padding-top: 1.5rem;
+  border-top: 2px dashed var(--border-color);
+}
+
+.collected-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 0 0.25rem;
+}
+
+.collected-section-header h4 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.collected-section-header h4 i {
+  color: var(--success);
+}
+
+.collected-count-badge {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.upcoming-income-item.received-this-month {
+  background: rgba(16, 185, 129, 0.04) !important;
+  border-left: 4px solid var(--success) !important;
+  border-right: none !important;
+  border-top: none !important;
+  border-bottom: none !important;
+  opacity: 0.85;
+}
+
+.upcoming-income-item.received-this-month:hover {
+  opacity: 1;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
+  border-color: var(--success) !important;
+}
+
+.upcoming-income-item.received-this-month .income-name {
+  color: var(--text-main);
+  text-decoration: line-through;
+  opacity: 0.75;
+}
+
+.upcoming-income-item.received-this-month .income-amount {
+  color: var(--success);
+  opacity: 0.85;
+}
+
+.upcoming-income-item.received-this-month .awaiting-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--success);
+  background: rgba(16, 185, 129, 0.12);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  margin-top: 0.35rem;
+  width: fit-content;
 }
