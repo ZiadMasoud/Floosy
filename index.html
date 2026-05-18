@@ -1199,8 +1199,42 @@
             style="width: 100%; text-align: left; height: 44px;"></select>
         </div>
         <div class="form-group">
+          <label>Person</label>
+          <select id="prov-spend-person" class="btn btn-outline"
+            style="width: 100%; text-align: left; height: 44px;"></select>
+        </div>
+        <div class="form-group">
           <label>Spend amount</label>
           <input type="number" id="prov-spend-amount" step="0.01" min="0" placeholder="0.00" />
+        </div>
+        <div class="ar-collection-quick-actions" style="margin-top: 0.5rem; justify-content: flex-start;">
+          <button type="button" class="btn btn-outline btn-sm" id="prov-spend-full-btn">
+            <i class="fas fa-check-double"></i> Spend full held amount
+          </button>
+        </div>
+      </div>
+
+      <div class="prov-resolve-section">
+        <h4 class="prov-resolve-subtitle">Spend & Return (partial)</h4>
+        <div class="form-group">
+          <label>Category</label>
+          <select id="prov-mix-category" class="btn btn-outline"
+            style="width: 100%; text-align: left; height: 44px;"></select>
+        </div>
+        <div class="form-group">
+          <label>Person</label>
+          <select id="prov-mix-person" class="btn btn-outline"
+            style="width: 100%; text-align: left; height: 44px;"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Spend amount</label>
+            <input type="number" id="prov-mix-spend-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Return amount</label>
+            <input type="number" id="prov-mix-return-amount" step="0.01" min="0" placeholder="0.00" />
+          </div>
         </div>
       </div>
 
@@ -1210,7 +1244,6 @@
       </div>
     </div>
     <div class="ar-collection-actions">
-      <button type="button" class="btn btn-secondary" id="cancel-provisional-resolve">Cancel</button>
       <button type="button" class="btn btn-primary" id="confirm-provisional-return">
         <i class="fas fa-rotate-left"></i> Apply Return
       </button>
@@ -1218,6 +1251,32 @@
         style="background: linear-gradient(135deg, #355872 0%, #7AAACE 100%);">
         <i class="fas fa-cart-shopping"></i> Apply Spend
       </button>
+      <button type="button" class="btn btn-primary" id="confirm-provisional-mix"
+        style="background: linear-gradient(135deg, #5a4a7a 0%, #9d7ace 100%);">
+        <i class="fas fa-exchange-alt"></i> Apply Spend & Return
+      </button>
+      <button type="button" class="btn btn-secondary" id="cancel-provisional-resolve">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Provisional Undo Selection Overlay -->
+  <div id="provisional-undo-overlay" class="ar-collection-overlay"></div>
+
+  <!-- Provisional Undo Selection Card -->
+  <div id="provisional-undo-card" class="ar-collection-card">
+    <div class="ar-collection-header">
+      <h3>Select Resolution to Undo</h3>
+      <button class="btn-icon" id="close-provisional-undo-card">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="ar-collection-body">
+      <div id="provisional-undo-options" class="provisional-undo-options">
+        <!-- Options will be injected here -->
+      </div>
+    </div>
+    <div class="ar-collection-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-provisional-undo">Cancel</button>
     </div>
   </div>
 

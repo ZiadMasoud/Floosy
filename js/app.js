@@ -1154,16 +1154,31 @@ function initEventListeners() {
     provOverlay?.addEventListener('click', hideProvisionalResolveCard);
     document.getElementById('confirm-provisional-return')?.addEventListener('click', processProvisionalReturn);
     document.getElementById('confirm-provisional-spend')?.addEventListener('click', processProvisionalSpend);
+    document.getElementById('confirm-provisional-mix')?.addEventListener('click', processProvisionalMix);
     document.getElementById('prov-return-full-btn')?.addEventListener('click', () => {
         const inp = document.getElementById('prov-return-amount');
         if (currentProvisionalResolve && inp) {
             inp.value = currentProvisionalResolve.heldRemaining.toFixed(2);
         }
     });
+    document.getElementById('prov-spend-full-btn')?.addEventListener('click', () => {
+        const inp = document.getElementById('prov-spend-amount');
+        if (currentProvisionalResolve && inp) {
+            inp.value = currentProvisionalResolve.heldRemaining.toFixed(2);
+        }
+    });
+
+    // Provisional undo selection card
+    const provUndoCard = document.getElementById('provisional-undo-card');
+    const provUndoOverlay = document.getElementById('provisional-undo-overlay');
+    document.getElementById('close-provisional-undo-card')?.addEventListener('click', hideProvisionalUndoCard);
+    document.getElementById('cancel-provisional-undo')?.addEventListener('click', hideProvisionalUndoCard);
+    provUndoOverlay?.addEventListener('click', hideProvisionalUndoCard);
 
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && apCard?.classList.contains('active')) hideAPCollectionCard();
         if (e.key === 'Escape' && provCard?.classList.contains('active')) hideProvisionalResolveCard();
+        if (e.key === 'Escape' && provUndoCard?.classList.contains('active')) hideProvisionalUndoCard();
     });
 }
 
@@ -2103,10 +2118,6 @@ async function renderDashboard() {
         } else if (r.type === 'spending') {
             spending += amount;
             dashboardBalanceSpending += amount;
-        } else if (r.type === 'provisional') {
-            const held = getProvisionalHeld(r);
-            spending += held;
-            dashboardBalanceSpending += held;
         }
         // account_receivable excluded - affects balance only, not income/spending
     });
@@ -2803,7 +2814,6 @@ function renderCharts(monthlyRecords) {
         const totalSpending = monthlyRecords.reduce((s, r) => {
             if (r.isProjected) return s;
             if (r.type === 'spending') return s + parseFloat(r.amount);
-            if (r.type === 'provisional') return s + getProvisionalHeld(r);
             return s;
         }, 0);
         
@@ -2869,22 +2879,6 @@ function renderCategoryBreakdown(records, type) {
             spendingStats[categoryKey].count += 1;
             totalSpending += amt;
             spendingCount += 1;
-        } else if (r.type === 'provisional') {
-            const held = getProvisionalHeld(r);
-            if (held > 0) {
-                if (!spendingStats[categoryKey]) {
-                    spendingStats[categoryKey] = { 
-                        name: categoryName, 
-                        amount: 0, 
-                        count: 0, 
-                        isSavingsAccount: isSavingsAccount 
-                    };
-                }
-                spendingStats[categoryKey].amount += held;
-                spendingStats[categoryKey].count += 1;
-                totalSpending += held;
-                spendingCount += 1;
-            }
         } else if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
             if (!incomeStats[categoryKey]) {
                 incomeStats[categoryKey] = { 
@@ -5142,7 +5136,7 @@ async function openDetailsModal(record) {
                         ${res.notes ? `<div style="font-size: 0.8rem; margin-top: 0.25rem; font-style: italic; color: #475569;">"${res.notes}"</div>` : ''}
                     </div>
                     ${!res.undone ? `
-                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); undoProvisionalResolution(${record.id}, ${idx})" title="Undo this resolution" style="background: #fee2e2; color: #ef4444; border-radius: 6px; width: 32px; height: 32px;">
+                        <button class="btn-icon undo-btn" onclick="event.stopPropagation(); showUndoProvisionalResolutionDialog(${record.id})" title="Undo this resolution" style="background: #fbbf24; color: #92400e; border-radius: 6px; width: 32px; height: 32px;">
                             <i class="fas fa-undo"></i>
                         </button>
                     ` : ''}
@@ -6383,10 +6377,23 @@ let currentProvisionalResolve = null;
 
 function populateProvisionalSpendCategories() {
     const sel = document.getElementById('prov-spend-category');
+    const mixSel = document.getElementById('prov-mix-category');
     if (!sel) return;
     const spendingCats = categories.filter(c => c.type === 'spending');
-    sel.innerHTML = '<option value="">Select category</option>' +
+    const options = '<option value="">Select category</option>' +
         spendingCats.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    sel.innerHTML = options;
+    if (mixSel) mixSel.innerHTML = options;
+}
+
+function populateProvisionalSpendPeople() {
+    const sel = document.getElementById('prov-spend-person');
+    const mixSel = document.getElementById('prov-mix-person');
+    if (!sel) return;
+    const options = '<option value="">Select person</option>' +
+        people.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    sel.innerHTML = options;
+    if (mixSel) mixSel.innerHTML = options;
 }
 
 function showProvisionalResolveCard(id) {
@@ -6408,12 +6415,25 @@ function showProvisionalResolveCard(id) {
     const ra = document.getElementById('prov-return-amount');
     const sa = document.getElementById('prov-spend-amount');
     const notes = document.getElementById('prov-resolve-notes');
+    const sp = document.getElementById('prov-spend-person');
+    const msp = document.getElementById('prov-mix-spend-amount');
+    const mr = document.getElementById('prov-mix-return-amount');
+    const mcat = document.getElementById('prov-mix-category');
+    const mp = document.getElementById('prov-mix-person');
     if (ra) ra.value = '';
     if (sa) sa.value = '';
     if (notes) notes.value = '';
+    if (sp) sp.value = '';
+    if (msp) msp.value = '';
+    if (mr) mr.value = '';
+    if (mcat) mcat.value = '';
+    if (mp) mp.value = '';
     ra.max = held.toFixed(2);
     sa.max = held.toFixed(2);
+    if (msp) msp.max = held.toFixed(2);
+    if (mr) mr.max = held.toFixed(2);
     populateProvisionalSpendCategories();
+    populateProvisionalSpendPeople();
     document.getElementById('provisional-resolve-card')?.classList.add('active');
     document.getElementById('provisional-resolve-overlay')?.classList.add('active');
 }
@@ -6472,6 +6492,7 @@ async function processProvisionalSpend() {
     refreshProvisionalDerivedFields(record);
     const held = getProvisionalHeld(record);
     const cat = document.getElementById('prov-spend-category')?.value;
+    const person = document.getElementById('prov-spend-person')?.value;
     const amt = parseFloat(document.getElementById('prov-spend-amount')?.value);
     if (!cat) {
         showToast('Select a spending category', 'error');
@@ -6493,6 +6514,7 @@ async function processProvisionalSpend() {
             date: formatDateLocal(new Date()),
             type: 'spending',
             category: cat,
+            person: person || '',
             amount: amt,
             item: `Spend from Provisional: ${record.item || record.category}`,
             notes: notesExtra || `Resolved from provisional record #${record.id}`,
@@ -6509,6 +6531,7 @@ async function processProvisionalSpend() {
             action: 'spend',
             amount: amt,
             category: cat,
+            person: person || '',
             notes: notesExtra,
             derivedRecordId: newRecordId,
             timestamp: derivedSpending.timestamp
@@ -6525,18 +6548,189 @@ async function processProvisionalSpend() {
     }
 }
 
+async function processProvisionalMix() {
+    if (!currentProvisionalResolve) return;
+    const record = records.find(r => r.id === currentProvisionalResolve.recordId);
+    if (!record) return;
+    refreshProvisionalDerivedFields(record);
+    const held = getProvisionalHeld(record);
+    const cat = document.getElementById('prov-mix-category')?.value;
+    const person = document.getElementById('prov-mix-person')?.value;
+    const spendAmt = parseFloat(document.getElementById('prov-mix-spend-amount')?.value) || 0;
+    const returnAmt = parseFloat(document.getElementById('prov-mix-return-amount')?.value) || 0;
+    const total = spendAmt + returnAmt;
+    
+    if (!cat) {
+        showToast('Select a spending category', 'error');
+        return;
+    }
+    if (total <= 0) {
+        showToast('Enter a valid spend or return amount', 'error');
+        return;
+    }
+    if (total > held + 0.0001) {
+        showToast(`Total cannot exceed held amount ($${held.toFixed(2)})`, 'error');
+        return;
+    }
+    const notesExtra = (document.getElementById('prov-resolve-notes')?.value || '').trim();
+    
+    try {
+        // Process spend portion if any
+        if (spendAmt > 0) {
+            const derivedSpending = {
+                date: formatDateLocal(new Date()),
+                type: 'spending',
+                category: cat,
+                person: person || '',
+                amount: spendAmt,
+                item: `Spend from Provisional: ${record.item || record.category}`,
+                notes: notesExtra || `Resolved from provisional record #${record.id}`,
+                timestamp: Date.now(),
+                provisionalRef: record.id
+            };
+            
+            const newRecordId = await add(STORE_RECORDS, derivedSpending);
+            
+            if (!record.resolutions) record.resolutions = [];
+            record.resolutions.push({
+                date: derivedSpending.date,
+                action: 'spend',
+                amount: spendAmt,
+                category: cat,
+                person: person || '',
+                notes: notesExtra,
+                derivedRecordId: newRecordId,
+                timestamp: derivedSpending.timestamp
+            });
+        }
+        
+        // Process return portion if any
+        if (returnAmt > 0) {
+            if (!record.resolutions) record.resolutions = [];
+            record.resolutions.push({
+                date: formatDateLocal(new Date()),
+                action: 'return',
+                amount: returnAmt,
+                notes: notesExtra,
+                timestamp: Date.now()
+            });
+        }
+        
+        refreshProvisionalDerivedFields(record);
+        
+        await updateRecord(STORE_RECORDS, record);
+        await refreshData();
+        
+        let message = '';
+        if (spendAmt > 0 && returnAmt > 0) {
+            message = `Spent $${spendAmt.toFixed(2)} and returned $${returnAmt.toFixed(2)}`;
+        } else if (spendAmt > 0) {
+            message = `Spent $${spendAmt.toFixed(2)}`;
+        } else {
+            message = `Returned $${returnAmt.toFixed(2)}`;
+        }
+        showToast(message, 'success');
+        hideProvisionalResolveCard();
+    } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+let currentProvisionalUndo = null;
+
+function showProvisionalUndoCard(recordId) {
+    const record = records.find(r => r.id === recordId);
+    if (!record || !record.resolutions) return;
+
+    const availableResolutions = record.resolutions
+        .map((res, idx) => ({ ...res, originalIndex: idx }))
+        .filter(res => !res.undone);
+
+    if (availableResolutions.length === 0) {
+        showToast('No resolutions to undo', 'info');
+        return;
+    }
+
+    currentProvisionalUndo = {
+        recordId: recordId,
+        resolutions: availableResolutions
+    };
+
+    const optionsContainer = document.getElementById('provisional-undo-options');
+    optionsContainer.innerHTML = availableResolutions.map((res, idx) => {
+        const actionText = res.action === 'return' ? 'Return' : 'Spend';
+        const categoryText = res.category ? ` (${res.category})` : '';
+        const personText = res.person ? ` • ${res.person}` : '';
+        return `
+            <div class="provisional-undo-option" onclick="selectProvisionalUndo(${idx})" style="padding: 1rem; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s; background: white;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span class="badge-${res.action === 'return' ? 'income' : 'spending'}" style="font-size: 0.7rem; padding: 4px 8px; border-radius: 4px; text-transform: uppercase; font-weight: 700;">
+                        ${actionText}
+                    </span>
+                    <span style="font-weight: 600; color: var(--primary-color); font-size: 1rem;">$${formatCurrency(res.amount)}</span>
+                </div>
+                <div style="font-size: 0.85rem; color: #64748b; margin-top: 0.25rem;">
+                    ${res.date}${categoryText}${personText}
+                </div>
+                ${res.notes ? `<div style="font-size: 0.8rem; margin-top: 0.25rem; font-style: italic; color: #475569;">"${res.notes}"</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    document.getElementById('provisional-undo-card')?.classList.add('active');
+    document.getElementById('provisional-undo-overlay')?.classList.add('active');
+}
+
+function hideProvisionalUndoCard() {
+    document.getElementById('provisional-undo-card')?.classList.remove('active');
+    document.getElementById('provisional-undo-overlay')?.classList.remove('active');
+    currentProvisionalUndo = null;
+}
+
+async function selectProvisionalUndo(index) {
+    if (!currentProvisionalUndo) return;
+    const resolution = currentProvisionalUndo.resolutions[index];
+    if (!resolution) return;
+
+    hideProvisionalUndoCard();
+    await undoProvisionalResolution(currentProvisionalUndo.recordId, resolution.originalIndex);
+}
+
+async function showUndoProvisionalResolutionDialog(recordId) {
+    const record = records.find(r => r.id === recordId);
+    if (!record || !record.resolutions) return;
+
+    const availableResolutions = record.resolutions
+        .map((res, idx) => ({ ...res, originalIndex: idx }))
+        .filter(res => !res.undone);
+
+    if (availableResolutions.length === 0) {
+        showToast('No resolutions to undo', 'info');
+        return;
+    }
+
+    if (availableResolutions.length === 1) {
+        // Only one resolution, undo it directly
+        await undoProvisionalResolution(recordId, availableResolutions[0].originalIndex);
+        return;
+    }
+
+    // Multiple resolutions, show selection card
+    showProvisionalUndoCard(recordId);
+}
+
 async function undoProvisionalResolution(recordId, resolutionIndex) {
     const record = records.find(r => r.id === recordId);
     if (!record || !record.resolutions || !record.resolutions[resolutionIndex]) return;
-    
+
     const resolution = record.resolutions[resolutionIndex];
     if (resolution.undone) return;
-    
+
     if (resolution.action === 'spend') {
         // Find and delete derived spending transaction
         const derivedId = resolution.derivedRecordId;
         const derivedRecord = records.find(r => r.id === derivedId);
-        
+
         if (derivedRecord) {
             // Block undo if derived transaction was modified (how to detect? simple check for now)
             // If amount or category changed, it's modified.
@@ -6544,7 +6738,7 @@ async function undoProvisionalResolution(recordId, resolutionIndex) {
                 showToast('Cannot undo: the associated spending transaction has been modified.', 'warning');
                 return;
             }
-            
+
             if (await showConfirm('Undo this spend resolution? The associated spending transaction will be deleted.')) {
                 try {
                     await deleteRecord(derivedId);
@@ -6569,16 +6763,16 @@ async function undoProvisionalResolution(recordId, resolutionIndex) {
             return;
         }
     }
-    
+
     resolution.undone = true;
     resolution.undoneAt = Date.now();
     refreshProvisionalDerivedFields(record);
-    
+
     try {
         await updateRecord(STORE_RECORDS, record);
         await refreshData();
         showToast('Resolution undone successfully', 'success');
-        
+
         // Re-open details modal to show updated state
         if (currentDetailRecordId === recordId) {
             await openDetailsModal(record);
@@ -6608,12 +6802,17 @@ async function undoLastProvisionalResolution(recordId) {
 
 window.undoLastProvisionalResolution = undoLastProvisionalResolution;
 window.undoProvisionalResolution = undoProvisionalResolution;
+window.showUndoProvisionalResolutionDialog = showUndoProvisionalResolutionDialog;
+window.showProvisionalUndoCard = showProvisionalUndoCard;
+window.hideProvisionalUndoCard = hideProvisionalUndoCard;
+window.selectProvisionalUndo = selectProvisionalUndo;
 
 window.resolveProvisional = resolveProvisional;
 window.showProvisionalResolveCard = showProvisionalResolveCard;
 window.hideProvisionalResolveCard = hideProvisionalResolveCard;
 window.processProvisionalReturn = processProvisionalReturn;
 window.processProvisionalSpend = processProvisionalSpend;
+window.processProvisionalMix = processProvisionalMix;
 
 // Make upcoming income functions globally available
 window.editUpcomingIncome = editUpcomingIncome;

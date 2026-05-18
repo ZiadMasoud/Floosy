@@ -6297,6 +6297,18 @@ tr:last-child td {
   background: rgba(16, 185, 129, 0.12);
   padding: 0.2rem 0.5rem;
   border-radius: 12px;
-  margin-top: 0.35rem;
-  width: fit-content;
+}
+
+/* ========================================
+   PROVISIONAL UNDO SELECTION CARD
+   ======================================== */
+.provisional-undo-option {
+  transition: all 0.2s ease;
+}
+
+.provisional-undo-option:hover {
+  background: #f8fafc !important;
+  border-color: var(--primary-color) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
