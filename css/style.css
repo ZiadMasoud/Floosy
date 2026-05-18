@@ -4913,6 +4913,30 @@ tr:last-child td {
   border-radius: var(--radius-sm);
 }
 
+/* Month Countdown Item Styles (within upcoming widget) */
+.month-countdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.9rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.countdown-label {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+.countdown-value {
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 /* Mobile Budget Adjustments */
 @media (max-width: 768px) {
   .budget-limit-header {
@@ -4972,6 +4996,10 @@ tr:last-child td {
   .upcoming-widget {
     margin-top: 1rem;
     padding: 0.75rem 1rem;
+  }
+
+  .month-countdown-item {
+    padding: 0.5rem 0.75rem;
   }
 
   .upcoming-item {

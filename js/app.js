@@ -2223,6 +2223,9 @@ async function renderDashboard() {
     
     // Render upcoming widget
     renderUpcomingWidget();
+    
+    // Render month countdown
+    renderMonthCountdown();
 }
 
 
@@ -7233,6 +7236,23 @@ function renderUpcomingWidget() {
         `;
         listContainer.appendChild(item);
     });
+}
+
+function renderMonthCountdown() {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Calculate days until first of next month
+    const firstOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
+    const daysUntilFirstOfMonth = Math.ceil((firstOfNextMonth - now) / (1000 * 60 * 60 * 24));
+
+    // Update DOM element
+    const firstOfMonthElement = document.getElementById('first-of-month-countdown');
+
+    if (firstOfMonthElement) {
+        firstOfMonthElement.textContent = `${daysUntilFirstOfMonth} days`;
+    }
 }
 
 function renderUpcomingIncome() {
