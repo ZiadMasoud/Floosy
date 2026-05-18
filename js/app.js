@@ -121,7 +121,7 @@ function provisionalBalanceEffectInMonth(r, year, month) {
         n -= parseFloat(r.amount) || 0;
     }
     (r.resolutions || []).forEach(res => {
-        if (res.action !== 'return' || res.undone) return;
+        if ((res.action !== 'return' && res.action !== 'spend') || res.undone) return;
         const rd = new Date(res.date);
         if (rd.getFullYear() === year && rd.getMonth() === month - 1) {
             n += parseFloat(res.amount) || 0;
@@ -137,7 +137,7 @@ function provisionalBalanceEffectPriorToTimestamp(r, targetTimestamp, excludeRec
         n -= parseFloat(r.amount) || 0;
     }
     (r.resolutions || []).forEach(res => {
-        if (res.action !== 'return' || res.undone) return;
+        if ((res.action !== 'return' && res.action !== 'spend') || res.undone) return;
         const rdTs = new Date(res.date).getTime();
         if (rdTs < targetTimestamp) {
             n += parseFloat(res.amount) || 0;
@@ -2875,21 +2875,7 @@ function renderCategoryBreakdown(records, type) {
             incomeCount += 1;
         }
 
-        if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-            r.resolutions.forEach(res => {
-                if (res.action !== 'spend') return;
-                const cname = res.category || 'Uncategorized';
-                const sk = `${cname}|normal`;
-                const samt = parseFloat(res.amount) || 0;
-                if (!spendingStats[sk]) {
-                    spendingStats[sk] = { name: cname, amount: 0, count: 0, isSavingsAccount: false };
-                }
-                spendingStats[sk].amount += samt;
-                spendingStats[sk].count += 1;
-                totalSpending += samt;
-                spendingCount += 1;
-            });
-        }
+
     });
 
     // Convert to arrays and sort by amount (descending)
@@ -3616,32 +3602,7 @@ function renderAnalytics() {
         }
         // account_receivable excluded - affects balance only, not income/spending
 
-        if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-            r.resolutions.forEach(res => {
-                if (res.action !== 'spend') return;
-                const rd = new Date(res.date);
-                const resYearMatch = !filterYear || rd.getFullYear().toString() === filterYear;
-                const resMonthMatch = filterMonth === '' || (rd.getMonth() + 1).toString() === filterMonth;
-                if (!resYearMatch || !resMonthMatch) return;
-                const resPersonMatch = !filterPerson || r.person === filterPerson || r.savingsBeneficiary === filterPerson;
-                let resCatMatch = !filterCategory;
-                if (filterCategory) {
-                    if (filterCategory === 'all-spending') resCatMatch = true;
-                    else if (filterCategory === 'all-income') resCatMatch = false;
-                    else resCatMatch = (res.category || '') === filterCategory;
-                }
-                const typeOk = filterType === 'all' || filterType === 'spending' || filterType === 'provisional';
-                if (!typeOk || !resPersonMatch || !resCatMatch) return;
-                const resMonthKey = `${rd.getFullYear()}-${String(rd.getMonth() + 1).padStart(2, '0')}`;
-                if (!monthlyStats[resMonthKey]) {
-                    monthlyStats[resMonthKey] = { income: 0, spending: 0, arPending: 0, arCollected: 0, categories: {} };
-                }
-                const samt = parseFloat(res.amount) || 0;
-                const cat = res.category || 'Uncategorized';
-                monthlyStats[resMonthKey].spending += samt;
-                monthlyStats[resMonthKey].categories[cat] = (monthlyStats[resMonthKey].categories[cat] || 0) + samt;
-            });
-        }
+
     });
 
     const sortedMonths = Object.keys(monthlyStats).sort().reverse();
@@ -3730,11 +3691,7 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
         // General totals for whatever is in filteredRecords (include savings income)
         if (r.type === 'income' && !incomeExcludedFromTotals(r)) contextIncome += amount;
         else if (r.type === 'spending') contextSpending += amount;
-        else if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-            r.resolutions.forEach(res => {
-                if (res.action === 'spend') contextSpending += parseFloat(res.amount) || 0;
-            });
-        }
+
 
         // Grouping records (for finding "Tops")
         if (r.category) {
@@ -3747,11 +3704,7 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
             if (!personTotals[r.person]) personTotals[r.person] = { income: 0, spending: 0 };
             if (r.type === 'income' && !incomeExcludedFromTotals(r)) personTotals[r.person].income += amount;
             else if (r.type === 'spending') personTotals[r.person].spending += amount;
-            else if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-                r.resolutions.forEach(res => {
-                    if (res.action === 'spend') personTotals[r.person].spending += parseFloat(res.amount) || 0;
-                });
-            }
+
         }
     });
 
@@ -3855,14 +3808,7 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
             }
             // account_receivable excluded - affects balance only, not income/spending
 
-            if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-                r.resolutions.forEach(res => {
-                    if (res.action !== 'spend') return;
-                    const rd = new Date(res.date);
-                    if (rd.getFullYear() !== view.year || rd.getMonth() !== view.monthIndex) return;
-                    spendingData[rd.getDate() - 1] += parseFloat(res.amount) || 0;
-                });
-            }
+
         });
     } else {
         const months = Object.keys(monthlyStats).sort();
@@ -6704,18 +6650,7 @@ function renderBudget() {
                 }
             }
         }
-        if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-            r.resolutions.forEach(res => {
-                if (res.action !== 'spend' || !res.category) return;
-                const recordDate = new Date(res.date);
-                if (recordDate.getMonth() !== currentMonth || recordDate.getFullYear() !== currentYear) return;
-                const limit = budgetLimits.find(l => l.category === res.category);
-                const lastReset = limit?.lastResetDate ? new Date(limit.lastResetDate) : null;
-                if (lastReset && recordDate < lastReset) return;
-                const amt = parseFloat(res.amount) || 0;
-                monthlySpending[res.category] = (monthlySpending[res.category] || 0) + amt;
-            });
-        }
+
     });
     // Update budget limits with current spending
     budgetLimits.forEach(limit => {

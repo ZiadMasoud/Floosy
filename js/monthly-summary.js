@@ -200,16 +200,6 @@ class MonthlySummaryPDF {
                 totalAR += Math.max(0, amt - (r.collectedAmount || 0));
             } else if (r.type === 'account_payable' && !r.paid) {
                 totalAP += Math.max(0, amt - (r.paidAmount || 0));
-            } else if (r.type === 'provisional' && Array.isArray(r.resolutions)) {
-                r.resolutions.forEach(res => {
-                    if (res.action !== 'spend') return;
-                    const rAmt = (parseFloat(res.amount) || 0);
-                    const c = res.category || 'Uncategorized';
-                    totalSpending += rAmt;
-                    catBreakdown[c] = (catBreakdown[c] || 0) + rAmt;
-                    const resDate = res.date ? res.date.substring(0, 10) : dateKey;
-                    dailySpending[resDate] = (dailySpending[resDate] || 0) + rAmt;
-                });
             }
 
             // expand combined transactions
