@@ -1867,6 +1867,28 @@ async function switchTab(tabId) {
     });
     tabTitle.textContent = tabId.charAt(0).toUpperCase() + tabId.slice(1);
 
+    // Set default analytics filters when switching to analytics tab
+    if (tabId === 'analytics') {
+        const analyticsYearSelect = document.getElementById('analytics-filter-year');
+        const analyticsMonthSelect = document.getElementById('analytics-filter-month');
+        
+        if (analyticsYearSelect && analyticsMonthSelect) {
+            // Set defaults if either filter is empty
+            if (!analyticsYearSelect.value || !analyticsMonthSelect.value) {
+                const now = new Date();
+                const currentYear = now.getFullYear().toString();
+                const currentMonth = (now.getMonth() + 1).toString();
+                
+                analyticsYearSelect.value = currentYear;
+                analyticsMonthSelect.value = currentMonth;
+                
+                // Trigger change events to re-render analytics
+                analyticsYearSelect.dispatchEvent(new Event('change'));
+                analyticsMonthSelect.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+
     const header = document.querySelector('header');
     if (header) {
         header.classList.toggle('dashboard-header-hide', tabId === 'dashboard');
