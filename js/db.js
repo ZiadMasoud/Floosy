@@ -276,15 +276,15 @@ async function seedDefaultCategories() {
     const categories = await getAll(STORE_CATEGORIES);
     if (categories.length === 0) {
         const defaults = [
-            { name: 'Rent/Mortgage', type: 'spending' },
-            { name: 'Groceries', type: 'spending' },
-            { name: 'Utilities', type: 'spending' },
-            { name: 'Transport', type: 'spending' },
-            { name: 'Entertainment', type: 'spending' },
-            { name: 'Salary', type: 'income' },
-            { name: 'Freelance', type: 'income' },
-            { name: 'Investment', type: 'income' },
-            { name: 'Collection', type: 'income' }
+            { name: 'Rent/Mortgage', type: 'spending', color: '#e74c3c' },
+            { name: 'Groceries', type: 'spending', color: '#27ae60' },
+            { name: 'Utilities', type: 'spending', color: '#f39c12' },
+            { name: 'Transport', type: 'spending', color: '#3498db' },
+            { name: 'Entertainment', type: 'spending', color: '#9b59b6' },
+            { name: 'Salary', type: 'income', color: '#2ecc71' },
+            { name: 'Freelance', type: 'income', color: '#1abc9c' },
+            { name: 'Investment', type: 'income', color: '#34495e' },
+            { name: 'Collection', type: 'income', color: '#16a085' }
         ];
         for (const cat of defaults) {
             await add(STORE_CATEGORIES, cat);
@@ -293,7 +293,7 @@ async function seedDefaultCategories() {
         // Ensure 'Collection' category exists for AR collections
         const collectionExists = categories.some(c => c.name === 'Collection' && c.type === 'income');
         if (!collectionExists) {
-            await add(STORE_CATEGORIES, { name: 'Collection', type: 'income' });
+            await add(STORE_CATEGORIES, { name: 'Collection', type: 'income', color: '#16a085' });
         }
     }
 }
