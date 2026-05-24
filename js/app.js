@@ -1,6 +1,20 @@
 // App State
 let currentTab = 'dashboard';
 
+// ============================================
+// LOGO CONFIGURATION
+// ============================================
+// Set to true to use custom image logo, false to use Font Awesome icon
+const USE_CUSTOM_LOGO = false;
+
+// Path to your custom logo image (relative to index.html)
+const CUSTOM_LOGO_PATH = 'images/logo.png';
+
+// Font Awesome icon class for default logo (if not using custom image)
+const DEFAULT_LOGO_ICON = 'fas fa-wallet';
+
+// ============================================
+
 // Helper to get local date string YYYY-MM-DD
 function formatDateLocal(date) {
     const year = date.getFullYear();
@@ -36,6 +50,26 @@ function getContrastColor(hexColor) {
     const b = parseInt(cleanHex.substring(4, 6), 16);
     const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
     return (yiq >= 128) ? '#000000' : '#ffffff';
+}
+
+// Initialize logo based on configuration
+function initializeLogo() {
+    const logoIcon = document.getElementById('logo-icon');
+    const logoImage = document.getElementById('logo-image');
+
+    if (!logoIcon || !logoImage) return;
+
+    if (USE_CUSTOM_LOGO) {
+        // Use custom image logo
+        logoIcon.style.display = 'none';
+        logoImage.style.display = 'block';
+        logoImage.src = CUSTOM_LOGO_PATH;
+    } else {
+        // Use Font Awesome icon
+        logoIcon.style.display = 'block';
+        logoImage.style.display = 'none';
+        logoIcon.className = DEFAULT_LOGO_ICON + ' logo-icon';
+    }
 }
 
 // Helper to calculate usage frequency for all categories and people
@@ -344,6 +378,9 @@ document.addEventListener('DOMContentLoaded', async function initApp() {
             document.body.classList.add('privacy-mode');
             updatePrivacyIcon();
         }
+
+        // Initialize Logo
+        initializeLogo();
 
         initEventListeners();
         await refreshData();
@@ -2584,12 +2621,12 @@ function renderDashboardRecords(recordsToRender) {
         const provResolvedClass = isProv && r.status === 'closed' ? ' provisional-resolved' : '';
         card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}${provResolvedClass}`;
 
-        // Apply custom category color as background and left border
+        // Apply custom category color as background and border
         const catObj = categories.find(c => c.name === categoryName);
         const catColor = catObj?.color || '#355872';
         const lightBg = getLighterColor(catColor, 0.08);
         card.style.backgroundColor = lightBg;
-        card.style.borderLeft = `4px solid ${catColor}`;
+        card.style.border = `1px solid ${catColor}`;
         card.onclick = async (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
@@ -3453,7 +3490,7 @@ function renderRecords() {
                 const catColor = catObj?.color || '#355872';
                 const lightBg = getLighterColor(catColor, 0.08);
                 tr.style.backgroundColor = lightBg;
-                tr.style.borderLeft = `3px solid ${catColor}`;
+                tr.style.border = `1px solid ${catColor}`;
             }
 
             const isAR = r.type === 'account_receivable';
@@ -3634,7 +3671,7 @@ function renderAnalytics() {
         const date = new Date(r.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyStats[monthKey]) {
-            monthlyStats[monthKey] = { income: 0, spending: 0, arPending: 0, arCollected: 0, categories: {} };
+            monthlyStats[monthKey] = { income: 0, spending: 0, savings: 0, arPending: 0, arCollected: 0, categories: {} };
         }
 
         const amount = parseFloat(r.amount) || 0;
@@ -3648,6 +3685,11 @@ function renderAnalytics() {
             const held = getProvisionalHeld(r);
             monthlyStats[monthKey].spending += held;
             monthlyStats[monthKey].categories[r.category] = (monthlyStats[monthKey].categories[r.category] || 0) + held;
+        }
+        
+        // Count actual savings transfers (check both isSavingsTransfer flag and category/type)
+        if (r.isSavingsTransfer || r.category === 'Savings Transfer' || r.type === 'savings_transfer') {
+            monthlyStats[monthKey].savings += amount;
         }
         // account_receivable excluded - affects balance only, not income/spending
 
@@ -3664,7 +3706,7 @@ function renderAnalytics() {
         const stats = monthlyStats[monthKey];
         const totalSpending = stats.spending;
         const totalIncome = stats.income;
-        const savings = totalIncome - totalSpending;
+        const savings = stats.savings || 0; // Use actual savings transfers
 
         let topCategory = 'N/A';
         let maxAmount = 0;
@@ -6971,7 +7013,11 @@ function renderBudget() {
     // Sort by percentage (highest first)
     const sortedLimits = [...budgetLimits].sort((a, b) => b.percentage - a.percentage);
 
-    sortedLimits.forEach(limit => {
+    // Show max 3 budget limits with "Show More" functionality
+    const maxBudgetItems = 3;
+    const budgetItemsToShow = sortedLimits.slice(0, maxBudgetItems);
+    
+    budgetItemsToShow.forEach(limit => {
         const threshold = limit.alertThreshold || 80;
         let status = 'safe';
         let statusClass = 'safe';
@@ -7023,6 +7069,87 @@ function renderBudget() {
         `;
         container.appendChild(item);
     });
+
+    // Add "Show More" button if there are more budget limits
+    if (sortedLimits.length > maxBudgetItems) {
+        const showMoreBtn = document.createElement('button');
+        showMoreBtn.className = 'btn btn-outline show-more-btn';
+        showMoreBtn.textContent = `Show More (${sortedLimits.length - maxBudgetItems} more)`;
+        showMoreBtn.style.width = '100%';
+        showMoreBtn.style.marginTop = '0.75rem';
+        
+        // Store reference to dynamically added items
+        const addedItems = [];
+        
+        showMoreBtn.onclick = () => {
+            // Show all budget limits
+            const remainingItems = sortedLimits.slice(maxBudgetItems);
+            remainingItems.forEach(limit => {
+                const threshold = limit.alertThreshold || 80;
+                let status = 'safe';
+                let statusClass = 'safe';
+                let statusText = 'Safe';
+                let statusIcon = 'fa-check-circle';
+
+                if (limit.percentage >= 100) {
+                    status = 'capped';
+                    statusClass = 'capped';
+                    statusText = 'Capped';
+                    statusIcon = 'fa-ban';
+                } else if (limit.percentage >= threshold) {
+                    status = 'near';
+                    statusClass = 'near';
+                    statusText = 'Near Limit';
+                    statusIcon = 'fa-exclamation-circle';
+                }
+
+                const item = document.createElement('div');
+                item.className = `budget-limit-item ${status === 'near' ? 'near-limit' : ''} ${status === 'capped' ? 'capped' : ''}`;
+                item.innerHTML = `
+                    <div class="budget-limit-header">
+                        <div class="budget-limit-info">
+                            <span class="budget-limit-category">${limit.category}</span>
+                            <span class="budget-status-badge ${statusClass}">
+                                <i class="fas ${statusIcon}"></i> ${statusText}
+                            </span>
+                        </div>
+                        <div class="budget-limit-actions">
+                            <button class="btn-icon reset-budget-btn" data-id="${limit.id}" title="Reset Spent">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                            <button class="btn-icon edit-budget-btn" data-id="${limit.id}" title="Edit">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="btn-icon delete-budget-btn" data-id="${limit.id}" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="budget-amount-display">
+                        <span class="spent ${statusClass}">$${formatCurrency(limit.spent)} spent</span>
+                        <span class="limit">of $${formatCurrency(limit.limit)}</span>
+                        <span class="budget-percentage ${statusClass}">${Math.round(limit.percentage)}%</span>
+                    </div>
+                    <div class="budget-progress-container">
+                        <div class="budget-progress-bar ${statusClass}" style="width: ${Math.min(limit.percentage, 100)}%"></div>
+                    </div>
+                `;
+                container.insertBefore(item, showMoreBtn);
+                addedItems.push(item);
+            });
+            showMoreBtn.textContent = 'Show Less';
+            showMoreBtn.onclick = () => {
+                // Hide back to max items
+                addedItems.forEach(item => {
+                    container.removeChild(item);
+                });
+                addedItems.length = 0; // Clear the array
+                showMoreBtn.textContent = `Show More (${sortedLimits.length - maxBudgetItems} more)`;
+                showMoreBtn.onclick = arguments.callee;
+            };
+        };
+        container.appendChild(showMoreBtn);
+    }
 }
 
 function openBudgetLimitModal(limit = null) {
@@ -7406,21 +7533,25 @@ function renderUpcomingIncome() {
     const pendingUpcoming = allUpcomingIncome.filter(r => !r.receivedRecordId);
     const collectedUpcoming = allUpcomingIncome.filter(r => !!r.receivedRecordId);
 
-    // Sort pending upcoming by most near to be upcoming first
-    pendingUpcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Further split pending into AR and regular income
+    const pendingAR = pendingUpcoming.filter(r => r.type === 'account_receivable');
+    const pendingIncome = pendingUpcoming.filter(r => r.type !== 'account_receivable');
+
+    // Sort pending items by most near to be upcoming first
+    pendingIncome.sort((a, b) => new Date(a.date) - new Date(b.date));
+    pendingAR.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     // Sort collected items too
     collectedUpcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     container.innerHTML = '';
 
-    // Create container for active pending upcoming items
-    const pendingContainer = document.createElement('div');
-    pendingContainer.className = 'pending-upcoming-list';
-    pendingContainer.style.display = 'flex';
-    pendingContainer.style.flexDirection = 'column';
-    pendingContainer.style.gap = '0.75rem';
-    container.appendChild(pendingContainer);
+    // Helper function to format date as "May 1 2026"
+    const formatExpectedDate = (dateStr) => {
+        const date = new Date(dateStr);
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        return `${monthNames[date.getMonth()]} ${date.getDate()} ${date.getFullYear()}`;
+    };
 
     // Helper function to render a single card item
     const createUpcomingCard = (r) => {
@@ -7452,6 +7583,7 @@ function renderUpcomingIncome() {
         const isRecurring = r.isRecurring;
         const amount = parseFloat(r.amount) || 0;
         const description = r.projectedSource || r.item || r.category;
+        const expectedDate = formatExpectedDate(r.date);
 
         // Find chosen category color
         const cat = categories.find(c => c.name === r.category);
@@ -7495,7 +7627,7 @@ function renderUpcomingIncome() {
         // Dynamic background styling based on category color
         if (!isReceivedThisMonth) {
             item.style.backgroundColor = getLighterColor(catColor, 0.08);
-            item.style.borderLeft = `4px solid ${catColor}`;
+            item.style.border = `1px solid ${catColor}`;
         }
 
         // Setup badge for next occurrence if collected & recurring
@@ -7527,7 +7659,10 @@ function renderUpcomingIncome() {
                     <i class="fas ${iconClass}"></i>
                 </div>
                 <div class="income-details">
-                    <span class="income-name">${description}</span>
+                    <div class="income-header-row">
+                        <span class="income-name">${description}</span>
+                        ${!isReceivedThisMonth ? `<span class="income-expected-date">${expectedDate}</span>` : ''}
+                    </div>
                     <span class="income-date">${dateLabel}${statusLabel}</span>
                     ${awaitingBadgeHtml}
                 </div>
@@ -7548,17 +7683,98 @@ function renderUpcomingIncome() {
         return item;
     };
 
-    // Render pending items
-    if (pendingUpcoming.length === 0) {
-        pendingContainer.innerHTML = `
-            <div class="upcoming-income-empty" style="padding: 1rem 0;">
-                <p style="font-size: 0.9rem;">No active upcoming income or receivables</p>
+    // Render AR section
+    if (pendingAR.length > 0) {
+        const arSection = document.createElement('div');
+        arSection.className = 'ar-upcoming-section';
+        arSection.innerHTML = `
+            <div class="ar-section-header">
+                <h4><i class="fas fa-hand-holding-dollar"></i> Accounts Receivable</h4>
+                <span class="ar-count-badge">${pendingAR.length}</span>
             </div>
+            <div class="ar-upcoming-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
         `;
-    } else {
-        pendingUpcoming.forEach(r => {
-            pendingContainer.appendChild(createUpcomingCard(r));
+        const arList = arSection.querySelector('.ar-upcoming-list');
+        
+        // Show max 4 AR items with "Show More" functionality
+        const maxARItems = 4;
+        const arItemsToShow = pendingAR.slice(0, maxARItems);
+        arItemsToShow.forEach(r => {
+            arList.appendChild(createUpcomingCard(r));
         });
+
+        // Add "Show More" button if there are more AR items
+        if (pendingAR.length > maxARItems) {
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'btn btn-outline show-more-btn';
+            showMoreBtn.textContent = `Show More (${pendingAR.length - maxARItems} more)`;
+            showMoreBtn.onclick = () => {
+                // Show all AR items
+                const remainingItems = pendingAR.slice(maxARItems);
+                remainingItems.forEach(r => {
+                    arList.appendChild(createUpcomingCard(r));
+                });
+                showMoreBtn.textContent = 'Show Less';
+                showMoreBtn.onclick = () => {
+                    // Hide back to max items
+                    while (arList.children.length > maxARItems) {
+                        arList.removeChild(arList.lastChild);
+                    }
+                    showMoreBtn.textContent = `Show More (${pendingAR.length - maxARItems} more)`;
+                    showMoreBtn.onclick = arguments.callee;
+                };
+            };
+            arSection.appendChild(showMoreBtn);
+        }
+
+        container.appendChild(arSection);
+    }
+
+    // Render Expected Income section
+    if (pendingIncome.length > 0) {
+        const incomeSection = document.createElement('div');
+        incomeSection.className = 'expected-income-section';
+        incomeSection.innerHTML = `
+            <div class="expected-income-header">
+                <h4><i class="fas fa-calendar-check"></i> Expected Income</h4>
+                <span class="expected-income-count-badge">${pendingIncome.length}</span>
+            </div>
+            <div class="expected-income-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
+        `;
+        const incomeList = incomeSection.querySelector('.expected-income-list');
+        
+        // Show max 4 expected income items with "Show More" functionality
+        const maxIncomeItems = 4;
+        const incomeItemsToShow = pendingIncome.slice(0, maxIncomeItems);
+        incomeItemsToShow.forEach(r => {
+            incomeList.appendChild(createUpcomingCard(r));
+        });
+
+        // Add "Show More" button if there are more income items
+        if (pendingIncome.length > maxIncomeItems) {
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'btn btn-outline show-more-btn';
+            showMoreBtn.textContent = `Show More (${pendingIncome.length - maxIncomeItems} more)`;
+            showMoreBtn.onclick = () => {
+                // Show all income items
+                const remainingItems = pendingIncome.slice(maxIncomeItems);
+                remainingItems.forEach(r => {
+                    incomeList.appendChild(createUpcomingCard(r));
+                });
+                showMoreBtn.textContent = 'Show Less';
+                showMoreBtn.onclick = () => {
+                    // Hide back to max items
+                    while (incomeList.children.length > maxIncomeItems) {
+                        incomeList.removeChild(incomeList.lastChild);
+                    }
+                    showMoreBtn.textContent = `Show More (${pendingIncome.length - maxIncomeItems} more)`;
+                    showMoreBtn.onclick = arguments.callee;
+                };
+            };
+            incomeSection.appendChild(showMoreBtn);
+        }
+
+        container.appendChild(incomeSection);
     }
 
     // Render collected items under a separate beautiful sub-section
@@ -7573,10 +7789,49 @@ function renderUpcomingIncome() {
             <div class="collected-upcoming-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
         `;
         const collectedList = collectedSection.querySelector('.collected-upcoming-list');
-        collectedUpcoming.forEach(r => {
+        
+        // Show max 2 collected items with "Show More" functionality
+        const maxCollectedItems = 2;
+        const collectedItemsToShow = collectedUpcoming.slice(0, maxCollectedItems);
+        collectedItemsToShow.forEach(r => {
             collectedList.appendChild(createUpcomingCard(r));
         });
+
+        // Add "Show More" button if there are more collected items
+        if (collectedUpcoming.length > maxCollectedItems) {
+            const showMoreBtn = document.createElement('button');
+            showMoreBtn.className = 'btn btn-outline show-more-btn';
+            showMoreBtn.textContent = `Show More (${collectedUpcoming.length - maxCollectedItems} more)`;
+            showMoreBtn.onclick = () => {
+                // Show all collected items
+                const remainingItems = collectedUpcoming.slice(maxCollectedItems);
+                remainingItems.forEach(r => {
+                    collectedList.appendChild(createUpcomingCard(r));
+                });
+                showMoreBtn.textContent = 'Show Less';
+                showMoreBtn.onclick = () => {
+                    // Hide back to max items
+                    while (collectedList.children.length > maxCollectedItems) {
+                        collectedList.removeChild(collectedList.lastChild);
+                    }
+                    showMoreBtn.textContent = `Show More (${collectedUpcoming.length - maxCollectedItems} more)`;
+                    showMoreBtn.onclick = arguments.callee;
+                };
+            };
+            collectedSection.appendChild(showMoreBtn);
+        }
+
         container.appendChild(collectedSection);
+    }
+
+    // Show empty state if no items at all
+    if (pendingAR.length === 0 && pendingIncome.length === 0 && collectedUpcoming.length === 0) {
+        container.innerHTML = `
+            <div class="upcoming-income-empty">
+                <i class="fas fa-calendar"></i>
+                <p>No upcoming income or receivables</p>
+            </div>
+        `;
     }
 }
 

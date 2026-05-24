@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Floosy</title>
+  <link rel="icon" type="image/png" href="images/ChatGPT Image May 24, 2026, 09_26_56 PM.png" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
@@ -16,7 +17,10 @@
     <!-- Sidebar/Bottom Navigation for Mobile -->
     <nav class="sidebar">
       <div class="logo">
-        <i class="fas fa-wallet"></i>
+        <div class="logo-icon-container">
+          <i class="fas fa-wallet logo-icon" id="logo-icon"></i>
+          <img src="images/logo.png" alt="Floosy Logo" class="logo-image" id="logo-image" style="display: none;" />
+        </div>
         <span>Floosy</span>
       </div>
       <ul class="nav-links">
