@@ -2,6 +2,13 @@
 let currentTab = 'dashboard';
 
 // ============================================
+// INACTIVITY TIMEOUT (Auto Blur)
+// ============================================
+const INACTIVITY_TIMEOUT = 3 * 60 * 1000; // 3 minutes in milliseconds
+let inactivityTimer = null;
+let isContentBlurred = false;
+
+// ============================================
 // LOGO CONFIGURATION
 // ============================================
 // Set to true to use custom image logo, false to use Font Awesome icon
@@ -184,6 +191,8 @@ let categoryChart = null;
 let trendChart = null;
 let monthlyTrendChart = null;
 let personChart = null;
+let categoryComparisonChart = null;
+let categoryComparisonExpanded = false;
 let records = [];
 let categories = [];
 let people = [];
@@ -366,6 +375,46 @@ function showConfirm(message) {
     });
 }
 
+// ============================================
+// INACTIVITY BLUR FUNCTIONS
+// ============================================
+function blurContent() {
+    // Enable privacy mode instead of blurring
+    if (!isContentBlurred) {
+        isPrivacyMode = true;
+        document.body.classList.add('privacy-mode');
+        localStorage.setItem('floosy_privacy_mode', true);
+        updatePrivacyIcon();
+        isContentBlurred = true;
+    }
+}
+
+function unblurContent() {
+    // Disable privacy mode instead of unblurring
+    if (isContentBlurred) {
+        isPrivacyMode = false;
+        document.body.classList.remove('privacy-mode');
+        localStorage.setItem('floosy_privacy_mode', false);
+        updatePrivacyIcon();
+        isContentBlurred = false;
+    }
+}
+
+function resetInactivityTimer() {
+    // Clear existing timer if any
+    if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+    }
+    
+    // Unblur content if it was blurred
+    unblurContent();
+    
+    // Set new timer for inactivity
+    inactivityTimer = setTimeout(() => {
+        blurContent();
+    }, INACTIVITY_TIMEOUT);
+}
+
 // Initialize App
 document.addEventListener('DOMContentLoaded', async function initApp() {
     try {
@@ -381,6 +430,9 @@ document.addEventListener('DOMContentLoaded', async function initApp() {
 
         // Initialize Logo
         initializeLogo();
+
+        // Initialize Inactivity Blur
+        resetInactivityTimer();
 
         initEventListeners();
         await refreshData();
@@ -427,6 +479,14 @@ document.addEventListener('DOMContentLoaded', async function initApp() {
 });
 
 function initEventListeners() {
+    // Reset inactivity timer on genuine user button clicks only
+    document.addEventListener('click', (e) => {
+        // Only reset on trusted (genuine user) clicks, not programmatic events
+        if (e.isTrusted && (e.target.closest('button') || e.target.closest('[data-tab]'))) {
+            resetInactivityTimer();
+        }
+    });
+
     // Navigation
     navLinks.forEach(link => {
         link.addEventListener('click', async () => {
@@ -645,6 +705,7 @@ function initEventListeners() {
 
     // Header Filters button (next to month)
     const headerFiltersBtn = document.getElementById('header-filters-btn');
+    const clearAnalyticsFiltersHeaderBtn = document.getElementById('clear-analytics-filters-btn');
     if (headerFiltersBtn) {
         headerFiltersBtn.addEventListener('click', () => {
             if (currentTab === 'dashboard') togglePanel(dashboardFilterPanel, dashboardFilterControls);
@@ -654,6 +715,17 @@ function initEventListeners() {
                 (currentTab === 'dashboard' && dashboardFilterPanel.style.display !== 'none') ||
                 (currentTab === 'analytics' && analyticsFilterPanel.style.display !== 'none');
             headerFiltersBtn.classList.toggle('active', isOpen);
+        });
+    }
+
+    if (clearAnalyticsFiltersHeaderBtn) {
+        clearAnalyticsFiltersHeaderBtn.addEventListener('click', () => {
+            if (analyticsFilterType) analyticsFilterType.value = 'all';
+            if (analyticsFilterYear) analyticsFilterYear.value = '';
+            if (analyticsFilterMonth) analyticsFilterMonth.value = '';
+            if (analyticsFilterPerson) analyticsFilterPerson.value = '';
+            if (analyticsFilterCategory) analyticsFilterCategory.value = '';
+            renderAnalytics();
         });
     }
 
@@ -695,6 +767,22 @@ function initEventListeners() {
             if (analyticsFilterCategory) analyticsFilterCategory.value = '';
             renderAnalytics();
         });
+    }
+
+    function isAnalyticsFilterActive() {
+        return (
+            (analyticsFilterType && analyticsFilterType.value !== 'all') ||
+            (analyticsFilterYear && analyticsFilterYear.value !== '') ||
+            (analyticsFilterMonth && analyticsFilterMonth.value !== '') ||
+            (analyticsFilterPerson && analyticsFilterPerson.value !== '') ||
+            (analyticsFilterCategory && analyticsFilterCategory.value !== '')
+        );
+    }
+
+    function updateAnalyticsClearHeaderButtonVisibility() {
+        const clearBtn = document.getElementById('clear-analytics-filters-btn');
+        if (!clearBtn) return;
+        clearBtn.style.display = isAnalyticsFilterActive() ? '' : 'none';
     }
 
     // Category Breakdown Pagination
@@ -1953,6 +2041,10 @@ async function switchTab(tabId) {
     if (headerFiltersBtn) {
         headerFiltersBtn.style.display = tabId === 'analytics' ? '' : 'none';
         headerFiltersBtn.classList.remove('active');
+    }
+    const clearAnalyticsFiltersHeaderBtn = document.getElementById('clear-analytics-filters-btn');
+    if (clearAnalyticsFiltersHeaderBtn) {
+        clearAnalyticsFiltersHeaderBtn.style.display = tabId === 'analytics' ? '' : 'none';
     }
 
     // Close any open filter panels when switching tabs
@@ -3588,6 +3680,12 @@ function renderAnalytics() {
     const filterPerson = document.getElementById('analytics-filter-person')?.value;
     const filterCategory = document.getElementById('analytics-filter-category')?.value;
 
+    const clearAnalyticsFiltersHeaderBtn = document.getElementById('clear-analytics-filters-btn');
+    if (clearAnalyticsFiltersHeaderBtn) {
+        const filterActive = filterType !== 'all' || filterYear || filterMonth || filterPerson || filterCategory;
+        clearAnalyticsFiltersHeaderBtn.style.display = filterActive ? '' : 'none';
+    }
+
     // Update Date Display in Header/User Info
     const monthDisplay = document.getElementById('current-month-display');
     if (monthDisplay) {
@@ -3754,6 +3852,9 @@ function renderAnalytics() {
 
     renderPersonChart(filteredRecords);
 
+    // Initialize category comparison chart
+    initializeCategoryComparison(expandedRecords, filteredRecords);
+
     // Render charts moved from Dashboard
     renderCharts(filteredRecords);
 }
@@ -3883,6 +3984,193 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
     }
 
     kpiContainer.innerHTML = kpiHTML || '<p style="text-align:center; color: var(--text-muted);">No data available for selected filters</p>';
+}
+
+// Initialize category comparison chart
+function initializeCategoryComparison(expandedRecords, filteredRecords) {
+    const categorySelect = document.getElementById('category-comparison-select');
+    if (!categorySelect) return;
+
+    // Get all unique spending categories from filtered records
+    const spendingCategories = new Set();
+    filteredRecords.forEach(r => {
+        if ((r.type === 'spending' || r.type === 'provisional' || r.type === 'account_receivable' || r.type === 'account_payable') && r.category) {
+            spendingCategories.add(r.category);
+        }
+    });
+
+    // Populate dropdown
+    const sortedCategories = Array.from(spendingCategories).sort();
+    categorySelect.innerHTML = '<option value="">Select Category...</option>';
+    sortedCategories.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        categorySelect.appendChild(option);
+    });
+
+    // Handle category selection
+    categorySelect.addEventListener('change', () => {
+        if (categorySelect.value) {
+            renderCategoryComparisonChart(categorySelect.value, filteredRecords);
+        } else {
+            document.getElementById('category-comparison-container').style.display = 'none';
+            document.getElementById('category-comparison-empty').style.display = 'block';
+        }
+    });
+
+    // Show empty state initially
+    document.getElementById('category-comparison-container').style.display = 'none';
+    document.getElementById('category-comparison-empty').style.display = 'block';
+}
+
+// Render category comparison chart across months
+function renderCategoryComparisonChart(selectedCategory, filteredRecords) {
+    const container = document.getElementById('category-comparison-container');
+    const emptyState = document.getElementById('category-comparison-empty');
+    const statsContainer = document.getElementById('category-comparison-stats');
+
+    if (!container || !statsContainer) return;
+
+    // Group records by month for the selected category
+    const monthlyData = {};
+    let totalAmount = 0;
+    let totalCount = 0;
+    let maxAmount = 0;
+
+    filteredRecords.forEach(r => {
+        if (r.category === selectedCategory && (r.type === 'spending' || r.type === 'provisional' || r.type === 'account_receivable' || r.type === 'account_payable')) {
+            const date = new Date(r.date);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            
+            const amount = r.type === 'provisional' ? getProvisionalHeld(r) : (parseFloat(r.amount) || 0);
+
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = { amount: 0, count: 0 };
+            }
+            monthlyData[monthKey].amount += amount;
+            monthlyData[monthKey].count += 1;
+            totalAmount += amount;
+            totalCount += 1;
+            maxAmount = Math.max(maxAmount, monthlyData[monthKey].amount);
+        }
+    });
+
+    if (totalCount === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    // Sort months
+    const sortedMonths = Object.keys(monthlyData).sort();
+    const labels = sortedMonths.map(m => {
+        const [year, month] = m.split('-');
+        return new Date(year, parseInt(month) - 1).toLocaleString('default', { month: 'short', year: '2-digit' });
+    });
+    const amounts = sortedMonths.map(m => monthlyData[m].amount);
+
+    // Render chart
+    const canvas = document.getElementById('categoryComparisonChart');
+    const ctx = canvas.getContext('2d');
+    
+    if (categoryComparisonChart) {
+        categoryComparisonChart.destroy();
+    }
+
+    categoryComparisonChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `${selectedCategory}`,
+                data: amounts,
+                backgroundColor: 'rgba(11, 40, 73, 0.7)',
+                borderColor: '#0B2849',
+                borderWidth: 2,
+                borderRadius: 6,
+                hoverBackgroundColor: 'rgba(11, 40, 73, 0.9)',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: 'var(--text-main)' }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + formatCurrency(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Render statistics
+    const average = totalCount > 0 ? totalAmount / sortedMonths.length : 0;
+    const highest = Math.max(...amounts);
+    const lowest = Math.min(...amounts);
+
+    const stats = [
+        { label: 'Total', value: `$${formatCurrency(totalAmount)}` },
+        { label: 'Average/Month', value: `$${formatCurrency(average)}` },
+        { label: 'Highest', value: `$${formatCurrency(highest)}` },
+        { label: 'Lowest', value: `$${formatCurrency(lowest)}` },
+        { label: 'Transactions', value: `${totalCount}` },
+        { label: 'Months Tracked', value: `${sortedMonths.length}` }
+    ];
+
+    statsContainer.innerHTML = stats.map((item, index) => `
+        <div class="category-comparison-stat-item${index > 0 ? ' collapsed' : ''}">
+            <div class="kpi-icon balance"><i class="fas fa-chart-line"></i></div>
+            <div class="kpi-details">
+                <h3>${item.label}</h3>
+                <p>${item.value}</p>
+            </div>
+        </div>
+    `).join('');
+
+    const actionContainer = document.querySelector('.category-comparison-actions');
+    const toggleBtn = document.getElementById('category-comparison-toggle');
+    if (actionContainer && toggleBtn) {
+        categoryComparisonExpanded = false;
+        const showToggle = stats.length > 1;
+        actionContainer.style.display = showToggle ? 'flex' : 'none';
+        toggleBtn.style.display = showToggle ? 'inline-flex' : 'none';
+        toggleBtn.textContent = 'Show More';
+        toggleBtn.onclick = () => {
+            categoryComparisonExpanded = !categoryComparisonExpanded;
+            updateCategoryComparisonCollapsedState();
+        };
+        updateCategoryComparisonCollapsedState();
+    }
+
+    container.style.display = 'block';
+    emptyState.style.display = 'none';
+}
+
+function updateCategoryComparisonCollapsedState() {
+    const items = Array.from(document.querySelectorAll('#category-comparison-stats .category-comparison-stat-item'));
+    items.forEach((item, index) => {
+        if (index === 0) {
+            item.classList.remove('collapsed');
+            return;
+        }
+        item.classList.toggle('collapsed', !categoryComparisonExpanded);
+    });
+
+    const toggleBtn = document.getElementById('category-comparison-toggle');
+    if (toggleBtn) {
+        toggleBtn.textContent = categoryComparisonExpanded ? 'Show Less' : 'Show More';
+    }
 }
 
 function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filteredRecordsForDaily = null) {
