@@ -4965,74 +4965,84 @@ async function handleRecordSubmit(e) {
             item: t.type === 'income' ? '' : (t.item || t.category)
         }));
 
-        // Create main record
-        let totalIncome = 0;
-        let totalSpending = 0;
-
-        validTransactions.forEach(t => {
-            const amount = parseFloat(t.amount) || 0;
-            const quantity = parseInt(t.quantity) || 1;
-            const totalAmount = amount * quantity;
-
-            if (t.type === 'income') {
-                totalIncome += totalAmount;
-            } else {
-                totalSpending += totalAmount;
+        // If a savings account is selected, only record in savings (don't affect main wallet)
+        if (savingsAccountId) {
+            // Only record to savings account, not to main records
+            for (const transaction of validTransactions) {
+                const transactionType = transaction.type === 'income' ? 'deposit' : 'withdrawal';
+                const savingsTransaction = {
+                    accountId: parseInt(savingsAccountId),
+                    type: transactionType,
+                    amount: parseFloat(transaction.amount) * (parseInt(transaction.quantity) || 1),
+                    date: date,
+                    notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`,
+                    linkedRecordId: 0 // No main record linked
+                };
+                await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
             }
-        });
+        } else {
+            // Create main record only if not a savings account transaction
+            let totalIncome = 0;
+            let totalSpending = 0;
 
-        const netAmount = totalIncome - totalSpending;
+            validTransactions.forEach(t => {
+                const amount = parseFloat(t.amount) || 0;
+                const quantity = parseInt(t.quantity) || 1;
+                const totalAmount = amount * quantity;
 
-        // Get combined transaction name and category
-        const combinedTransactionName = document.getElementById('combined-transaction-name')?.value || '';
-        const combinedTransactionCategory = 'Combined'; // Forced category for combined transactions
+                if (t.type === 'income') {
+                    totalIncome += totalAmount;
+                } else {
+                    totalSpending += totalAmount;
+                }
+            });
 
-        // Get original record to preserve timestamp when editing
-        const existingRecordCombined = id ? records.find(r => r.id === parseInt(id)) : null;
-        const timestampCombined = existingRecordCombined?.timestamp || Date.now();
+            const netAmount = totalIncome - totalSpending;
 
-        const data = {
-            formatType: 'combined',
-            type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
-            date: date,
-            timestamp: timestampCombined, // Preserve original timestamp when editing
-            item: combinedTransactionName || `Combined Transaction (${validTransactions.length} items)`,
-            category: combinedTransactionCategory,
-            person: validTransactions[0].person || '',
-            amount: Math.abs(netAmount),
-            quantity: validTransactions.length,
-            notes: notes,
-            savingsAccountId: savingsAccountId,
-            savingsBeneficiary: savingsBeneficiary,
-            combinedTransactions: validTransactions,
-            combinedTransactionName: combinedTransactionName,
-            // Mark as savings transfer if savings account is selected
-            isSavingsTransfer: savingsAccountId ? true : false,
-            savingsTransactionType: savingsAccountId ? 'mixed' : null
-        };
+            // Get combined transaction name and category
+            const combinedTransactionName = document.getElementById('combined-transaction-name')?.value || '';
+            const combinedTransactionCategory = 'Combined'; // Forced category for combined transactions
 
-        try {
-            let recordId;
-            if (id) {
-                recordId = parseInt(id);
-                data.id = recordId;
-                await updateRecord(STORE_RECORDS, data);
-            } else {
-                recordId = await add(STORE_RECORDS, data);
-            }
+            // Get original record to preserve timestamp when editing
+            const existingRecordCombined = id ? records.find(r => r.id === parseInt(id)) : null;
+            const timestampCombined = existingRecordCombined?.timestamp || Date.now();
 
-            // Update savings account for each transaction
-            if (savingsAccountId) {
-                await updateSavingsAccountForCombinedTransactions(validTransactions, date, savingsAccountId, recordId, !!id);
-            } else {
+            const data = {
+                formatType: 'combined',
+                type: netAmount >= 0 ? 'income' : 'spending', // Determine net type
+                date: date,
+                timestamp: timestampCombined, // Preserve original timestamp when editing
+                item: combinedTransactionName || `Combined Transaction (${validTransactions.length} items)`,
+                category: combinedTransactionCategory,
+                person: validTransactions[0].person || '',
+                amount: Math.abs(netAmount),
+                quantity: validTransactions.length,
+                notes: notes,
+                savingsAccountId: savingsAccountId,
+                savingsBeneficiary: savingsBeneficiary,
+                combinedTransactions: validTransactions,
+                combinedTransactionName: combinedTransactionName,
+                isSavingsTransfer: false,
+                savingsTransactionType: null
+            };
+
+            try {
+                let recordId;
+                if (id) {
+                    recordId = parseInt(id);
+                    data.id = recordId;
+                    await updateRecord(STORE_RECORDS, data);
+                } else {
+                    recordId = await add(STORE_RECORDS, data);
+                }
+
                 // Handle individual savings accounts for each transaction
                 await updateSavingsAccountForCombinedTransactionsIndividual(validTransactions, date, recordId, !!id);
+            } catch (error) {
+                console.error('Error saving combined transaction:', error);
+                showToast('Error saving combined transaction: ' + error.message, 'error');
+                return;
             }
-
-        } catch (error) {
-            console.error('Error saving combined transaction:', error);
-            showToast('Error saving combined transaction: ' + error.message, 'error');
-            return;
         }
 
     } else {
@@ -5049,85 +5059,102 @@ async function handleRecordSubmit(e) {
         const itemInput = document.getElementById('record-item')?.value || '';
         // Use item if provided, otherwise use category name for spending/AR (income doesn't need item)
         const item = type === 'income' ? '' : (itemInput || category);
-        const finalCategory = savingsAccountId && !category ? 'Savings Transfer' : category;
 
-        // Get original record to preserve timestamp when editing
-        const existingRecord = id ? records.find(r => r.id === parseInt(id)) : null;
-        const timestamp = existingRecord?.timestamp || Date.now();
+        // If savings account is selected for income/spending, only record to savings (don't affect main wallet)
+        if (savingsAccountId && (type === 'income' || type === 'spending')) {
+            const transactionType = type === 'income' ? 'deposit' : 'withdrawal';
+            const savingsTransaction = {
+                accountId: parseInt(savingsAccountId),
+                type: transactionType,
+                amount: amount,
+                date: date,
+                notes: `${type === 'income' ? 'Income' : 'Spending'}: ${category}${item && item !== category ? ' - ' + item : ''}`,
+                linkedRecordId: 0 // No main record linked
+            };
 
-        const data = {
-            formatType: 'single',
-            type: type,
-            date: date,
-            timestamp: timestamp, // Preserve original timestamp when editing
-            item: item,
-            category: finalCategory,
-            person: document.getElementById('record-person')?.value || '',
-            amount: amount,
-            quantity: document.getElementById('record-quantity')?.value || '1',
-            notes: notes,
-            savingsAccountId: savingsAccountId,
-            savingsBeneficiary: savingsBeneficiary,
-            // Mark as savings transfer if savings account is selected
-            isSavingsTransfer: savingsAccountId ? true : false,
-            savingsTransactionType: savingsAccountId ? (type === 'income' ? 'deposit' : 'withdrawal') : null
-        };
+            try {
+                await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+            } catch (error) {
+                console.error('Error saving savings transaction:', error);
+                showToast('Error saving savings transaction: ' + error.message, 'error');
+                return;
+            }
+        } else {
+            // Create main record only if not a savings account transaction (or if special type like A/R, A/P, provisional)
+            const finalCategory = savingsAccountId && !category ? 'Savings Transfer' : category;
 
-        if (type === 'account_payable') {
-            if (existingRecord && existingRecord.type === 'account_payable') {
-                data.paid = !!existingRecord.paid;
-                data.paidAmount = parseFloat(existingRecord.paidAmount) || 0;
-                data.remainingAmount = Math.max(0, amount - data.paidAmount);
-                if (data.remainingAmount <= 0.0001) {
-                    data.paid = true;
-                    data.remainingAmount = 0;
+            // Get original record to preserve timestamp when editing
+            const existingRecord = id ? records.find(r => r.id === parseInt(id)) : null;
+            const timestamp = existingRecord?.timestamp || Date.now();
+
+            const data = {
+                formatType: 'single',
+                type: type,
+                date: date,
+                timestamp: timestamp, // Preserve original timestamp when editing
+                item: item,
+                category: finalCategory,
+                person: document.getElementById('record-person')?.value || '',
+                amount: amount,
+                quantity: document.getElementById('record-quantity')?.value || '1',
+                notes: notes,
+                savingsAccountId: savingsAccountId,
+                savingsBeneficiary: savingsBeneficiary,
+                isSavingsTransfer: false,
+                savingsTransactionType: null
+            };
+
+            if (type === 'account_payable') {
+                if (existingRecord && existingRecord.type === 'account_payable') {
+                    data.paid = !!existingRecord.paid;
+                    data.paidAmount = parseFloat(existingRecord.paidAmount) || 0;
+                    data.remainingAmount = Math.max(0, amount - data.paidAmount);
+                    if (data.remainingAmount <= 0.0001) {
+                        data.paid = true;
+                        data.remainingAmount = 0;
+                    }
+                } else {
+                    data.paid = false;
+                    data.paidAmount = 0;
+                    data.remainingAmount = amount;
                 }
-            } else {
-                data.paid = false;
-                data.paidAmount = 0;
-                data.remainingAmount = amount;
             }
-        }
 
-        if (type === 'provisional') {
-            if (existingRecord && existingRecord.type === 'provisional') {
-                data.resolutions = Array.isArray(existingRecord.resolutions) ? [...existingRecord.resolutions] : [];
-                const oldAmt = parseFloat(existingRecord.amount) || 0;
-                const delta = amount - oldAmt;
-                let held = parseFloat(existingRecord.heldAmount);
-                if (Number.isNaN(held)) {
-                    refreshProvisionalDerivedFields(existingRecord);
-                    held = parseFloat(existingRecord.heldAmount) || 0;
+            if (type === 'provisional') {
+                if (existingRecord && existingRecord.type === 'provisional') {
+                    data.resolutions = Array.isArray(existingRecord.resolutions) ? [...existingRecord.resolutions] : [];
+                    const oldAmt = parseFloat(existingRecord.amount) || 0;
+                    const delta = amount - oldAmt;
+                    let held = parseFloat(existingRecord.heldAmount);
+                    if (Number.isNaN(held)) {
+                        refreshProvisionalDerivedFields(existingRecord);
+                        held = parseFloat(existingRecord.heldAmount) || 0;
+                    }
+                    data.heldAmount = Math.max(0, held + delta);
+                    data.amount = amount;
+                    refreshProvisionalDerivedFields(data);
+                } else {
+                    data.resolutions = [];
+                    data.heldAmount = amount;
+                    data.status = 'open';
+                    refreshProvisionalDerivedFields(data);
                 }
-                data.heldAmount = Math.max(0, held + delta);
-                data.amount = amount;
-                refreshProvisionalDerivedFields(data);
-            } else {
-                data.resolutions = [];
-                data.heldAmount = amount;
-                data.status = 'open';
-                refreshProvisionalDerivedFields(data);
-            }
-        }
-
-        try {
-            let recordId;
-            if (id) {
-                recordId = parseInt(id);
-                data.id = recordId;
-                await updateRecord(STORE_RECORDS, data);
-            } else {
-                recordId = await add(STORE_RECORDS, data);
             }
 
-            // Update savings account if selected (not used for A/R, A/P, or provisional)
-            if (savingsAccountId && type !== 'account_receivable' && type !== 'account_payable' && type !== 'provisional') {
-                await updateSavingsAccountForSingleTransaction(data, savingsAccountId, recordId, !!id);
+            try {
+                let recordId;
+                if (id) {
+                    recordId = parseInt(id);
+                    data.id = recordId;
+                    await updateRecord(STORE_RECORDS, data);
+                } else {
+                    recordId = await add(STORE_RECORDS, data);
+                }
+            } catch (error) {
+                console.error('Error saving single transaction:', error);
+                showToast('Error saving transaction: ' + error.message, 'error');
+                return;
             }
-        } catch (error) {
-            console.error('Error saving single transaction:', error);
-            showToast('Error saving transaction: ' + error.message, 'error');
-            return;
         }
     }
 
