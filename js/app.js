@@ -1295,26 +1295,22 @@ function initEventListeners() {
         if (e.key === 'Enter') processPartialAPPayment();
     });
 
-    // AP Write-off checkbox listener
-    const apWriteoffCheckbox = document.getElementById('ap-writeoff-checkbox');
+    // AP Write-off button listener
+    const apWriteoffBtn = document.getElementById('ap-writeoff-btn');
     const apWriteoffAmountGroup = document.getElementById('ap-writeoff-amount-group');
-    const apWriteoffCategoryGroup = document.getElementById('ap-writeoff-category-group');
-    const apWriteoffCategory = document.getElementById('ap-writeoff-category');
     
-    apWriteoffCheckbox?.addEventListener('change', () => {
-        const isChecked = apWriteoffCheckbox.checked;
-        apWriteoffAmountGroup.style.display = isChecked ? 'block' : 'none';
-        apWriteoffCategoryGroup.style.display = isChecked ? 'block' : 'none';
+    apWriteoffBtn?.addEventListener('click', () => {
+        const isActive = apWriteoffBtn.classList.contains('btn-primary');
         
-        if (isChecked) {
-            // Populate categories
-            apWriteoffCategory.innerHTML = '<option value="">Select category...</option>';
-            categories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat.name;
-                option.textContent = cat.name;
-                apWriteoffCategory.appendChild(option);
-            });
+        if (!isActive) {
+            apWriteoffBtn.classList.remove('btn-outline');
+            apWriteoffBtn.classList.add('btn-primary');
+            apWriteoffAmountGroup.style.display = 'block';
+        } else {
+            apWriteoffBtn.classList.remove('btn-primary');
+            apWriteoffBtn.classList.add('btn-outline');
+            apWriteoffAmountGroup.style.display = 'none';
+            document.getElementById('ap-writeoff-amount').value = '';
         }
     });
 
@@ -6835,17 +6831,16 @@ function hideAPCollectionCard() {
     currentAPCollection = null;
     
     // Reset write-off fields
-    const writeoffCheckbox = document.getElementById('ap-writeoff-checkbox');
+    const writeoffBtn = document.getElementById('ap-writeoff-btn');
     const writeoffAmountInput = document.getElementById('ap-writeoff-amount');
-    const writeoffCategorySelect = document.getElementById('ap-writeoff-category');
     const writeoffAmountGroup = document.getElementById('ap-writeoff-amount-group');
-    const writeoffCategoryGroup = document.getElementById('ap-writeoff-category-group');
     
-    if (writeoffCheckbox) writeoffCheckbox.checked = false;
+    if (writeoffBtn) {
+        writeoffBtn.classList.remove('btn-primary');
+        writeoffBtn.classList.add('btn-outline');
+    }
     if (writeoffAmountInput) writeoffAmountInput.value = '';
-    if (writeoffCategorySelect) writeoffCategorySelect.value = '';
     if (writeoffAmountGroup) writeoffAmountGroup.style.display = 'none';
-    if (writeoffCategoryGroup) writeoffCategoryGroup.style.display = 'none';
 }
 
 function updateAPProgress() {
@@ -6878,24 +6873,19 @@ async function processPartialAPPayment() {
     }
 
     // Check for write-off
-    const writeoffCheckbox = document.getElementById('ap-writeoff-checkbox');
     const writeoffAmountInput = document.getElementById('ap-writeoff-amount');
-    const writeoffCategorySelect = document.getElementById('ap-writeoff-category');
     
     let writeoffAmount = 0;
-    let writeoffCategory = null;
     
-    if (writeoffCheckbox?.checked) {
+    // Check if write-off is active (button is in primary state)
+    const apWriteoffBtn = document.getElementById('ap-writeoff-btn');
+    const isWriteoffActive = apWriteoffBtn?.classList.contains('btn-primary');
+    
+    if (isWriteoffActive) {
         writeoffAmount = parseFloat(writeoffAmountInput?.value) || 0;
-        writeoffCategory = writeoffCategorySelect?.value || null;
         
         if (!writeoffAmount || writeoffAmount <= 0) {
             showToast('Please enter a valid write-off amount', 'error');
-            return;
-        }
-        
-        if (!writeoffCategory) {
-            showToast('Please select a category for the write-off', 'error');
             return;
         }
         
@@ -6931,7 +6921,7 @@ async function processPartialAPPayment() {
             
             // Add write-off note if applicable
             if (writeoffAmount > 0) {
-                const writeoffNote = `[Written off $${writeoffAmount.toFixed(2)} on ${paidDateStr} - Category: ${writeoffCategory}]`;
+                const writeoffNote = `[Written off $${writeoffAmount.toFixed(2)} on ${paidDateStr}]`;
                 if (!r.notes || !r.notes.includes(writeoffNote)) {
                     r.notes = r.notes ? `${r.notes}\n${writeoffNote}` : writeoffNote;
                 }
@@ -6946,7 +6936,7 @@ async function processPartialAPPayment() {
         if (writeoffAmount > 0) {
             const writeoffRecord = {
                 type: 'spending',
-                category: writeoffCategory,
+                category: 'Write-off',
                 amount: -writeoffAmount, // Negative spending to reduce the liability
                 date: formatDateLocal(new Date()),
                 notes: `Write-off from AP - debt forgiven (reduction in liability)`,
@@ -6961,14 +6951,14 @@ async function processPartialAPPayment() {
         if (isFullyPaid) {
             let message = `Paid $${paidAmount.toFixed(2)}`;
             if (writeoffAmount > 0) {
-                message += ` - Written off $${writeoffAmount.toFixed(2)} (${writeoffCategory})`;
+                message += ` - Written off $${writeoffAmount.toFixed(2)}`;
             }
             message += ` — debt fully settled`;
             showToast(message, 'success');
         } else {
             let message = `Paid $${paidAmount.toFixed(2)}`;
             if (writeoffAmount > 0) {
-                message += ` - Written off $${writeoffAmount.toFixed(2)} (${writeoffCategory})`;
+                message += ` - Written off $${writeoffAmount.toFixed(2)}`;
             }
             message += ` — $${remainingAfter.toFixed(2)} remaining`;
             showToast(message, 'success');
