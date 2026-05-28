@@ -1208,18 +1208,21 @@ function initEventListeners() {
 
     amountInput?.addEventListener('input', updateARProgress);
 
-    // AR Write-off checkbox listener
-    const arWriteoffCheckbox = document.getElementById('ar-writeoff-checkbox');
+    // AR Write-off button listener
+    const arWriteoffBtn = document.getElementById('ar-writeoff-btn');
     const arWriteoffAmountGroup = document.getElementById('ar-writeoff-amount-group');
     const arWriteoffCategoryGroup = document.getElementById('ar-writeoff-category-group');
     const arWriteoffCategory = document.getElementById('ar-writeoff-category');
     
-    arWriteoffCheckbox?.addEventListener('change', () => {
-        const isChecked = arWriteoffCheckbox.checked;
-        arWriteoffAmountGroup.style.display = isChecked ? 'block' : 'none';
-        arWriteoffCategoryGroup.style.display = isChecked ? 'block' : 'none';
+    arWriteoffBtn?.addEventListener('click', () => {
+        const isActive = arWriteoffBtn.classList.contains('btn-primary');
         
-        if (isChecked) {
+        if (!isActive) {
+            arWriteoffBtn.classList.remove('btn-outline');
+            arWriteoffBtn.classList.add('btn-primary');
+            arWriteoffAmountGroup.style.display = 'block';
+            arWriteoffCategoryGroup.style.display = 'block';
+            
             // Populate categories
             arWriteoffCategory.innerHTML = '<option value="">Select category...</option>';
             categories.forEach(cat => {
@@ -1228,6 +1231,13 @@ function initEventListeners() {
                 option.textContent = cat.name;
                 arWriteoffCategory.appendChild(option);
             });
+        } else {
+            arWriteoffBtn.classList.remove('btn-primary');
+            arWriteoffBtn.classList.add('btn-outline');
+            arWriteoffAmountGroup.style.display = 'none';
+            arWriteoffCategoryGroup.style.display = 'none';
+            document.getElementById('ar-writeoff-amount').value = '';
+            arWriteoffCategory.value = '';
         }
     });
 
@@ -6552,13 +6562,16 @@ function hideARCollectionCard() {
     currentARCollection = null;
     
     // Reset write-off fields
-    const writeoffCheckbox = document.getElementById('ar-writeoff-checkbox');
+    const writeoffBtn = document.getElementById('ar-writeoff-btn');
     const writeoffAmountInput = document.getElementById('ar-writeoff-amount');
     const writeoffCategorySelect = document.getElementById('ar-writeoff-category');
     const writeoffAmountGroup = document.getElementById('ar-writeoff-amount-group');
     const writeoffCategoryGroup = document.getElementById('ar-writeoff-category-group');
     
-    if (writeoffCheckbox) writeoffCheckbox.checked = false;
+    if (writeoffBtn) {
+        writeoffBtn.classList.remove('btn-primary');
+        writeoffBtn.classList.add('btn-outline');
+    }
     if (writeoffAmountInput) writeoffAmountInput.value = '';
     if (writeoffCategorySelect) writeoffCategorySelect.value = '';
     if (writeoffAmountGroup) writeoffAmountGroup.style.display = 'none';
@@ -6601,14 +6614,17 @@ async function processPartialARCollection() {
     }
 
     // Check for write-off
-    const writeoffCheckbox = document.getElementById('ar-writeoff-checkbox');
+    const writeoffBtn = document.getElementById('ar-writeoff-btn');
     const writeoffAmountInput = document.getElementById('ar-writeoff-amount');
     const writeoffCategorySelect = document.getElementById('ar-writeoff-category');
     
     let writeoffAmount = 0;
     let writeoffCategory = null;
     
-    if (writeoffCheckbox?.checked) {
+    // Check if write-off is active (button is in primary state)
+    const isWriteoffActive = writeoffBtn?.classList.contains('btn-primary');
+    
+    if (isWriteoffActive) {
         writeoffAmount = parseFloat(writeoffAmountInput?.value) || 0;
         writeoffCategory = writeoffCategorySelect?.value || null;
         
