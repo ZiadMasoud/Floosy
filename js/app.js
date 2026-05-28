@@ -1208,6 +1208,29 @@ function initEventListeners() {
 
     amountInput?.addEventListener('input', updateARProgress);
 
+    // AR Write-off checkbox listener
+    const arWriteoffCheckbox = document.getElementById('ar-writeoff-checkbox');
+    const arWriteoffAmountGroup = document.getElementById('ar-writeoff-amount-group');
+    const arWriteoffCategoryGroup = document.getElementById('ar-writeoff-category-group');
+    const arWriteoffCategory = document.getElementById('ar-writeoff-category');
+    
+    arWriteoffCheckbox?.addEventListener('change', () => {
+        const isChecked = arWriteoffCheckbox.checked;
+        arWriteoffAmountGroup.style.display = isChecked ? 'block' : 'none';
+        arWriteoffCategoryGroup.style.display = isChecked ? 'block' : 'none';
+        
+        if (isChecked) {
+            // Populate categories
+            arWriteoffCategory.innerHTML = '<option value="">Select category...</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.name;
+                option.textContent = cat.name;
+                arWriteoffCategory.appendChild(option);
+            });
+        }
+    });
+
     // Allow Enter key to confirm
     amountInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -1270,6 +1293,29 @@ function initEventListeners() {
     document.getElementById('ap-paid-amount')?.addEventListener('input', updateAPProgress);
     document.getElementById('ap-paid-amount')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') processPartialAPPayment();
+    });
+
+    // AP Write-off checkbox listener
+    const apWriteoffCheckbox = document.getElementById('ap-writeoff-checkbox');
+    const apWriteoffAmountGroup = document.getElementById('ap-writeoff-amount-group');
+    const apWriteoffCategoryGroup = document.getElementById('ap-writeoff-category-group');
+    const apWriteoffCategory = document.getElementById('ap-writeoff-category');
+    
+    apWriteoffCheckbox?.addEventListener('change', () => {
+        const isChecked = apWriteoffCheckbox.checked;
+        apWriteoffAmountGroup.style.display = isChecked ? 'block' : 'none';
+        apWriteoffCategoryGroup.style.display = isChecked ? 'block' : 'none';
+        
+        if (isChecked) {
+            // Populate categories
+            apWriteoffCategory.innerHTML = '<option value="">Select category...</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.name;
+                option.textContent = cat.name;
+                apWriteoffCategory.appendChild(option);
+            });
+        }
     });
 
     const provCard = document.getElementById('provisional-resolve-card');
@@ -2080,6 +2126,62 @@ async function renderAll() {
 }
 
 // Dashboard Functions
+
+// Create carryover transaction record if it doesn't exist
+async function ensureCarryoverRecord(year, month) {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1; // 1-indexed
+    
+    // Only create carryover record for current month
+    if (year !== currentYear || month !== currentMonth) {
+        return;
+    }
+    
+    // Check if carryover is enabled for previous month
+    const prevMonth = month === 1 ? 12 : month - 1;
+    const prevYear = month === 1 ? year - 1 : year;
+    const prevSettings = await getMonthlyBalanceSettings(prevYear, prevMonth);
+    
+    if (!prevSettings || !prevSettings.carryOver) {
+        return;
+    }
+    
+    // Calculate the carried balance
+    const carriedBalance = await getLiveCarriedBalance(year, month);
+    
+    if (Math.abs(carriedBalance) < 0.01) {
+        return; // No balance to carry over
+    }
+    
+    // Check if a carryover record already exists for this month
+    const monthStart = new Date(year, month - 1, 1);
+    const monthEnd = new Date(year, month, 0);
+    
+    const existingCarryover = records.find(r => {
+        const rDate = new Date(r.date);
+        return rDate >= monthStart && rDate <= monthEnd && r.isCarryover;
+    });
+    
+    if (existingCarryover) {
+        return; // Already exists
+    }
+    
+    // Create the carryover record
+    const carryoverRecord = {
+        type: 'income',
+        category: 'Balance Carryover',
+        amount: carriedBalance,
+        date: formatDateLocal(new Date(year, month - 1, 1)), // First day of the month
+        notes: `Balance carried over from ${new Date(prevYear, prevMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+        excludeFromIncomeTotals: true, // This ensures it doesn't affect income totals
+        isCarryover: true
+    };
+    
+    await add(STORE_RECORDS, carryoverRecord);
+    await refreshData(); // Reload records to include the new carryover record
+}
+
 async function renderDashboard() {
     // Get filter values
     const filterType = document.getElementById('dashboard-filter-type')?.value || 'all';
@@ -2092,6 +2194,9 @@ async function renderDashboard() {
     // Default context is current month/year
     const currentMonth = filterMonthValue ? (parseInt(filterMonthValue) - 1) : now.getMonth();
     const currentYear = filterYearValue ? parseInt(filterYearValue) : now.getFullYear();
+    
+    // Ensure carryover record exists for current month
+    await ensureCarryoverRecord(currentYear, currentMonth + 1);
 
     const monthDisplay = document.getElementById('current-month-display');
     const heroMonthEl = document.getElementById('hero-month-display');
@@ -6449,6 +6554,19 @@ function hideARCollectionCard() {
     card?.classList.remove('active');
     overlay?.classList.remove('active');
     currentARCollection = null;
+    
+    // Reset write-off fields
+    const writeoffCheckbox = document.getElementById('ar-writeoff-checkbox');
+    const writeoffAmountInput = document.getElementById('ar-writeoff-amount');
+    const writeoffCategorySelect = document.getElementById('ar-writeoff-category');
+    const writeoffAmountGroup = document.getElementById('ar-writeoff-amount-group');
+    const writeoffCategoryGroup = document.getElementById('ar-writeoff-category-group');
+    
+    if (writeoffCheckbox) writeoffCheckbox.checked = false;
+    if (writeoffAmountInput) writeoffAmountInput.value = '';
+    if (writeoffCategorySelect) writeoffCategorySelect.value = '';
+    if (writeoffAmountGroup) writeoffAmountGroup.style.display = 'none';
+    if (writeoffCategoryGroup) writeoffCategoryGroup.style.display = 'none';
 }
 
 function updateARProgress() {
@@ -6486,10 +6604,39 @@ async function processPartialARCollection() {
         return;
     }
 
+    // Check for write-off
+    const writeoffCheckbox = document.getElementById('ar-writeoff-checkbox');
+    const writeoffAmountInput = document.getElementById('ar-writeoff-amount');
+    const writeoffCategorySelect = document.getElementById('ar-writeoff-category');
+    
+    let writeoffAmount = 0;
+    let writeoffCategory = null;
+    
+    if (writeoffCheckbox?.checked) {
+        writeoffAmount = parseFloat(writeoffAmountInput?.value) || 0;
+        writeoffCategory = writeoffCategorySelect?.value || null;
+        
+        if (!writeoffAmount || writeoffAmount <= 0) {
+            showToast('Please enter a valid write-off amount', 'error');
+            return;
+        }
+        
+        if (!writeoffCategory) {
+            showToast('Please select a category for the write-off', 'error');
+            return;
+        }
+        
+        const totalAfterCollectionAndWriteoff = collectedAmount + writeoffAmount;
+        if (totalAfterCollectionAndWriteoff > currentARCollection.remainingAmount) {
+            showToast(`Collected + Write-off cannot exceed remaining amount ($${currentARCollection.remainingAmount.toFixed(2)})`, 'error');
+            return;
+        }
+    }
+
     const { recordId, rootId, group, totalAmount, alreadyCollected } = currentARCollection;
     const newTotalCollected = alreadyCollected + collectedAmount;
-    const isFullyCollected = newTotalCollected >= totalAmount;
-    const remainingAfterCollection = totalAmount - newTotalCollected;
+    const isFullyCollected = (newTotalCollected + writeoffAmount) >= totalAmount;
+    const remainingAfterCollection = totalAmount - newTotalCollected - writeoffAmount;
     const collectedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
     try {
@@ -6501,6 +6648,7 @@ async function processPartialARCollection() {
             }
 
             r.collectedAmount = newTotalCollected;
+            r.writeoffAmount = (r.writeoffAmount || 0) + writeoffAmount;
 
             if (isFullyCollected) {
                 r.collected = true;
@@ -6512,17 +6660,50 @@ async function processPartialARCollection() {
             if (!r.notes || !r.notes.includes(collectionNote)) {
                 r.notes = r.notes ? `${r.notes}\n${collectionNote}` : collectionNote;
             }
+            
+            // Add write-off note if applicable
+            if (writeoffAmount > 0) {
+                const writeoffNote = `[Written off $${writeoffAmount.toFixed(2)} on ${collectedDate} - Category: ${writeoffCategory}]`;
+                if (!r.notes || !r.notes.includes(writeoffNote)) {
+                    r.notes = r.notes ? `${r.notes}\n${writeoffNote}` : writeoffNote;
+                }
+            }
 
             await updateRecord(STORE_RECORDS, r);
+        }
+        
+        // Create a write-off record that returns to balance without affecting income
+        if (writeoffAmount > 0) {
+            const writeoffRecord = {
+                type: 'income',
+                category: writeoffCategory,
+                amount: writeoffAmount,
+                date: formatDateLocal(new Date()),
+                notes: `Write-off from AR - forgiven amount (not actual income)`,
+                excludeFromIncomeTotals: true, // This ensures it doesn't affect income totals
+                isWriteoff: true,
+                relatedARId: rootId
+            };
+            await add(STORE_RECORDS, writeoffRecord);
         }
 
         await refreshData();
 
 
         if (isFullyCollected) {
-            showToast(`Collected $${collectedAmount.toFixed(2)} - AR fully collected!`, 'success');
+            let message = `Collected $${collectedAmount.toFixed(2)}`;
+            if (writeoffAmount > 0) {
+                message += ` - Written off $${writeoffAmount.toFixed(2)} (${writeoffCategory})`;
+            }
+            message += ` - AR fully resolved!`;
+            showToast(message, 'success');
         } else {
-            showToast(`Collected $${collectedAmount.toFixed(2)} - $${remainingAfterCollection.toFixed(2)} remaining`, 'success');
+            let message = `Collected $${collectedAmount.toFixed(2)}`;
+            if (writeoffAmount > 0) {
+                message += ` - Written off $${writeoffAmount.toFixed(2)} (${writeoffCategory})`;
+            }
+            message += ` - $${remainingAfterCollection.toFixed(2)} remaining`;
+            showToast(message, 'success');
         }
 
         hideARCollectionCard();
@@ -6652,6 +6833,19 @@ function hideAPCollectionCard() {
     document.getElementById('ap-collection-card')?.classList.remove('active');
     document.getElementById('ap-collection-overlay')?.classList.remove('active');
     currentAPCollection = null;
+    
+    // Reset write-off fields
+    const writeoffCheckbox = document.getElementById('ap-writeoff-checkbox');
+    const writeoffAmountInput = document.getElementById('ap-writeoff-amount');
+    const writeoffCategorySelect = document.getElementById('ap-writeoff-category');
+    const writeoffAmountGroup = document.getElementById('ap-writeoff-amount-group');
+    const writeoffCategoryGroup = document.getElementById('ap-writeoff-category-group');
+    
+    if (writeoffCheckbox) writeoffCheckbox.checked = false;
+    if (writeoffAmountInput) writeoffAmountInput.value = '';
+    if (writeoffCategorySelect) writeoffCategorySelect.value = '';
+    if (writeoffAmountGroup) writeoffAmountGroup.style.display = 'none';
+    if (writeoffCategoryGroup) writeoffCategoryGroup.style.display = 'none';
 }
 
 function updateAPProgress() {
@@ -6683,10 +6877,39 @@ async function processPartialAPPayment() {
         return;
     }
 
+    // Check for write-off
+    const writeoffCheckbox = document.getElementById('ap-writeoff-checkbox');
+    const writeoffAmountInput = document.getElementById('ap-writeoff-amount');
+    const writeoffCategorySelect = document.getElementById('ap-writeoff-category');
+    
+    let writeoffAmount = 0;
+    let writeoffCategory = null;
+    
+    if (writeoffCheckbox?.checked) {
+        writeoffAmount = parseFloat(writeoffAmountInput?.value) || 0;
+        writeoffCategory = writeoffCategorySelect?.value || null;
+        
+        if (!writeoffAmount || writeoffAmount <= 0) {
+            showToast('Please enter a valid write-off amount', 'error');
+            return;
+        }
+        
+        if (!writeoffCategory) {
+            showToast('Please select a category for the write-off', 'error');
+            return;
+        }
+        
+        const totalAfterPaymentAndWriteoff = paidAmount + writeoffAmount;
+        if (totalAfterPaymentAndWriteoff > currentAPCollection.remainingAmount) {
+            showToast(`Paid + Write-off cannot exceed remaining amount ($${currentAPCollection.remainingAmount.toFixed(2)})`, 'error');
+            return;
+        }
+    }
+
     const { group, totalAmount, alreadyPaid } = currentAPCollection;
     const newTotalPaid = alreadyPaid + paidAmount;
-    const isFullyPaid = newTotalPaid >= totalAmount;
-    const remainingAfter = totalAmount - newTotalPaid;
+    const isFullyPaid = (newTotalPaid + writeoffAmount) >= totalAmount;
+    const remainingAfter = totalAmount - newTotalPaid - writeoffAmount;
     const paidDateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
     try {
@@ -6695,22 +6918,60 @@ async function processPartialAPPayment() {
                 r.originalAmount = parseFloat(r.amount) || 0;
             }
             r.paidAmount = newTotalPaid;
+            r.writeoffAmount = (r.writeoffAmount || 0) + writeoffAmount;
             if (isFullyPaid) {
                 r.paid = true;
                 r.paidDate = formatDateLocal(new Date());
             }
-            r.remainingAmount = Math.max(0, totalAmount - newTotalPaid);
+            r.remainingAmount = Math.max(0, totalAmount - newTotalPaid - writeoffAmount);
             const payNote = `[Paid $${paidAmount.toFixed(2)} on ${paidDateStr}]`;
             if (!r.notes || !r.notes.includes(payNote)) {
                 r.notes = r.notes ? `${r.notes}\n${payNote}` : payNote;
             }
+            
+            // Add write-off note if applicable
+            if (writeoffAmount > 0) {
+                const writeoffNote = `[Written off $${writeoffAmount.toFixed(2)} on ${paidDateStr} - Category: ${writeoffCategory}]`;
+                if (!r.notes || !r.notes.includes(writeoffNote)) {
+                    r.notes = r.notes ? `${r.notes}\n${writeoffNote}` : writeoffNote;
+                }
+            }
+            
             await updateRecord(STORE_RECORDS, r);
         }
+        
+        // Create a write-off record for AP (this is a spending reduction, not income)
+        // For AP, write-off means the debt is forgiven, so it's like getting a discount
+        // We record it as a negative spending (reduction in liability) without affecting income
+        if (writeoffAmount > 0) {
+            const writeoffRecord = {
+                type: 'spending',
+                category: writeoffCategory,
+                amount: -writeoffAmount, // Negative spending to reduce the liability
+                date: formatDateLocal(new Date()),
+                notes: `Write-off from AP - debt forgiven (reduction in liability)`,
+                excludeFromSpendingTotals: true, // This ensures it doesn't affect spending totals
+                isWriteoff: true,
+                relatedAPId: currentAPCollection.rootId
+            };
+            await add(STORE_RECORDS, writeoffRecord);
+        }
+        
         await refreshData();
         if (isFullyPaid) {
-            showToast(`Paid $${paidAmount.toFixed(2)} — debt fully settled`, 'success');
+            let message = `Paid $${paidAmount.toFixed(2)}`;
+            if (writeoffAmount > 0) {
+                message += ` - Written off $${writeoffAmount.toFixed(2)} (${writeoffCategory})`;
+            }
+            message += ` — debt fully settled`;
+            showToast(message, 'success');
         } else {
-            showToast(`Paid $${paidAmount.toFixed(2)} — $${remainingAfter.toFixed(2)} remaining`, 'success');
+            let message = `Paid $${paidAmount.toFixed(2)}`;
+            if (writeoffAmount > 0) {
+                message += ` - Written off $${writeoffAmount.toFixed(2)} (${writeoffCategory})`;
+            }
+            message += ` — $${remainingAfter.toFixed(2)} remaining`;
+            showToast(message, 'success');
         }
         hideAPCollectionCard();
     } catch (error) {

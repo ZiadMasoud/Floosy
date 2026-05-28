@@ -284,7 +284,8 @@ async function seedDefaultCategories() {
             { name: 'Salary', type: 'income', color: '#2ecc71' },
             { name: 'Freelance', type: 'income', color: '#1abc9c' },
             { name: 'Investment', type: 'income', color: '#34495e' },
-            { name: 'Collection', type: 'income', color: '#16a085' }
+            { name: 'Collection', type: 'income', color: '#16a085' },
+            { name: 'Balance Carryover', type: 'income', color: '#95a5a6' }
         ];
         for (const cat of defaults) {
             await add(STORE_CATEGORIES, cat);
@@ -294,6 +295,11 @@ async function seedDefaultCategories() {
         const collectionExists = categories.some(c => c.name === 'Collection' && c.type === 'income');
         if (!collectionExists) {
             await add(STORE_CATEGORIES, { name: 'Collection', type: 'income', color: '#16a085' });
+        }
+        // Ensure 'Balance Carryover' category exists
+        const carryoverExists = categories.some(c => c.name === 'Balance Carryover' && c.type === 'income');
+        if (!carryoverExists) {
+            await add(STORE_CATEGORIES, { name: 'Balance Carryover', type: 'income', color: '#95a5a6' });
         }
     }
 }

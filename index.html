@@ -1190,6 +1190,24 @@
         </div>
         <span class="ar-progress-text" id="ap-progress-text">0% paid</span>
       </div>
+      <div class="ar-writeoff-section" id="ap-writeoff-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="ap-writeoff-checkbox" />
+            <span>Write-off / Forgive Partial Amount</span>
+          </label>
+        </div>
+        <div class="form-group" id="ap-writeoff-amount-group" style="display: none;">
+          <label>Amount to Write-off</label>
+          <input type="number" id="ap-writeoff-amount" step="0.01" min="0.01" placeholder="Enter amount to forgive..." />
+        </div>
+        <div class="form-group" id="ap-writeoff-category-group" style="display: none;">
+          <label>Category for Write-off</label>
+          <select id="ap-writeoff-category">
+            <option value="">Select category...</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="ar-collection-actions">
       <button type="button" class="btn btn-secondary" id="cancel-ap-collection">Cancel</button>
@@ -1359,6 +1377,24 @@
           <div class="ar-progress-fill" id="ar-progress-fill" style="width: 0%"></div>
         </div>
         <span class="ar-progress-text" id="ar-progress-text">0% collected</span>
+      </div>
+      <div class="ar-writeoff-section" id="ar-writeoff-section" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="ar-writeoff-checkbox" />
+            <span>Write-off / Forgive Partial Amount</span>
+          </label>
+        </div>
+        <div class="form-group" id="ar-writeoff-amount-group" style="display: none;">
+          <label>Amount to Write-off</label>
+          <input type="number" id="ar-writeoff-amount" step="0.01" min="0.01" placeholder="Enter amount to forgive..." />
+        </div>
+        <div class="form-group" id="ar-writeoff-category-group" style="display: none;">
+          <label>Category for Write-off</label>
+          <select id="ar-writeoff-category">
+            <option value="">Select category...</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="ar-collection-actions">
