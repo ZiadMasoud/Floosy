@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', async function initApp() {
         await refreshData();
 
         // Set default date in modal
-        document.getElementById('record-date').valueAsDate = new Date();
+        document.getElementById('record-date').value = formatDateLocal(new Date());
         // Note: Accounts Receivable are no longer duplicated month-to-month.
         // Pending A/R are treated as outstanding until collected, regardless of month.
 
@@ -4580,7 +4580,7 @@ function openTransactionModal(accountId, type, tx = null) {
         transactionForm.elements['tx-notes'].value = tx.notes || '';
     } else {
         transactionForm.elements['tx-id'].value = '';
-        transactionForm.elements['tx-date'].valueAsDate = new Date();
+        transactionForm.elements['tx-date'].value = formatDateLocal(new Date());
     }
     transactionModal.classList.add('active');
 }
@@ -5005,7 +5005,7 @@ function openModal(record = null) {
         modalTitle.textContent = 'Add Transaction';
         recordForm.reset();
         recordId.value = '';
-        recordDate.valueAsDate = new Date();
+        recordDate.value = formatDateLocal(new Date());
         recordFormatTypeSelect.value = 'single';
         updateCategoryDropdowns();
     }
@@ -7869,10 +7869,10 @@ function renderUpcomingWidget() {
         }
     });
 
-    // Get regular upcoming records (next 5 days)
+    // Get regular upcoming records (next 5 days) - only projected/expected income
     const upcomingRecords = records.filter(r => {
         const recordDate = new Date(r.date);
-        return recordDate > now && recordDate <= fiveDaysFromNow;
+        return r.isProjected && recordDate > now && recordDate <= fiveDaysFromNow;
     });
 
     // Generate recurring income occurrences (next 5 days)
