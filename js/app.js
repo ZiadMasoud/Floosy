@@ -1868,6 +1868,8 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     monthRecords.forEach(r => {
         // Skip projected/expected income - they don't affect actual balance
         if (r.isProjected) return;
+        // Skip carryover records - they're already accounted for in carriedBalance
+        if (r.isCarryover) return;
 
         if (r.formatType === 'combined' && r.combinedTransactions) {
             r.combinedTransactions.forEach(ct => {
@@ -1922,7 +1924,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
 
     // We need to calculate the balance by excluding the portion of income that went to savings
     const walletIncome = monthRecords
-        .filter(r => !r.isSavingsTransfer && !r.isProjected)
+        .filter(r => !r.isSavingsTransfer && !r.isProjected && !r.isCarryover)
         .reduce((sum, r) => {
             if (r.formatType === 'combined' && r.combinedTransactions) {
                 // Only include income components, exclude savings transfers
