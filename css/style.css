@@ -5411,6 +5411,34 @@ tr:last-child td {
   transform: translateY(0);
 }
 
+.upcoming-income-item.overdue {
+  border-color: #dc2626;
+}
+
+.upcoming-income-item.overdue .income-date {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.upcoming-income-item .skip-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.upcoming-income-item .skip-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+}
+
 /* Received this month - distinctive muted style */
 .upcoming-income-item.received-this-month {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.02) 100%);

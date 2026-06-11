@@ -8016,9 +8016,22 @@ function renderUpcomingIncome() {
 
     // Get regular upcoming income and AR (next 30 days)
     const upcomingIncome = records.filter(r => {
+        if (r.skipped) return false;
         const recordDate = new Date(r.date);
-        // Include: future income dates and pending AR
-        if (r.type === 'income' && recordDate > now && recordDate <= thirtyDaysFromNow) {
+        // Include: future income dates, pending AR, and overdue projected expected income for this month
+        if (r.type === 'income' && r.isProjected) {
+            if (recordDate > now && recordDate <= thirtyDaysFromNow) {
+                return true;
+            }
+            if (recordDate.toDateString() === now.toDateString()) {
+                return true;
+            }
+            if (recordDate < now && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+                return true;
+            }
+            return false;
+        }
+        if (r.type === 'income' && !r.isProjected && recordDate > now && recordDate <= thirtyDaysFromNow) {
             return true;
         }
         if (r.type === 'account_receivable' && !r.collected && recordDate <= thirtyDaysFromNow) {
@@ -8043,8 +8056,7 @@ function renderUpcomingIncome() {
         // Current month occurrence
         if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
             const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
-            if (currentMonthDate > now && currentMonthDate <= thirtyDaysFromNow) {
-                // Future this month - show normally or as received
+            if (currentMonthDate <= thirtyDaysFromNow) {
                 recurringOccurrences.push({
                     id: template.id,
                     date: formatDateLocal(currentMonthDate),
@@ -8058,24 +8070,6 @@ function renderUpcomingIncome() {
                     dayOfMonth: template.dayOfMonth,
                     receivedRecordId: alreadyReceived ? receivedThisMonth[numericId] : null
                 });
-            } else if (currentMonthDate.getMonth() === currentMonth && currentMonthDate.getFullYear() === currentYear) {
-                // Day has passed this month - only show if received (so user can undo)
-                // or if it's today
-                if (alreadyReceived || currentMonthDate.toDateString() === now.toDateString()) {
-                    recurringOccurrences.push({
-                        id: template.id,
-                        date: formatDateLocal(currentMonthDate),
-                        amount: template.amount,
-                        category: template.category,
-                        projectedSource: template.source,
-                        notes: template.notes,
-                        isRecurring: true,
-                        isProjected: true,
-                        templateId: template.id,
-                        dayOfMonth: template.dayOfMonth,
-                        receivedRecordId: alreadyReceived ? receivedThisMonth[numericId] : null
-                    });
-                }
             }
         }
 
@@ -8187,6 +8181,8 @@ function renderUpcomingIncome() {
             statusLabel = ' (Expected)';
         }
 
+        const isOverdue = !isReceivedThisMonth && !isAR && dateObj < now && !isToday;
+
         // Build action buttons based on received state
         let actionButtons = '';
         if (isReceivedThisMonth) {
@@ -8200,13 +8196,14 @@ function renderUpcomingIncome() {
             actionButtons = `
                 ${!isAR ? `<button class="btn-icon edit-btn" onclick="event.stopPropagation(); editUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Edit Recurring' : 'Edit'}"><i class="fas fa-pen"></i></button>` : ''}
                 <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Delete Recurring' : 'Delete'}"><i class="fas fa-trash"></i></button>
+                ${isOverdue ? `<button class="btn-icon skip-btn" onclick="event.stopPropagation(); skipUpcomingIncome(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring}, '${r.date}')" title="Skip this occurrence"><i class="fas fa-forward"></i></button>` : ''}
                 ${isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
                 ${(isRecurring || isProjected) && !isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectIncome(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring}, '${r.date}')" title="Mark as Received">Received</button>` : ''}
             `;
         }
 
         const item = document.createElement('div');
-        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''} ${isProjected ? 'upcoming-projected' : ''} ${isRecurring ? 'upcoming-recurring' : ''} ${isReceivedThisMonth ? 'received-this-month' : ''}`;
+        item.className = `upcoming-income-item ${isAR ? 'upcoming-ar-item' : ''} ${isProjected ? 'upcoming-projected' : ''} ${isRecurring ? 'upcoming-recurring' : ''} ${isReceivedThisMonth ? 'received-this-month' : ''}${isOverdue ? ' overdue' : ''}`;
         
         // Dynamic background styling based on category color
         if (!isReceivedThisMonth) {
@@ -8907,6 +8904,35 @@ async function processIncomeCollection() {
     } catch (error) {
         console.error('Error processing income collection:', error);
         showToast('Error recording income: ' + error.message, 'error');
+    }
+}
+
+async function skipUpcomingIncome(id, isRecurring = false, occurrenceDate) {
+    try {
+        if (isRecurring) {
+            const numericId = parseInt(id);
+            const template = recurringIncomeTemplates.find(t => t.id === numericId);
+            if (!template) return;
+            const date = occurrenceDate ? new Date(occurrenceDate) : new Date();
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            if (!template.ignoredOccurrences) template.ignoredOccurrences = [];
+            if (!template.ignoredOccurrences.includes(monthKey)) {
+                template.ignoredOccurrences.push(monthKey);
+                await updateRecord(STORE_RECURRING_INCOME, template);
+            }
+        } else {
+            const record = records.find(r => r.id === id || r.id === parseInt(id));
+            if (!record) return;
+            record.skipped = true;
+            await updateRecord(STORE_RECORDS, record);
+        }
+
+        showToast('Upcoming income skipped', 'success');
+        await refreshData();
+        renderBudget();
+    } catch (error) {
+        console.error('Error skipping upcoming income:', error);
+        showToast('Error skipping upcoming income: ' + error.message, 'error');
     }
 }
 
