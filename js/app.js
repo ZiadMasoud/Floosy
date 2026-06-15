@@ -2030,6 +2030,102 @@ async function refreshData() {
     updateCategoryDropdowns();
     updatePersonDropdown();
     updateSavingsAccountDropdown();
+    
+    // If DB is empty (no records and no savings), attempt to auto-import sample data file
+    try {
+        if ((Array.isArray(records) && records.length === 0) && (Array.isArray(savingsAccounts) && savingsAccounts.length === 0)) {
+            // Try to fetch sample dataset from /data
+            const sampleUrl = 'data/Floosy_2026-03-15.json';
+            const resp = await fetch(sampleUrl).catch(() => null);
+            if (resp && resp.ok) {
+                const data = await resp.json();
+                if (data && data.records && data.categories) {
+                    console.log('Auto-importing sample data from', sampleUrl);
+                    // Import categories
+                    await clearStore(STORE_CATEGORIES);
+                    for (const c of data.categories) {
+                        const copy = Object.assign({}, c);
+                        delete copy.id;
+                        await add(STORE_CATEGORIES, copy);
+                    }
+                    // Import people
+                    if (data.people) {
+                        await clearStore(STORE_PEOPLE);
+                        for (const p of data.people) {
+                            const copy = Object.assign({}, p);
+                            delete copy.id;
+                            await add(STORE_PEOPLE, copy);
+                        }
+                    }
+                    // Import savings accounts and build id map
+                    const savingsAccountIdMap = new Map();
+                    if (data.savingsAccounts) {
+                        await clearStore(STORE_SAVINGS_ACCOUNTS);
+                        for (const a of data.savingsAccounts) {
+                            const oldId = a.id;
+                            const copy = Object.assign({}, a);
+                            delete copy.id;
+                            const newId = await add(STORE_SAVINGS_ACCOUNTS, copy);
+                            if (oldId !== undefined && oldId !== null) {
+                                savingsAccountIdMap.set(String(oldId), newId);
+                                savingsAccountIdMap.set(Number(oldId), newId);
+                            }
+                        }
+                    }
+                    // Import records (remap savingsAccountId)
+                    await clearStore(STORE_RECORDS);
+                    for (const r of data.records) {
+                        const copy = Object.assign({}, r);
+                        const oldSavingsAccountId = copy.savingsAccountId;
+                        if (oldSavingsAccountId !== undefined && oldSavingsAccountId !== null && String(oldSavingsAccountId).trim() !== '') {
+                            const mapped = savingsAccountIdMap.get(oldSavingsAccountId) ?? savingsAccountIdMap.get(String(oldSavingsAccountId));
+                            if (mapped) copy.savingsAccountId = String(mapped);
+                        }
+                        delete copy.id;
+                        await add(STORE_RECORDS, copy);
+                    }
+                    // Import savings transactions
+                    if (data.savingsTransactions) {
+                        await clearStore(STORE_SAVINGS_TRANSACTIONS);
+                        for (const t of data.savingsTransactions) {
+                            const copy = Object.assign({}, t);
+                            const oldAccId = copy.accountId;
+                            const mapped = savingsAccountIdMap.get(oldAccId) ?? savingsAccountIdMap.get(String(oldAccId));
+                            if (mapped) copy.accountId = mapped;
+                            delete copy.id;
+                            await add(STORE_SAVINGS_TRANSACTIONS, copy);
+                        }
+                    }
+                    // Import other optional stores
+                    if (data.budgetLimits) {
+                        await clearStore(STORE_BUDGET_LIMITS);
+                        for (const l of data.budgetLimits) {
+                            const copy = Object.assign({}, l);
+                            delete copy.id;
+                            await add(STORE_BUDGET_LIMITS, copy);
+                        }
+                    }
+                    if (data.recurringIncome) {
+                        await clearStore(STORE_RECURRING_INCOME);
+                        for (const ri of data.recurringIncome) {
+                            const copy = Object.assign({}, ri);
+                            delete copy.id;
+                            await add(STORE_RECURRING_INCOME, copy);
+                        }
+                    }
+                    // Reload local variables from DB
+                    records = await getAll(STORE_RECORDS);
+                    categories = await getAll(STORE_CATEGORIES);
+                    categories.sort((a, b) => a.name.localeCompare(b.name));
+                    people = await getAll(STORE_PEOPLE);
+                    savingsAccounts = await getAll(STORE_SAVINGS_ACCOUNTS);
+                    savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('Auto-import sample data failed:', err);
+    }
     await renderAll();
     populateYearFilter();
     populateAnalyticsFilterDropdowns();
@@ -2492,11 +2588,44 @@ async function renderDashboard() {
     renderMonthCountdown();
 }
 
+// Helper function: Convert savings transactions to displayable record format
+function convertSavingsTransactionsToRecords(savingsTxs, now) {
+    return savingsTxs.map(tx => {
+        const account = savingsAccounts.find(acc => acc.id === tx.accountId);
+        const accountName = account?.name || `Account ${tx.accountId}`;
+        
+        return {
+            id: `savings-${tx.id}`,
+            originalSavingsTxId: tx.id,
+            isSavingsTransaction: true,
+            formatType: 'single',
+            type: tx.type === 'deposit' ? 'income' : 'spending',
+            savingsTransactionType: tx.type, // 'deposit' or 'withdrawal'
+            date: tx.date,
+            timestamp: 0,
+            item: accountName,
+            category: tx.type === 'deposit' ? 'Savings Transfer' : 'Savings Transfer',
+            person: '',
+            amount: tx.amount,
+            quantity: 1,
+            notes: tx.notes || '',
+            savingsAccountId: tx.accountId,
+            savingsBeneficiary: account?.person || '',
+            accountDisplayName: accountName
+        };
+    });
+}
 
 // Dashboard Records - Card Based Layout (matching mobile app screenshots)
 function renderDashboardRecords(recordsToRender) {
     const container = document.getElementById('dashboard-records-list');
     if (!container) return;
+
+    const now = new Date();
+
+    // Merge savings transactions with main records for unified display
+    const savingsRecords = convertSavingsTransactionsToRecords(savingsTransactions || [], now);
+    const allRecords = [...recordsToRender, ...savingsRecords];
 
     // Get filter values
     const filterType = document.getElementById('dashboard-filter-type')?.value || 'all';
@@ -2506,15 +2635,15 @@ function renderDashboardRecords(recordsToRender) {
     const filterCategory = document.getElementById('dashboard-filter-category')?.value;
 
     // Apply filters
-    let filteredRecords = recordsToRender.filter(r => {
+    let filteredRecords = allRecords.filter(r => {
         // Exclude projected/expected income - they only show in Upcoming Income section
         if (r.isProjected) return false;
 
-        const isSavings = !!r.isSavingsTransfer;
+        const isSavings = !!r.isSavingsTransaction;
 
         // Correct type matching:
-        // if filterType is 'income', match r.type === 'income' AND NOT savings
-        // if filterType is 'spending', match r.type === 'spending' AND NOT savings
+        // if filterType is 'income', match r.type === 'income' AND NOT savings transaction
+        // if filterType is 'spending', match r.type === 'spending' AND NOT savings transaction
         // if filterType is 'savings', match isSavings === true
         // if filterType is 'account_receivable', match r.type === 'account_receivable'
 
@@ -2526,7 +2655,7 @@ function renderDashboardRecords(recordsToRender) {
         } else if (filterType === 'spending') {
             typeMatch = (r.type === 'spending' || r.type === 'provisional') && !isSavings;
         } else if (filterType === 'income') {
-            typeMatch = r.type === 'income'; // Include savings income
+            typeMatch = r.type === 'income' && !isSavings; // Exclude savings transactions from income filter
         } else if (filterType === 'account_receivable') {
             typeMatch = r.type === 'account_receivable';
         } else if (filterType === 'account_payable') {
@@ -2652,7 +2781,7 @@ function renderDashboardRecords(recordsToRender) {
     });
 
     // Render each record as a card
-    const now = new Date();
+    // reuse `now` from above
     let currentWeek = -1;
     let currentMonthYear = '';
 
@@ -2765,7 +2894,20 @@ function renderDashboardRecords(recordsToRender) {
 
         // Determine icon and colors based on type
         let icon, typeClass, amountClass, amountPrefix;
-        if (isSavingsTransfer) {
+        const isSavingsTransaction = !!r.isSavingsTransaction;
+        
+        if (isSavingsTransaction) {
+            // Savings transaction (from savingsTransactions store)
+            icon = 'fa-piggy-bank';
+            typeClass = 'savings';
+            if (r.savingsTransactionType === 'deposit') {
+                amountClass = 'income';
+                amountPrefix = '+';
+            } else {
+                amountClass = 'spending';
+                amountPrefix = '-';
+            }
+        } else if (isSavingsTransfer) {
             icon = 'fa-piggy-bank';
             typeClass = 'savings';
             amountClass = 'spending';
@@ -2821,7 +2963,7 @@ function renderDashboardRecords(recordsToRender) {
         const dateObj = new Date(r.date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-        const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer);
+        const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer || isSavingsTransaction);
         const card = document.createElement('div');
         const provResolvedClass = isProv && r.status === 'closed' ? ' provisional-resolved' : '';
         card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}${provResolvedClass}`;
@@ -2835,7 +2977,37 @@ function renderDashboardRecords(recordsToRender) {
         card.onclick = async (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
-            await openDetailsModal(r);
+            
+            // For savings transactions, open the savings account modal instead of details modal
+            if (isSavingsTransaction) {
+                const account = savingsAccounts.find(acc => acc.id === r.savingsAccountId);
+                if (account) {
+                    // Scroll the savings section into view
+                    const savingsSection = document.getElementById('savings');
+                    if (savingsSection) {
+                        // Click the savings tab to make sure it's visible
+                        const savingsTab = document.querySelector('[onclick*="switchTab(\'savings\')"]') || 
+                                        document.querySelector('a[href="#savings"]');
+                        if (savingsTab) savingsTab.click();
+                        
+                        setTimeout(() => {
+                            savingsSection.scrollIntoView({ behavior: 'smooth' });
+                            
+                            // Highlight the transaction in the account's history
+                            const txCard = document.querySelector(`[data-savings-tx-id="${r.originalSavingsTxId}"]`);
+                            if (txCard) {
+                                txCard.style.backgroundColor = 'rgba(255, 255, 0, 0.2)';
+                                setTimeout(() => {
+                                    txCard.style.transition = 'background-color 0.5s ease';
+                                    txCard.style.backgroundColor = '';
+                                }, 500);
+                            }
+                        }, 300);
+                    }
+                }
+            } else {
+                await openDetailsModal(r);
+            }
         };
 
         // Combined indicator badge - removed as per user request
@@ -2853,8 +3025,18 @@ function renderDashboardRecords(recordsToRender) {
             displayAmount = getAPOutstandingAmount(r);
         }
 
-        const badgeType = isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type;
-        const typeExtraStatus = isAR ? arStatus : (isAP ? apStatus : (isProv ? provStatus : ''));
+        let badgeType = isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type;
+        let badgeDisplay = categoryName;
+        let typeExtraStatus = isAR ? arStatus : (isAP ? apStatus : (isProv ? provStatus : ''));
+        
+        // For savings transactions, show clear "Savings" badge with type
+        if (isSavingsTransaction) {
+            badgeType = 'savings';
+            badgeDisplay = `Savings - ${r.savingsTransactionType === 'deposit' ? 'Deposit' : 'Withdrawal'}`;
+        } else if (isCombined) {
+            badgeDisplay = 'Combined';
+        }
+        
         const amountIconClass = isAR ? 'ar-icon' : isAP ? 'ap-icon' : isProv ? 'held-icon' : (amountPrefix === '+' ? 'dollar-positive' : 'dollar-negative');
         const amountPrefixOut = isProv ? '-' : amountPrefix;
 
@@ -2865,7 +3047,7 @@ function renderDashboardRecords(recordsToRender) {
             <div class="transaction-info">
                 <div class="transaction-name"><span>${displayName}</span>${isProv && r.status === 'closed' ? ' <i class="fas fa-check-circle prov-closed-icon" title="Resolved"></i>' : ''}</div>
                 <div class="transaction-category">
-                    <span class="category-badge badge-${badgeType}">${isCombined ? 'Combined' : categoryName}${typeExtraStatus}</span>
+                    <span class="category-badge badge-${badgeType}">${badgeDisplay}${typeExtraStatus}</span>
                     ${r.person ? (() => {
                         const personObj = people.find(p => p.name === r.person);
                         const personColor = personObj?.color || '#355872';
@@ -4765,7 +4947,7 @@ function renderSavings() {
                     const itemName = categoryMatch && notes.includes('-') ? notes.split('-')[1].trim() : notes;
                     
                     return `
-                        <div class="transaction-card ${typeClass}" onclick="openSavingsTransactionDetails(${t.id}, ${acc.id})">
+                        <div class="transaction-card ${typeClass}" data-savings-tx-id="${t.id}" onclick="openSavingsTransactionDetails(${t.id}, ${acc.id})">
                             <div class="transaction-icon">
                                 <i class="fas ${icon}"></i>
                             </div>
@@ -5089,9 +5271,44 @@ async function handleRecordSubmit(e) {
                     amount: parseFloat(transaction.amount) * (parseInt(transaction.quantity) || 1),
                     date: date,
                     notes: `${transaction.type === 'income' ? 'Income' : 'Spending'}: ${transaction.category}${transaction.item ? ' - ' + transaction.item : ''}`,
-                    linkedRecordId: 0 // No main record linked
+                    linkedRecordId: 0 // will link after creating main record
                 };
-                await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+                try {
+                    const stxId = await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+
+                    // Create corresponding main record flagged as savings transfer so only wallet balance is affected
+                    const mainRecord = {
+                        formatType: 'single',
+                        type: transaction.type, // 'income' or 'spending'
+                        date: date,
+                        timestamp: Date.now(),
+                        item: transaction.item || transaction.category,
+                        category: 'Savings Transfer',
+                        person: transaction.person || '',
+                        amount: parseFloat(transaction.amount) * (parseInt(transaction.quantity) || 1),
+                        quantity: transaction.quantity || '1',
+                        notes: notes,
+                        savingsAccountId: savingsAccountId,
+                        savingsBeneficiary: savingsBeneficiary,
+                        isSavingsTransfer: true,
+                        savingsTransactionType: transactionType
+                    };
+                    const recordId = await add(STORE_RECORDS, mainRecord);
+
+                    // Link back
+                    try {
+                        const savedTxs = await getAll(STORE_SAVINGS_TRANSACTIONS);
+                        const saved = savedTxs.find(t => t.id === stxId);
+                        if (saved) {
+                            saved.linkedRecordId = recordId;
+                            await updateRecord(STORE_SAVINGS_TRANSACTIONS, saved);
+                        }
+                    } catch (e) {
+                        console.warn('Failed to link savings tx to record', e);
+                    }
+                } catch (err) {
+                    console.error('Error saving combined savings transaction', err);
+                }
             }
         } else {
             // Create main record only if not a savings account transaction
@@ -5182,11 +5399,43 @@ async function handleRecordSubmit(e) {
                 amount: amount,
                 date: date,
                 notes: `${type === 'income' ? 'Income' : 'Spending'}: ${category}${item && item !== category ? ' - ' + item : ''}`,
-                linkedRecordId: 0 // No main record linked
+                linkedRecordId: 0 // will link to main record below
             };
 
             try {
-                await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+                const stxId = await add(STORE_SAVINGS_TRANSACTIONS, savingsTransaction);
+
+                // Create a minimal main record flagged as savings transfer so dashboard balance is adjusted
+                const mainRecord = {
+                    formatType: 'single',
+                    type: type, // 'income' or 'spending'
+                    date: date,
+                    timestamp: Date.now(),
+                    item: item,
+                    category: 'Savings Transfer',
+                    person: document.getElementById('record-person')?.value || '',
+                    amount: amount,
+                    quantity: document.getElementById('record-quantity')?.value || '1',
+                    notes: notes,
+                    savingsAccountId: savingsAccountId,
+                    savingsBeneficiary: savingsBeneficiary,
+                    isSavingsTransfer: true,
+                    savingsTransactionType: transactionType
+                };
+
+                const recordId = await add(STORE_RECORDS, mainRecord);
+
+                // Link savings transaction back to main record
+                try {
+                    const savedTxs = await getAll(STORE_SAVINGS_TRANSACTIONS);
+                    const saved = savedTxs.find(t => t.id === stxId);
+                    if (saved) {
+                        saved.linkedRecordId = recordId;
+                        await updateRecord(STORE_SAVINGS_TRANSACTIONS, saved);
+                    }
+                } catch (e) {
+                    console.warn('Failed to link savings transaction to main record', e);
+                }
             } catch (error) {
                 console.error('Error saving savings transaction:', error);
                 showToast('Error saving savings transaction: ' + error.message, 'error');
@@ -6226,26 +6475,38 @@ async function handleExport() {
     URL.revokeObjectURL(url);
     try {
         localStorage.setItem('floosyLastExportedAt', new Date().toISOString());
+        try {
+            await setMeta('lastExportedAt', new Date().toISOString());
+        } catch (e) {
+            console.warn('Failed to persist export timestamp to DB', e);
+        }
     } catch (error) {
         console.warn('Unable to save export timestamp', error);
     }
     updateExportStatusUI();
 }
 
-function getLastExportedAt() {
+async function getLastExportedAt() {
     try {
         const storedValue = localStorage.getItem('floosyLastExportedAt');
-        return storedValue ? new Date(storedValue) : null;
+        if (storedValue) return new Date(storedValue);
+        // fallback to DB-stored meta
+        try {
+            const meta = await getMeta('lastExportedAt');
+            return meta ? new Date(meta) : null;
+        } catch (e) {
+            return null;
+        }
     } catch (error) {
         return null;
     }
 }
 
-function updateExportStatusUI() {
+async function updateExportStatusUI() {
     const label = document.getElementById('export-status');
     if (!label) return;
 
-    const lastExportedAt = getLastExportedAt();
+    const lastExportedAt = await getLastExportedAt();
     if (!lastExportedAt || Number.isNaN(lastExportedAt.getTime())) {
         label.textContent = 'Never exported';
         label.className = 'export-status danger';

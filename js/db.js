@@ -17,6 +17,9 @@ const STORE_MONTHLY_BALANCE_SETTINGS = 'monthlyBalanceSettings';
 // new store for recurring income templates
 const STORE_RECURRING_INCOME = 'recurringIncome';
 
+// application metadata store
+const STORE_APP_META = 'appMeta';
+
 let db;
 
 function initDB() {
@@ -59,6 +62,12 @@ function initDB() {
             // Version 7: Added recurring income
             ensureStore(STORE_RECURRING_INCOME);
 
+            // App meta store (keyed by 'key')
+            if (!db.objectStoreNames.contains(STORE_APP_META)) {
+                db.createObjectStore(STORE_APP_META, { keyPath: 'key' });
+                console.log(`Created store: ${STORE_APP_META}`);
+            }
+
             console.log('Database upgrade complete. Stores:', Array.from(db.objectStoreNames));
         };
 
@@ -75,6 +84,7 @@ function initDB() {
 
 // Generic CRUD operations
 async function getAll(storeName) {
+    if (!db) await initDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readonly');
         const store = transaction.objectStore(storeName);
@@ -85,6 +95,7 @@ async function getAll(storeName) {
 }
 
 async function add(storeName, data) {
+    if (!db) await initDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -95,6 +106,7 @@ async function add(storeName, data) {
 }
 
 async function updateRecord(storeName, data) {
+    if (!db) await initDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -105,6 +117,7 @@ async function updateRecord(storeName, data) {
 }
 
 async function remove(storeName, id) {
+    if (!db) await initDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -115,6 +128,7 @@ async function remove(storeName, id) {
 }
 
 async function clearStore(storeName) {
+    if (!db) await initDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(storeName, 'readwrite');
         const store = transaction.objectStore(storeName);
@@ -134,6 +148,29 @@ async function resetDB() {
     await clearStore(STORE_MONTHLY_BALANCE_SETTINGS);
     await clearStore(STORE_RECURRING_INCOME);
     await seedDefaultCategories();
+}
+
+// Simple app metadata helpers (stored in STORE_APP_META as { key, value })
+async function setMeta(key, value) {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_APP_META, 'readwrite');
+        const store = tx.objectStore(STORE_APP_META);
+        const request = store.put({ key: key, value: value });
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+async function getMeta(key) {
+    if (!db) await initDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_APP_META, 'readonly');
+        const store = tx.objectStore(STORE_APP_META);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result ? request.result.value : null);
+        request.onerror = () => reject(request.error);
+    });
 }
 
 // Monthly balance carry-over functions
