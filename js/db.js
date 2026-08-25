@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 8; // bumped for account_payable / provisional record types (same object store; backward compatible)
+const DB_VERSION = 9; // adds the app metadata store for export status
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
@@ -139,15 +139,17 @@ async function clearStore(storeName) {
 }
 
 async function resetDB() {
-    await clearStore(STORE_RECORDS);
-    await clearStore(STORE_CATEGORIES);
-    await clearStore(STORE_PEOPLE);
-    await clearStore(STORE_SAVINGS_ACCOUNTS);
-    await clearStore(STORE_SAVINGS_TRANSACTIONS);
-    await clearStore(STORE_BUDGET_LIMITS);
-    await clearStore(STORE_MONTHLY_BALANCE_SETTINGS);
-    await clearStore(STORE_RECURRING_INCOME);
-    await seedDefaultCategories();
+    if (!db) await initDB();
+
+    // Clear every store so newly added user-data stores are reset as well.
+    const storeNames = Array.from(db.objectStoreNames);
+    for (const storeName of storeNames) {
+        await clearStore(storeName);
+    }
+
+    // Full reset also removes app preferences and browser-session state.
+    localStorage.clear();
+    sessionStorage.clear();
 }
 
 // Simple app metadata helpers (stored in STORE_APP_META as { key, value })
@@ -257,7 +259,6 @@ async function clearCurrentMonthData() {
     
     return { recordsDeleted, savingsDeleted };
 }
-
 async function selectiveReset(options) {
     const {
         resetType,
@@ -299,7 +300,6 @@ async function selectiveReset(options) {
     
     if (resetCategories) {
         await clearStore(STORE_CATEGORIES);
-        await seedDefaultCategories();
     }
     
     if (resetPeople) {
@@ -309,34 +309,3 @@ async function selectiveReset(options) {
     return { recordsDeleted, savingsDeleted };
 }
 
-async function seedDefaultCategories() {
-    const categories = await getAll(STORE_CATEGORIES);
-    if (categories.length === 0) {
-        const defaults = [
-            { name: 'Rent/Mortgage', type: 'spending', color: '#e74c3c' },
-            { name: 'Groceries', type: 'spending', color: '#27ae60' },
-            { name: 'Utilities', type: 'spending', color: '#f39c12' },
-            { name: 'Transport', type: 'spending', color: '#3498db' },
-            { name: 'Entertainment', type: 'spending', color: '#9b59b6' },
-            { name: 'Salary', type: 'income', color: '#2ecc71' },
-            { name: 'Freelance', type: 'income', color: '#1abc9c' },
-            { name: 'Investment', type: 'income', color: '#34495e' },
-            { name: 'Collection', type: 'income', color: '#16a085' },
-            { name: 'Balance Carryover', type: 'income', color: '#95a5a6' }
-        ];
-        for (const cat of defaults) {
-            await add(STORE_CATEGORIES, cat);
-        }
-    } else {
-        // Ensure 'Collection' category exists for AR collections
-        const collectionExists = categories.some(c => c.name === 'Collection' && c.type === 'income');
-        if (!collectionExists) {
-            await add(STORE_CATEGORIES, { name: 'Collection', type: 'income', color: '#16a085' });
-        }
-        // Ensure 'Balance Carryover' category exists
-        const carryoverExists = categories.some(c => c.name === 'Balance Carryover' && c.type === 'income');
-        if (!carryoverExists) {
-            await add(STORE_CATEGORIES, { name: 'Balance Carryover', type: 'income', color: '#95a5a6' });
-        }
-    }
-}

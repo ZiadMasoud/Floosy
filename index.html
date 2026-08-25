@@ -848,6 +848,10 @@
           <input type="hidden" id="tx-account-id" name="tx-account-id" />
           <input type="hidden" id="tx-type" name="tx-type" />
           <div class="form-group">
+            <label>Item / Description</label>
+            <input type="text" id="tx-item" name="tx-item" required placeholder="e.g. Emergency fund deposit" />
+          </div>
+          <div class="form-group">
             <label>Type</label>
             <select id="tx-type-display" name="tx-type-display">
               <option value="deposit">Income</option>
@@ -861,6 +865,13 @@
           <div class="form-group">
             <label>Amount</label>
             <input type="number" step="0.01" id="tx-amount" name="tx-amount" required placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Person</label>
+            <select id="tx-person" name="tx-person">
+              <option value="">Select Person (Optional)</option>
+              <!-- Options will be loaded dynamically -->
+            </select>
           </div>
           <div class="form-group">
             <label>Notes</label>
@@ -926,6 +937,13 @@
               <select id="record-savings-account">
                 <option value="">No Savings Account</option>
                 <!-- Options will be loaded dynamically -->
+              </select>
+            </div>
+            <div class="form-group" id="savings-source-group" style="display: none;">
+              <label>Income Source</label>
+              <select id="record-savings-source">
+                <option value="current">Current Balance</option>
+                <option value="external">External / Other Source</option>
               </select>
             </div>
             <div class="form-group" id="savings-beneficiary-group" style="display: none;">
