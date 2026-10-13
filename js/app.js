@@ -30,6 +30,22 @@ function formatDateLocal(date) {
     return `${year}-${month}-${day}`;
 }
 
+function parseDateLocal(dateValue) {
+    if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        const [year, month, day] = dateValue.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    }
+    return new Date(dateValue);
+}
+
+function getWeekOfMonth(date) {
+    const day = date.getDate();
+    if (day <= 7) return 1;
+    if (day < 15) return 2;
+    if (day < 22) return 3;
+    return 4;
+}
+
 // Convert hex color to lighter transparent RGBA format
 function getLighterColor(hex, opacity = 0.08) {
     if (!hex) return 'transparent';
@@ -157,13 +173,13 @@ function refreshProvisionalDerivedFields(rec) {
 
 function provisionalBalanceEffectInMonth(r, year, month) {
     let n = 0;
-    const created = new Date(r.date);
+    const created = parseDateLocal(r.date);
     if (created.getFullYear() === year && created.getMonth() === month - 1) {
         n -= parseFloat(r.amount) || 0;
     }
     (r.resolutions || []).forEach(res => {
         if ((res.action !== 'return' && res.action !== 'spend') || res.undone) return;
-        const rd = new Date(res.date);
+        const rd = parseDateLocal(res.date);
         if (rd.getFullYear() === year && rd.getMonth() === month - 1) {
             n += parseFloat(res.amount) || 0;
         }
@@ -173,13 +189,13 @@ function provisionalBalanceEffectInMonth(r, year, month) {
 
 function provisionalBalanceEffectPriorToTimestamp(r, targetTimestamp, excludeRecordId) {
     let n = 0;
-    const createdTs = new Date(r.date).getTime();
-    if (createdTs < targetTimestamp || (createdTs === targetTimestamp && r.id < excludeRecordId)) {
+    const createdTs = parseDateLocal(r.date).getTime();
+    if (createdTs < targetTimestamp || (createdTs === targetTimestamp && Number(r.id) < Number(excludeRecordId))) {
         n -= parseFloat(r.amount) || 0;
     }
     (r.resolutions || []).forEach(res => {
         if ((res.action !== 'return' && res.action !== 'spend') || res.undone) return;
-        const rdTs = new Date(res.date).getTime();
+        const rdTs = parseDateLocal(res.date).getTime();
         if (rdTs < targetTimestamp) {
             n += parseFloat(res.amount) || 0;
         }
@@ -1667,7 +1683,7 @@ function updateCombinedTransaction(id, field, value) {
 }
 
 async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null) {
-    const targetDate = new Date(recordDate);
+    const targetDate = parseDateLocal(recordDate);
     const targetTimestamp = targetDate.getTime();
     const recordYear = targetDate.getFullYear();
     const recordMonth = targetDate.getMonth() + 1; // 1-indexed
@@ -1677,7 +1693,7 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
 
     // Get records from the SAME MONTH as this transaction that come BEFORE it
     const priorRecords = records.filter(r => {
-        const recordDateTime = new Date(r.date);
+        const recordDateTime = parseDateLocal(r.date);
         const recordTimestamp = recordDateTime.getTime();
         const rYear = recordDateTime.getFullYear();
         const rMonth = recordDateTime.getMonth() + 1; // 1-indexed
@@ -1688,7 +1704,7 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
         }
 
         // Exclude the record itself if specified
-        if (excludeRecordId !== null && r.id === excludeRecordId) {
+        if (excludeRecordId !== null && Number(r.id) === Number(excludeRecordId)) {
             return false;
         }
 
@@ -1701,14 +1717,14 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
         if (recordTimestamp === targetTimestamp) {
             // If both have timestamps, compare them
             if (r.timestamp && excludeRecordId !== null) {
-                const currentRecord = records.find(rec => rec.id === excludeRecordId);
+                const currentRecord = records.find(rec => Number(rec.id) === Number(excludeRecordId));
                 if (currentRecord && currentRecord.timestamp) {
                     return r.timestamp < currentRecord.timestamp;
                 }
             }
             // Fallback: use ID (lower ID = earlier)
             if (excludeRecordId !== null) {
-                return r.id < excludeRecordId;
+                return Number(r.id) < Number(excludeRecordId);
             }
         }
 
@@ -1718,10 +1734,12 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
     // Calculate income and spending from prior records in this month (same logic as dashboard)
     let income = 0;
     let spending = 0;
+    let saved = 0;
 
     priorRecords.forEach(r => {
         // Skip carried-forward AR duplicates
         if (r.type === 'account_receivable' && r.carriedForwardFrom) return;
+        if (r.isProjected || r.isCarryover) return;
 
         // Handle combined transactions - iterate through components
         if (r.formatType === 'combined' && r.combinedTransactions) {
@@ -1730,10 +1748,8 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
                 const quantity = parseInt(ct.quantity) || 1;
                 const totalAmount = amount * quantity;
 
-                // Process savings transfer components: deduct from balance but don't count as income/spending
                 if (r.savingsAccountId || ct.savingsAccountId) {
-                    // Both income-to-savings and spending-to-savings should deduct from wallet balance
-                    spending += totalAmount;
+                    if (ct.type === 'income') saved += totalAmount;
                     return;
                 }
 
@@ -1748,15 +1764,16 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
 
         const amount = parseFloat(r.amount) || 0;
 
-        // Process savings transfers: deduct from balance but don't count as income/spending
-        if (r.isSavingsTransfer) {
-            // Both income-to-savings and spending-to-savings should deduct from wallet balance
-            spending += amount;
+        // Savings deposits funded from the wallet reduce the balance without counting as spending.
+        if (r.isSavingsTransfer || r.category === 'Savings Transfer' || r.type === 'savings_transfer') {
+            if (r.savingsTransactionType === 'deposit' || r.type === 'income' || !r.savingsTransactionType) {
+                saved += amount;
+            }
             return;
         }
 
         if (r.type === 'income') {
-            income += amount;
+            if (!r.excludeFromIncomeTotals) income += amount;
         } else if (r.type === 'spending') {
             spending += amount;
         }
@@ -1765,7 +1782,7 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
 
     // Calculate AR impact from prior records in this month (only pending AR, partial-aware)
     const arImpact = priorRecords
-        .filter(r => r.type === 'account_receivable' && !r.collected)
+        .filter(r => r.type === 'account_receivable' && !r.collected && !r.carriedForwardFrom)
         .reduce((sum, r) => sum - getAROutstandingAmount(r), 0);
 
     const apImpact = priorRecords
@@ -1776,11 +1793,11 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
     let provImpact = 0;
     records.forEach(r => {
         if (r.type !== 'provisional' || r.isProjected) return;
-        const d = new Date(r.date);
+        const d = parseDateLocal(r.date);
         if (d.getFullYear() !== recordYear || d.getMonth() + 1 !== recordMonth) {
             (r.resolutions || []).forEach(res => {
                 if (res.action !== 'return' || res.undone) return;
-                const rd = new Date(res.date);
+                const rd = parseDateLocal(res.date);
                 if (rd.getFullYear() !== recordYear || rd.getMonth() + 1 !== recordMonth) return;
                 if (rd.getTime() < targetTs) {
                     provImpact += parseFloat(res.amount) || 0;
@@ -1792,9 +1809,38 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
     });
 
     // Opening Balance = Carried Balance + Income (this month) - Spending (this month) + AR Impact (this month) + AP paid impact + provisional
-    const openingBalance = carriedBalance + income - spending + arImpact + apImpact + provImpact;
+    const openingBalance = carriedBalance + income - spending - saved + arImpact + apImpact + provImpact;
 
     return openingBalance;
+}
+
+function calculateRecordBalanceEffect(record) {
+    if (record.isProjected || record.isCarryover) return 0;
+    if (record.type === 'account_receivable' && record.carriedForwardFrom) return 0;
+
+    if (record.formatType === 'combined' && Array.isArray(record.combinedTransactions)) {
+        return record.combinedTransactions.reduce((effect, transaction) => {
+            const amount = (parseFloat(transaction.amount) || 0) * (parseInt(transaction.quantity) || 1);
+            if (record.savingsAccountId || transaction.savingsAccountId) {
+                return effect - (transaction.type === 'income' ? amount : 0);
+            }
+            if (transaction.type === 'income') return effect + amount;
+            if (transaction.type === 'spending') return effect - amount;
+            return effect;
+        }, 0);
+    }
+
+    const amount = parseFloat(record.amount) || 0;
+    if (record.isSavingsTransfer || record.category === 'Savings Transfer' || record.type === 'savings_transfer') {
+        return record.savingsTransactionType === 'deposit' || record.type === 'income' || !record.savingsTransactionType
+            ? -amount
+            : 0;
+    }
+    if (record.type === 'income') return record.excludeFromIncomeTotals ? 0 : amount;
+    if (record.type === 'spending' || record.type === 'provisional') return -amount;
+    if (record.type === 'account_receivable' && !record.collected) return -getAROutstandingAmount(record);
+    if (record.type === 'account_payable') return -(parseFloat(record.paidAmount) || 0);
+    return 0;
 }
 
 function formatCurrency(amount) {
@@ -1864,7 +1910,7 @@ async function getLiveCarriedBalance(year, month) {
 async function calculateCurrentMonthRemainingBalance(year, month) {
     // Get all records for this month
     const monthRecords = records.filter(r => {
-        const d = new Date(r.date);
+        const d = parseDateLocal(r.date);
         return d.getFullYear() === year && d.getMonth() === month - 1;
     });
 
@@ -1919,7 +1965,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
                 income += amount;
             } else if (r.type === 'spending') {
                 spending += amount;
-            } else if (r.type === 'account_receivable' && !r.collected) {
+            } else if (r.type === 'account_receivable' && !r.collected && !r.carriedForwardFrom) {
                 arImpact -= Math.max(0, amount - (r.collectedAmount || 0));
             } else if (r.type === 'account_payable') {
                 apImpact -= parseFloat(r.paidAmount) || 0;
@@ -1931,7 +1977,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
 
     records.forEach(r => {
         if (r.type !== 'provisional' || r.isProjected) return;
-        const d = new Date(r.date);
+        const d = parseDateLocal(r.date);
         if (d.getFullYear() === year && d.getMonth() === month - 1) return;
         provImpact += provisionalBalanceEffectInMonth(r, year, month);
     });
@@ -2142,7 +2188,7 @@ async function switchTab(tabId) {
 
 async function renderAll() {
     if (currentTab === 'dashboard') await renderDashboard();
-    else if (currentTab === 'analytics') renderAnalytics();
+    else if (currentTab === 'analytics') await renderAnalytics();
     else if (currentTab === 'settings') renderSettings();
     else if (currentTab === 'savings') renderSavings();
     else if (currentTab === 'budget') renderBudget();
@@ -2182,7 +2228,7 @@ async function ensureCarryoverRecord(year, month) {
     const monthEnd = new Date(year, month, 0);
     
     const existingCarryover = records.find(r => {
-        const rDate = new Date(r.date);
+        const rDate = parseDateLocal(r.date);
         return rDate >= monthStart && rDate <= monthEnd && r.isCarryover;
     });
     
@@ -2310,7 +2356,7 @@ async function renderDashboard() {
             }
         }
 
-        const d = new Date(r.date);
+        const d = parseDateLocal(r.date);
         const yearMatch = !filterYearValue || d.getFullYear().toString() === filterYearValue;
         const monthMatch = !filterMonthValue || (d.getMonth() + 1).toString().padStart(2, '0') === filterMonthValue;
 
@@ -2577,7 +2623,7 @@ function renderDashboardRecords(recordsToRender) {
             typeMatch = r.type === 'provisional';
         }
 
-        const recordDate = new Date(r.date);
+        const recordDate = parseDateLocal(r.date);
         const now = new Date();
 
         // Date Period Match logic
@@ -2627,7 +2673,7 @@ function renderDashboardRecords(recordsToRender) {
 
     // Sort by date (newest first), then by timestamp for precise ordering within same day
     filteredRecords.sort((a, b) => {
-        const dateCompare = new Date(b.date) - new Date(a.date);
+        const dateCompare = parseDateLocal(b.date) - parseDateLocal(a.date);
         if (dateCompare !== 0) return dateCompare;
         // Use timestamp for secondary sort (newest first)
         return (b.timestamp || 0) - (a.timestamp || 0);
@@ -2647,14 +2693,17 @@ function renderDashboardRecords(recordsToRender) {
         return;
     }
 
+    const isSavingsTransfer = (record) => !!(
+        record.isSavingsTransaction ||
+        record.isSavingsTransfer ||
+        record.savingsAccountId ||
+        record.category === 'Savings Transfer' ||
+        record.type === 'savings_transfer'
+    );
+
     // Group records by week for stats calculation
     const getWeekKey = (dateObj) => {
-        const day = dateObj.getDate();
-        let week = 4;
-        if (day <= 7) week = 1;
-        else if (day < 15) week = 2;
-        else if (day < 22) week = 3;
-        return `${dateObj.getMonth()}-${dateObj.getFullYear()}-W${week}`;
+        return `${dateObj.getMonth()}-${dateObj.getFullYear()}-W${getWeekOfMonth(dateObj)}`;
     };
 
     // Calculate week stats
@@ -2663,18 +2712,18 @@ function renderDashboardRecords(recordsToRender) {
         // Skip projected/expected income - they don't affect actual totals
         if (r.isProjected) return;
 
-        const recordDateObj = new Date(r.date);
+        const recordDateObj = parseDateLocal(r.date);
         const weekKey = getWeekKey(recordDateObj);
         
         if (!weekStats[weekKey]) {
             weekStats[weekKey] = { count: 0, spending: 0, income: 0 };
         }
-        
         weekStats[weekKey].count++;
-        
+
         if (r.formatType === 'combined' && r.combinedTransactions) {
             // For combined transactions, calculate based on components
             r.combinedTransactions.forEach(ct => {
+                if (r.savingsAccountId || ct.savingsAccountId) return;
                 const amount = (parseFloat(ct.amount) || 0) * (parseInt(ct.quantity) || 1);
                 if (ct.type === 'income') {
                     weekStats[weekKey].income += amount;
@@ -2683,6 +2732,7 @@ function renderDashboardRecords(recordsToRender) {
                 }
             });
         } else {
+            if (isSavingsTransfer(r)) return;
             const amount = parseFloat(r.amount) || 0;
             if (r.type === 'income') {
                 weekStats[weekKey].income += amount;
@@ -2700,16 +2750,11 @@ function renderDashboardRecords(recordsToRender) {
 
     filteredRecords.forEach(r => {
         const isCombined = r.formatType === 'combined';
-        const recordDateObj = new Date(r.date);
+        const recordDateObj = parseDateLocal(r.date);
 
         // Add Week Separators logic
         const monthYearKey = `${recordDateObj.getMonth()}-${recordDateObj.getFullYear()}`;
-        const day = recordDateObj.getDate();
-
-        let recordWeek = 4;
-        if (day <= 7) recordWeek = 1;
-        else if (day < 15) recordWeek = 2;
-        else if (day < 22) recordWeek = 3;
+        const recordWeek = getWeekOfMonth(recordDateObj);
 
         // Detect if we transitioned to a different month (e.g. from current month to past AR items)
         if (typeof currentMonthYear === 'undefined' || monthYearKey !== currentMonthYear) {
@@ -2877,7 +2922,7 @@ function renderDashboardRecords(recordsToRender) {
         const categoryName = r.isCombinedComponent ? r.actualCategory : r.category;
 
         // Format date
-        const dateObj = new Date(r.date);
+        const dateObj = parseDateLocal(r.date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
         const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer || isSavingsTransaction);
@@ -3866,7 +3911,7 @@ function renderRecords() {
 }
 
 // Analytics Functions
-function renderAnalytics() {
+async function renderAnalytics() {
     const statsBody = document.getElementById('stats-body');
     if (!statsBody) return;
     statsBody.innerHTML = '';
@@ -3919,7 +3964,8 @@ function renderAnalytics() {
                     amount: totalAmount,
                     quantity: quantity,
                     originalId: r.id,
-                    isCombinedComponent: true
+                    isCombinedComponent: true,
+                    isSavingsTransfer: !!(r.savingsAccountId || ct.savingsAccountId)
                 });
             });
         } else {
@@ -4046,7 +4092,7 @@ function renderAnalytics() {
         renderMonthlyTrendChart(monthlyStats, { mode: 'monthly' });
     }
     // Render filter-specific KPIs
-    renderFilterKPIs(filteredRecords, filterCategory, filterPerson);
+    await renderFilterKPIs(filteredRecords, filterCategory, filterPerson, filterYear, filterMonth);
 
     renderPersonChart(filteredRecords);
 
@@ -4058,7 +4104,7 @@ function renderAnalytics() {
 }
 
 // Render filter-specific KPIs for analytics
-function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
+async function renderFilterKPIs(filteredRecords, filterCategory, filterPerson, filterYear, filterMonth) {
     const kpiContainer = document.getElementById('filter-kpi-container');
     const kpiCard = document.getElementById('analytics-filter-kpis');
     if (!kpiContainer || !kpiCard) return;
@@ -4074,112 +4120,87 @@ function renderFilterKPIs(filteredRecords, filterCategory, filterPerson) {
 
     filteredRecords.forEach(r => {
         // Skip projected/expected income - they don't affect actual totals
-        if (r.isProjected) return;
+        if (r.isProjected || r.isSavingsTransfer || r.category === 'Savings Transfer' ||
+            r.type === 'savings_transfer' || (r.type === 'income' && incomeExcludedFromTotals(r))) return;
 
         const amount = parseFloat(r.amount) || 0;
 
-        // General totals for whatever is in filteredRecords (include savings income)
         if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
             contextIncome += amount;
         } else if (r.type === 'spending') {
             contextSpending += amount;
-        } else if (r.type === 'provisional') {
-            contextSpending += getProvisionalHeld(r);
         }
 
+        const categoryType = r.type === 'provisional' ? 'spending' : r.type;
+        const categoryAmount = r.type === 'provisional' ? getProvisionalHeld(r) : amount;
 
-        // Grouping records (for finding "Tops")
-        if (r.category) {
+        if (r.category && (categoryType === 'income' || categoryType === 'spending')) {
             if (!categoryTotals[r.category]) categoryTotals[r.category] = { income: 0, spending: 0 };
-            if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
-                categoryTotals[r.category].income += amount;
-            } else if (r.type === 'spending') {
-                categoryTotals[r.category].spending += amount;
-            } else if (r.type === 'provisional') {
-                categoryTotals[r.category].spending += getProvisionalHeld(r);
-            }
+            categoryTotals[r.category][categoryType] += categoryAmount;
         }
 
-        if (r.person) {
+        if (r.person && (categoryType === 'income' || categoryType === 'spending')) {
             if (!personTotals[r.person]) personTotals[r.person] = { income: 0, spending: 0 };
-            if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
-                personTotals[r.person].income += amount;
-            } else if (r.type === 'spending') {
-                personTotals[r.person].spending += amount;
-            } else if (r.type === 'provisional') {
-                personTotals[r.person].spending += getProvisionalHeld(r);
-            }
-
+            personTotals[r.person][categoryType] += categoryAmount;
         }
     });
 
-    // Build KPI HTML
-    let kpiHTML = '';
+    const topThree = (totals, type) => Object.entries(totals)
+        .map(([name, values]) => ({ name, amount: values[type], net: values.income - values.spending }))
+        .filter(entry => entry.amount > 0)
+        .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name))
+        .slice(0, 3);
+    const renderRanking = (entries, type, emptyLabel) => entries.length
+        ? `<ol class="insight-ranking ${type}">${entries.map((entry, index) => `
+            <li>
+                <span class="insight-rank">${index + 1}</span>
+                <span class="insight-rank-name">${entry.name}</span>
+                <span class="insight-rank-values">
+                    <strong>${entry.net >= 0 ? '+' : '-'}${formatCurrency(Math.abs(entry.net))}</strong>
+                </span>
+            </li>
+        `).join('')}</ol>`
+        : `<p class="insight-empty">${emptyLabel}</p>`;
 
-    // Primary Summary KPI
-    const totalBalance = contextIncome - contextSpending;
-    const summaryLabel = filterCategory ? (filterCategory === 'all-income' ? 'Total Income' : (filterCategory === 'all-spending' ? 'Total Spending' : filterCategory)) : 'Filtered Total';
-    
-    kpiHTML += `
-        <div class="kpi-card ${totalBalance >= 0 ? 'income' : 'spending'}">
-            <div class="kpi-icon"><i class="fas ${filterPerson ? 'fa-user' : 'fa-chart-line'}"></i></div>
+    const now = new Date();
+    const balanceYear = filterYear ? parseInt(filterYear, 10) : now.getFullYear();
+    const balanceMonth = filterMonth ? parseInt(filterMonth, 10) : now.getMonth() + 1;
+    const balance = await calculateCurrentMonthRemainingBalance(balanceYear, balanceMonth);
+    const kpiHTML = `
+        <div class="kpi-card insight-summary-card">
+            <div class="insight-card-heading">
+                <div class="kpi-icon"><i class="fas fa-scale-balanced"></i></div>
+                <h3>${filterPerson || 'Filtered Summary'}</h3>
+            </div>
             <div class="kpi-details">
-                <h3>${filterPerson ? filterPerson : summaryLabel}</h3>
-                <p>${totalBalance >= 0 ? '+' : ''}$${formatCurrency(Math.abs(totalBalance))}</p>
-                <small style="color: var(--text-muted); font-size: 0.75rem;">
-                    ${contextIncome > 0 ? `Income: $${formatCurrency(contextIncome)}` : ''}
-                    ${contextSpending > 0 ? `${contextIncome > 0 ? ' • ' : ''}Spending: $${formatCurrency(contextSpending)}` : ''}
-                </small>
+                <p class="insight-net ${balance >= 0 ? 'positive' : 'negative'}">
+                    Balance ${balance >= 0 ? '+' : '-'}$${formatCurrency(Math.abs(balance))}
+                </p>
+                <div class="insight-total-pair">
+                    <span class="income">Income <strong>+$${formatCurrency(contextIncome)}</strong></span>
+                    <span class="spending">Spending <strong>-$${formatCurrency(contextSpending)}</strong></span>
+                </div>
+            </div>
+        </div>
+        <div class="kpi-card insight-list-card">
+            <div class="insight-card-heading">
+                <div class="kpi-icon"><i class="fas fa-tags"></i></div>
+                <h3>Top Categories</h3>
+            </div>
+            <div class="kpi-details">
+                <div class="insight-ranking-columns">
+                    <section>
+                        <h4>Spending</h4>
+                        ${renderRanking(topThree(categoryTotals, 'spending'), 'spending', 'No spending')}
+                    </section>
+                    <section>
+                        <h4>Income</h4>
+                        ${renderRanking(topThree(categoryTotals, 'income'), 'income', 'No income')}
+                    </section>
+                </div>
             </div>
         </div>
     `;
-
-    // Top Category (if not filtering for a single category)
-    const isSingleCategory = filterCategory && filterCategory !== 'all-income' && filterCategory !== 'all-spending';
-    if (!isSingleCategory) {
-        let topCat = { name: 'N/A', amount: 0 };
-        for (const [cat, totals] of Object.entries(categoryTotals)) {
-            const val = Math.max(totals.income, totals.spending);
-            if (val > topCat.amount) {
-                topCat = { name: cat, amount: val };
-            }
-        }
-        if (topCat.amount > 0) {
-            kpiHTML += `
-                <div class="kpi-card spending">
-                    <div class="kpi-icon"><i class="fas fa-tag"></i></div>
-                    <div class="kpi-details">
-                        <h3>Top Category</h3>
-                        <p>$${formatCurrency(topCat.amount)}</p>
-                        <small style="color: var(--text-muted); font-size: 0.75rem;">${topCat.name}</small>
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    // Top Person (if not filtering for a single person)
-    if (!filterPerson) {
-        let topPers = { name: 'N/A', amount: 0 };
-        for (const [person, totals] of Object.entries(personTotals)) {
-            const val = totals.spending || totals.income;
-            if (val > topPers.amount) {
-                topPers = { name: person, amount: val };
-            }
-        }
-        if (topPers.amount > 0) {
-            kpiHTML += `
-                <div class="kpi-card spending">
-                    <div class="kpi-icon"><i class="fas fa-user-tag"></i></div>
-                    <div class="kpi-details">
-                        <h3>Top Contributor</h3>
-                        <p>$${formatCurrency(topPers.amount)}</p>
-                        <small style="color: var(--text-muted); font-size: 0.75rem;">${topPers.name}</small>
-                    </div>
-                </div>
-            `;
-        }
-    }
 
     kpiContainer.innerHTML = kpiHTML || '<p style="text-align:center; color: var(--text-muted);">No data available for selected filters</p>';
 }
@@ -4684,6 +4705,7 @@ function closeTransactionModal() {
 async function handleTransactionSubmit(e) {
     e.preventDefault();
     const id = transactionForm.elements['tx-id'].value;
+    let savedTransactionId = id ? parseInt(id) : null;
     const accountId = parseInt(transactionForm.elements['tx-account-id'].value);
     // type may be changed via select
     let type = transactionForm.elements['tx-type'].value;
@@ -4713,29 +4735,20 @@ async function handleTransactionSubmit(e) {
         const newId = await add(STORE_SAVINGS_TRANSACTIONS, newTx);
         newTx.id = newId;
         savingsTransactions.push(newTx);
+        savedTransactionId = newId;
     }
     closeTransactionModal();
 
     // Calculate which page the transaction would be on after sorting
-    // Reload transactions to include the new one
-    savingsTransactions = await getAll(STORE_SAVINGS_TRANSACTIONS);
-    const txs = savingsTransactions
-        .filter(t => t.accountId === accountId)
-        .sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
-
-    // Find the index of the transaction we just added/edited
-    const targetId = id ? parseInt(id) : newId;
-    const txIndex = txs.findIndex(t => t.id === targetId);
-
-    // Calculate which page this transaction is on
-    const perPage = 4;
-    if (txIndex !== -1) {
-        savingsPage[accountId] = Math.floor(txIndex / perPage);
-    } else {
-        savingsPage[accountId] = 0;
-    }
-
     await refreshData();
+    if (currentTab === 'savings') {
+        const accountTransactions = savingsTransactions
+            .filter(t => Number(t.accountId) === accountId)
+            .sort((a, b) => parseDateLocal(b.date) - parseDateLocal(a.date) || b.id - a.id);
+        const txIndex = accountTransactions.findIndex(t => Number(t.id) === savedTransactionId);
+        savingsPage[accountId] = txIndex < 0 ? 0 : Math.floor(txIndex / 3);
+        renderSavings();
+    }
 }
 
 function changePage(accountId, delta) {
@@ -4759,19 +4772,19 @@ function renderSavings() {
 
     savingsAccounts.forEach((acc, index) => {
         const txs = savingsTransactions
-            .filter(t => t.accountId === acc.id)
-            .sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
-        const totalDeposit = txs.filter(t => t.type === 'deposit').reduce((s, t) => s + t.amount, 0);
-        const totalWithdraw = txs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + t.amount, 0);
+            .filter(t => Number(t.accountId) === Number(acc.id))
+            .sort((a, b) => parseDateLocal(b.date) - parseDateLocal(a.date) || b.id - a.id);
+        const totalDeposit = txs.filter(t => t.type === 'deposit').reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+        const totalWithdraw = txs.filter(t => t.type === 'withdrawal').reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
         const balance = totalDeposit - totalWithdraw;
         const monthDeposit = txs.filter(t => {
-            const d = new Date(t.date);
+                const d = parseDateLocal(t.date);
             return t.type === 'deposit' && d.getMonth() === curMonth && d.getFullYear() === curYear;
-        }).reduce((s, t) => s + t.amount, 0);
+        }).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
         const monthWithdraw = txs.filter(t => {
-            const d = new Date(t.date);
+                const d = parseDateLocal(t.date);
             return t.type === 'withdrawal' && d.getMonth() === curMonth && d.getFullYear() === curYear;
-        }).reduce((s, t) => s + t.amount, 0);
+        }).reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
 
         const perPage = 3;
         const totalPages = Math.ceil(txs.length / perPage) || 1;
@@ -4781,6 +4794,40 @@ function renderSavings() {
         if (page < 0) page = 0;
         savingsPage[acc.id] = page;
         const paged = txs.slice(page * perPage, page * perPage + perPage);
+        const monthStats = new Map();
+        const weekStats = new Map();
+        txs.forEach(tx => {
+            const date = parseDateLocal(tx.date);
+            const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+            const weekNumber = getWeekOfMonth(date);
+            const weekKey = `${monthKey}-W${weekNumber}`;
+            const amount = parseFloat(tx.amount) || 0;
+            const monthValues = monthStats.get(monthKey) || { income: 0, spending: 0 };
+            const weekValues = weekStats.get(weekKey) || { income: 0, spending: 0 };
+            if (tx.type === 'deposit') {
+                monthValues.income += amount;
+                weekValues.income += amount;
+            } else if (tx.type === 'withdrawal') {
+                monthValues.spending += amount;
+                weekValues.spending += amount;
+            }
+            monthStats.set(monthKey, monthValues);
+            weekStats.set(weekKey, weekValues);
+        });
+
+        const currentMonthKey = curYear * 12 + curMonth;
+        const latestTransactionDate = txs.length ? parseDateLocal(txs[0].date) : null;
+        const latestTransactionMonthKey = latestTransactionDate
+            ? latestTransactionDate.getFullYear() * 12 + latestTransactionDate.getMonth()
+            : currentMonthKey;
+        const emptyRangeStartMonthKey = latestTransactionMonthKey + 1;
+        const lastCompletedMonthKey = currentMonthKey - 1;
+        const emptyMonthRange = page === 0 && txs.length && emptyRangeStartMonthKey <= lastCompletedMonthKey
+            ? {
+                from: new Date(Math.floor(emptyRangeStartMonthKey / 12), emptyRangeStartMonthKey % 12, 1),
+                to: new Date(Math.floor(lastCompletedMonthKey / 12), lastCompletedMonthKey % 12, 1)
+            }
+            : null;
 
         const monthCashflow = monthDeposit - monthWithdraw;
         const cashflowPositive = monthCashflow >= 0;
@@ -4840,14 +4887,51 @@ function renderSavings() {
             </div>
             <!-- Card-based Transactions List -->
             <div class="savings-transactions-list">
+                ${emptyMonthRange ? `
+                    <div class="savings-period-separator month-separator">
+                        <span class="period-name">${emptyMonthRange.from.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}${emptyMonthRange.from.getTime() === emptyMonthRange.to.getTime() ? '' : ` → ${emptyMonthRange.to.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}</span>
+                        <span class="period-stat spending"><i class="fas fa-arrow-down"></i> $0</span>
+                        <span class="period-stat income"><i class="fas fa-arrow-up"></i> $0</span>
+                    </div>
+                ` : ''}
                 ${paged.length === 0 ? `
                     <div class="empty-state" style="padding: 1rem;">
                         <i class="fas fa-receipt"></i>
                         <p>No transactions yet</p>
                         <span>Add a deposit or withdrawal to get started</span>
                     </div>
-                ` : paged.map(t => {
-                    const dateObj = new Date(t.date);
+                ` : (() => {
+                    let previousMonthKey = '';
+                    let previousWeekKey = '';
+                    return paged.map(t => {
+                    const dateObj = parseDateLocal(t.date);
+                    const monthKey = `${dateObj.getFullYear()}-${dateObj.getMonth()}`;
+                    const weekNumber = getWeekOfMonth(dateObj);
+                    const weekKey = `${monthKey}-W${weekNumber}`;
+                    let separators = '';
+                    if (monthKey !== previousMonthKey) {
+                        const stats = monthStats.get(monthKey) || { income: 0, spending: 0 };
+                        separators += `
+                            <div class="savings-period-separator month-separator">
+                                <span class="period-name">${dateObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                                <span class="period-stat spending"><i class="fas fa-arrow-down"></i> -$${formatCurrency(stats.spending)}</span>
+                                <span class="period-stat income"><i class="fas fa-arrow-up"></i> +$${formatCurrency(stats.income)}</span>
+                            </div>
+                        `;
+                        previousMonthKey = monthKey;
+                        previousWeekKey = '';
+                    }
+                    if (weekKey !== previousWeekKey) {
+                        const stats = weekStats.get(weekKey) || { income: 0, spending: 0 };
+                        separators += `
+                            <div class="savings-period-separator week-separator">
+                                <span class="period-name">Week ${weekNumber}</span>
+                                <span class="period-stat spending"><i class="fas fa-arrow-down"></i> -$${formatCurrency(stats.spending)}</span>
+                                <span class="period-stat income"><i class="fas fa-arrow-up"></i> +$${formatCurrency(stats.income)}</span>
+                            </div>
+                        `;
+                        previousWeekKey = weekKey;
+                    }
                     const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     const isDeposit = t.type === 'deposit';
                     const icon = isDeposit ? 'fa-arrow-down' : 'fa-arrow-up';
@@ -4860,7 +4944,7 @@ function renderSavings() {
                     const category = categoryMatch ? categoryMatch[2].trim() : (isDeposit ? 'Deposit' : 'Withdrawal');
                     const itemName = t.item || (categoryMatch && notes.includes('-') ? notes.split('-')[1].trim() : notes);
                     
-                    return `
+                    return separators + `
                         <div class="transaction-card ${typeClass}" data-savings-tx-id="${t.id}" onclick="openSavingsTransactionDetails(${t.id}, ${acc.id})">
                             <div class="transaction-icon">
                                 <i class="fas ${icon}"></i>
@@ -4886,7 +4970,8 @@ function renderSavings() {
                             </div>
                         </div>
                     `;
-                }).join('')}
+                    }).join('');
+                })()}
             </div>
             <div class="pagination" style="margin-top:6px; text-align:right;">
                 <button class="btn btn-sm btn-outline prev-page" ${page <= 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
@@ -4990,15 +5075,16 @@ async function openSavingsTransactionDetails(txId, accId) {
 
     // Calculate balance before and after
     const allTxs = savingsTransactions
-        .filter(t => t.accountId === accId)
-        .sort((a, b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+        .filter(t => Number(t.accountId) === Number(accId))
+        .sort((a, b) => parseDateLocal(a.date) - parseDateLocal(b.date) || a.id - b.id);
     const txIndex = allTxs.findIndex(t => t.id === txId);
+    if (txIndex === -1) return;
     let balanceBefore = 0;
     for (let i = 0; i < txIndex; i++) {
         if (allTxs[i].type === 'deposit') {
-            balanceBefore += allTxs[i].amount;
+            balanceBefore += parseFloat(allTxs[i].amount) || 0;
         } else {
-            balanceBefore -= allTxs[i].amount;
+            balanceBefore -= parseFloat(allTxs[i].amount) || 0;
         }
     }
     const amount = parseFloat(tx.amount) || 0;
@@ -5607,21 +5693,7 @@ async function openDetailsModal(record) {
 
     // Calculate balance at the time of this transaction
     const balanceBefore = await calculateBalanceAtTransaction(record.date, record.id);
-    const recordAmount = parseFloat(record.amount) || 0;
-    let balanceAfter = balanceBefore;
-    if (record.type === 'income') {
-        balanceAfter = balanceBefore + recordAmount;
-    } else if (record.type === 'spending') {
-        balanceAfter = balanceBefore - recordAmount;
-    } else if (record.type === 'provisional') {
-        balanceAfter = balanceBefore - recordAmount;
-    } else if (record.type === 'account_receivable' && !record.collected) {
-        balanceAfter = balanceBefore - getAROutstandingAmount(record);
-    } else if (record.type === 'account_payable') {
-        balanceAfter = balanceBefore;
-    } else {
-        balanceAfter = record.type === 'income' ? balanceBefore + recordAmount : balanceBefore - recordAmount;
-    }
+    const balanceAfter = balanceBefore + calculateRecordBalanceEffect(record);
 
     const typeDisplayName = record.isSavingsTransfer ? 'Transfer'
         : record.type === 'income' ? 'Income'
