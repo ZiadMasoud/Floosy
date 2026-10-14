@@ -6,7 +6,10 @@ let currentTab = 'dashboard';
 // ============================================
 const INACTIVITY_TIMEOUT = 3 * 60 * 1000; // 3 minutes in milliseconds
 let inactivityTimer = null;
+let privacyCountdownTimer = null;
+let privacyCountdownDeadline = 0;
 let isContentBlurred = false;
+const PRIVACY_COUNTDOWN_CIRCUMFERENCE = 2 * Math.PI * 43;
 
 // ============================================
 // LOGO CONFIGURATION
@@ -422,14 +425,43 @@ function resetInactivityTimer() {
     if (inactivityTimer) {
         clearTimeout(inactivityTimer);
     }
+    if (privacyCountdownTimer) {
+        clearInterval(privacyCountdownTimer);
+    }
     
     // Unblur content if it was blurred
     unblurContent();
     
     // Set new timer for inactivity
+    privacyCountdownDeadline = Date.now() + INACTIVITY_TIMEOUT;
+    updatePrivacyCountdown();
+    privacyCountdownTimer = setInterval(updatePrivacyCountdown, 250);
     inactivityTimer = setTimeout(() => {
         blurContent();
     }, INACTIVITY_TIMEOUT);
+}
+
+function updatePrivacyCountdown() {
+    const progress = document.querySelector('.privacy-countdown-progress');
+    const privacyToggleButton = document.getElementById('privacy-toggle');
+    if (!progress || !privacyToggleButton || !privacyCountdownDeadline) return;
+
+    const remaining = Math.max(0, privacyCountdownDeadline - Date.now());
+    const fractionRemaining = remaining / INACTIVITY_TIMEOUT;
+    progress.style.strokeDashoffset = String(
+        PRIVACY_COUNTDOWN_CIRCUMFERENCE * (1 - fractionRemaining)
+    );
+
+    const remainingSeconds = Math.ceil(remaining / 1000);
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = String(remainingSeconds % 60).padStart(2, '0');
+    const label = `Toggle Privacy Mode. Auto-blur in ${minutes}:${seconds}`;
+    privacyToggleButton.title = label;
+    privacyToggleButton.setAttribute('aria-label', label);
+    if (!remaining && privacyCountdownTimer) {
+        clearInterval(privacyCountdownTimer);
+        privacyCountdownTimer = null;
+    }
 }
 
 // Initialize App
@@ -495,6 +527,8 @@ document.addEventListener('DOMContentLoaded', async function initApp() {
 });
 
 function initEventListeners() {
+    window.addEventListener('resize', updateSavingsAccountNameMarquees);
+
     // Reset inactivity timer on genuine user button clicks only
     document.addEventListener('click', (e) => {
         // Only reset on trusted (genuine user) clicks, not programmatic events
@@ -961,10 +995,6 @@ function initEventListeners() {
                         .then(() => remove(STORE_SAVINGS_ACCOUNTS, accId))
                         .then(() => refreshData());
                 }
-            } else if (e.target.closest('.next-page')) {
-                changePage(accountId, 1);
-            } else if (e.target.closest('.prev-page')) {
-                changePage(accountId, -1);
             } else if (e.target.closest('.edit-btn')) {
                 const txId = parseInt(e.target.closest('.edit-btn').getAttribute('data-tx-id'));
                 const tx = savingsTransactions.find(t => t.id === txId);
@@ -1688,8 +1718,18 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
     const recordYear = targetDate.getFullYear();
     const recordMonth = targetDate.getMonth() + 1; // 1-indexed
 
-    // Get carried balance from previous month
-    const carriedBalance = await getLiveCarriedBalance(recordYear, recordMonth);
+    // Carry-over records are the source of truth for this month's opening balance.
+    const monthCarryoverRecords = records.filter(r => {
+        const date = parseDateLocal(r.date);
+        return r.isCarryover
+            && date.getFullYear() === recordYear
+            && date.getMonth() + 1 === recordMonth;
+    });
+    const monthCarryoverBalance = monthCarryoverRecords
+        .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+    const carriedBalance = monthCarryoverRecords.length
+        ? monthCarryoverBalance
+        : await getLiveCarriedBalance(recordYear, recordMonth);
 
     // Get records from the SAME MONTH as this transaction that come BEFORE it
     const priorRecords = records.filter(r => {
@@ -2140,6 +2180,7 @@ async function switchTab(tabId) {
     const showUserInfoTabs = ['analytics', 'budget', 'savings', 'settings'];
     if (userInfo) {
         userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
+        userInfo.classList.toggle('analytics-active', tabId === 'analytics');
     }
 
     // Update tab name inside user-info box
@@ -2181,6 +2222,9 @@ async function switchTab(tabId) {
     document.body.classList.remove('filter-open');
 
     await renderAll();
+    if (tabId === 'savings') {
+        updateSavingsAccountNameMarquees();
+    }
 
     // Scroll to top on tab switch
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -2511,7 +2555,7 @@ async function renderDashboard() {
     const heroHeldDisplayEl = document.getElementById('hero-held-display');
 
     if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
-    if (heroSavedEl) heroSavedEl.innerHTML = `<span class="dollar-icon savings-icon">$</span><span class="amount-num">${formatCurrency(saved)}</span>`;
+    if (heroSavedEl) heroSavedEl.innerHTML = `Saved: <span class="dollar-icon savings-icon">$</span><span class="amount-num">${formatCurrency(saved)}</span>`;
     if (heroIncomeEl) heroIncomeEl.innerHTML = `<span class="dollar-icon income-icon">$</span><span class="amount-num">${formatCurrency(income)}</span>`;
     if (heroThisMonthValEl) heroThisMonthValEl.innerHTML = `<span class="currency-sign">$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
     if (heroTrendIconEl) {
@@ -4752,8 +4796,12 @@ async function handleTransactionSubmit(e) {
 }
 
 function changePage(accountId, delta) {
-    if (!savingsPage[accountId]) savingsPage[accountId] = 0;
-    savingsPage[accountId] = Math.max(0, savingsPage[accountId] + delta);
+    const accountTransactionCount = savingsTransactions.filter(
+        transaction => Number(transaction.accountId) === Number(accountId)
+    ).length;
+    const lastPage = Math.max(0, Math.ceil(accountTransactionCount / 3) - 1);
+    const currentPage = savingsPage[accountId] || 0;
+    savingsPage[accountId] = Math.min(lastPage, Math.max(0, currentPage + delta));
     renderSavings();
 }
 
@@ -4846,7 +4894,7 @@ function renderSavings() {
                 </button>
             </div>
             <div class="card-header">
-                <h3>${acc.name}</h3>
+                <h3></h3>
             </div>
             <!-- New Mini Dashboard Layout -->
             <div class="account-mini-dashboard">
@@ -4975,10 +5023,21 @@ function renderSavings() {
             </div>
             <div class="pagination" style="margin-top:6px; text-align:right;">
                 <button class="btn btn-sm btn-outline prev-page" ${page <= 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
+                <span class="savings-pagination-page" aria-live="polite" aria-label="Page ${page + 1} of ${totalPages}">${page + 1} of ${totalPages}</span>
                 <button class="btn btn-sm btn-outline next-page" ${page >= totalPages - 1 || txs.length <= perPage ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>
             </div>
         `;
+        const accountName = document.createElement('span');
+        accountName.className = 'savings-account-name';
+        const accountNameText = document.createElement('span');
+        accountNameText.className = 'savings-account-name-copy';
+        accountNameText.textContent = acc.name;
+        accountName.appendChild(accountNameText);
+        card.querySelector('.card-header h3').appendChild(accountName);
         savingsListEl.appendChild(card);
+        if (currentTab === 'savings') {
+            updateSavingsAccountNameMarquee(card);
+        }
 
         // attach listeners directly to the new card's buttons for reliability
         const depBtn = card.querySelector('.deposit-btn');
@@ -7767,12 +7826,43 @@ function togglePrivacyMode() {
     updatePrivacyIcon();
 }
 
+function updateSavingsAccountNameMarquees() {
+    if (currentTab !== 'savings' || !savingsListEl) return;
+    savingsListEl.querySelectorAll('.savings-card').forEach(updateSavingsAccountNameMarquee);
+}
+
+function updateSavingsAccountNameMarquee(card) {
+    const heading = card.querySelector('.card-header h3');
+    const name = card.querySelector('.savings-account-name');
+    const text = name?.querySelector('.savings-account-name-copy');
+    if (!heading || !name || !text || !heading.clientWidth) return;
+
+    const overflows = text.scrollWidth > heading.clientWidth;
+    name.classList.toggle('is-overflowing', overflows);
+
+    const duplicate = name.querySelector('[aria-hidden="true"]');
+    if (overflows && !duplicate) {
+        const copy = text.cloneNode(true);
+        copy.setAttribute('aria-hidden', 'true');
+        name.appendChild(copy);
+    } else if (!overflows && duplicate) {
+        duplicate.remove();
+    }
+
+    if (overflows) {
+        name.style.setProperty('--marquee-duration', `${Math.max(12, (text.scrollWidth + 32) / 20)}s`);
+    } else {
+        name.style.removeProperty('--marquee-duration');
+    }
+}
+
 function updatePrivacyIcon() {
     if (!privacyToggle) return;
     const icon = privacyToggle.querySelector('i');
     if (icon) {
         icon.className = isPrivacyMode ? 'fas fa-eye-slash' : 'fas fa-eye';
     }
+
     // Update hero/dashboard privacy icon too
     const heroPrivacyToggle = document.getElementById('hero-privacy-toggle');
     if (heroPrivacyToggle) {
@@ -7853,6 +7943,17 @@ function renderBudget() {
     if (activeBudgetsEl) activeBudgetsEl.textContent = budgetLimits.length;
     if (nearLimitEl) nearLimitEl.textContent = nearCount;
     if (cappedEl) cappedEl.textContent = cappedCount;
+
+    const budgetOutlookTotal = document.getElementById('budget-outlook-total');
+    const budgetOutlookSpent = document.getElementById('budget-outlook-spent');
+    if (budgetOutlookTotal) {
+        const totalLimit = budgetLimits.reduce((total, limit) => total + (parseFloat(limit.limit) || 0), 0);
+        budgetOutlookTotal.textContent = `$${formatCurrency(totalLimit)}`;
+    }
+    if (budgetOutlookSpent) {
+        const totalSpent = budgetLimits.reduce((total, limit) => total + (parseFloat(limit.spent) || 0), 0);
+        budgetOutlookSpent.textContent = `$${formatCurrency(totalSpent)}`;
+    }
 
     // Render upcoming income section
     renderUpcomingIncome();
@@ -8373,19 +8474,51 @@ function renderUpcomingIncome() {
 
     // Combine all upcoming income items
     const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences];
+    const pendingUpcoming = allUpcomingIncome.filter(r => !r.receivedRecordId);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const overdueItems = pendingUpcoming.filter(r => parseDateLocal(r.date) < todayStart);
+    const upcomingItems = pendingUpcoming.filter(r => parseDateLocal(r.date) >= todayStart);
+    const overdueTotal = overdueItems.reduce((total, r) => total + (parseFloat(r.amount) || 0), 0);
+    const upcomingTotal = upcomingItems.reduce((total, r) => total + (parseFloat(r.amount) || 0), 0);
+    const summary = document.createElement('div');
+    summary.className = 'upcoming-income-summary';
+    summary.innerHTML = `
+        <div class="upcoming-income-summary-intro">
+            <span class="upcoming-income-summary-icon"><i class="fas fa-chart-line"></i></span>
+            <div>
+                <span class="upcoming-income-summary-eyebrow">Income outlook</span>
+                <span class="upcoming-income-summary-caption">Pending income and receivables</span>
+            </div>
+        </div>
+        <div class="upcoming-income-summary-stats">
+            <div class="upcoming-income-summary-stat overdue-stat">
+                <span>Overdue</span>
+                <strong>$${formatCurrency(overdueTotal)}</strong>
+            </div>
+            <div class="upcoming-income-summary-stat upcoming-stat">
+                <span>Expected upcoming</span>
+                <strong>$${formatCurrency(upcomingTotal)}</strong>
+            </div>
+            <div class="upcoming-income-summary-stat count-stat">
+                <span>Upcoming items</span>
+                <strong>${upcomingItems.length}</strong>
+            </div>
+        </div>
+    `;
+    container.replaceChildren(summary);
 
     if (allUpcomingIncome.length === 0) {
-        container.innerHTML = `
-            <div class="upcoming-income-empty">
-                <i class="fas fa-calendar"></i>
-                <p>No upcoming income or receivables</p>
-            </div>
+        const emptyState = document.createElement('div');
+        emptyState.className = 'upcoming-income-empty';
+        emptyState.innerHTML = `
+            <i class="fas fa-calendar"></i>
+            <p>No upcoming income or receivables</p>
         `;
+        container.appendChild(emptyState);
         return;
     }
 
     // Split into pending and collected this month
-    const pendingUpcoming = allUpcomingIncome.filter(r => !r.receivedRecordId);
     const collectedUpcoming = allUpcomingIncome.filter(r => !!r.receivedRecordId);
 
     // Further split pending into AR and regular income
@@ -8393,26 +8526,90 @@ function renderUpcomingIncome() {
     const pendingIncome = pendingUpcoming.filter(r => r.type !== 'account_receivable');
 
     // Sort pending items by most near to be upcoming first
-    pendingIncome.sort((a, b) => new Date(a.date) - new Date(b.date));
-    pendingAR.sort((a, b) => new Date(a.date) - new Date(b.date));
+    pendingIncome.sort((a, b) => parseDateLocal(a.date) - parseDateLocal(b.date));
+    pendingAR.sort((a, b) => parseDateLocal(a.date) - parseDateLocal(b.date));
 
     // Sort collected items too
-    collectedUpcoming.sort((a, b) => new Date(a.date) - new Date(b.date));
+    collectedUpcoming.sort((a, b) => parseDateLocal(a.date) - parseDateLocal(b.date));
 
-    container.innerHTML = '';
+    const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
+    const upcomingGroups = [
+        { key: 'overdue', label: 'Overdue' },
+        { key: 'current-month', label: 'Upcoming This Month' },
+        { key: 'next-month', label: 'Upcoming Next Month' },
+        { key: 'later', label: 'Upcoming Later' }
+    ];
+    const getUpcomingGroup = (item) => {
+        const date = parseDateLocal(item.date);
+        if (date < todayStart) return 'overdue';
+        if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
+            return 'current-month';
+        }
+        if (date.getFullYear() === nextMonthDate.getFullYear()
+            && date.getMonth() === nextMonthDate.getMonth()) {
+            return 'next-month';
+        }
+        return 'later';
+    };
+    const renderGroupedUpcomingItems = (list, items, initialLimit, createCard) => {
+        const groupedItems = upcomingGroups
+            .map(group => ({
+                ...group,
+                items: items.filter(item => getUpcomingGroup(item) === group.key)
+            }))
+            .filter(group => group.items.length > 0);
+        const itemCount = groupedItems.reduce((count, group) => count + group.items.length, 0);
+        const renderItems = (limit) => {
+            list.replaceChildren();
+            let remaining = limit;
+            groupedItems.forEach(group => {
+                const visibleItems = group.items.slice(0, remaining);
+                if (!visibleItems.length) return;
+                const divider = document.createElement('div');
+                divider.className = `upcoming-income-period-divider period-${group.key}`;
+                divider.innerHTML = `<span>${group.label}</span>`;
+                list.appendChild(divider);
+                visibleItems.forEach(item => list.appendChild(createCard(item)));
+                remaining -= visibleItems.length;
+            });
+        };
+
+        if (itemCount <= initialLimit) {
+            renderItems(itemCount);
+            return null;
+        }
+
+        const showMoreButton = document.createElement('button');
+        showMoreButton.className = 'btn btn-outline show-more-btn';
+        let expanded = false;
+        const updateButton = () => {
+            showMoreButton.textContent = expanded
+                ? 'Show Less'
+                : `Show More (${itemCount - initialLimit} more)`;
+            renderItems(expanded ? itemCount : initialLimit);
+        };
+        showMoreButton.addEventListener('click', () => {
+            expanded = !expanded;
+            updateButton();
+        });
+        updateButton();
+        return showMoreButton;
+    };
 
     // Helper function to format date as "May 1 2026"
     const formatExpectedDate = (dateStr) => {
-        const date = new Date(dateStr);
+        const date = parseDateLocal(dateStr);
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         return `${monthNames[date.getMonth()]} ${date.getDate()} ${date.getFullYear()}`;
     };
 
     // Helper function to render a single card item
     const createUpcomingCard = (r) => {
-        const dateObj = new Date(r.date);
-        const isToday = dateObj.toDateString() === now.toDateString();
-        const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === dateObj.toDateString();
+        const dateObj = parseDateLocal(r.date);
+        const isToday = dateObj.getTime() === todayStart.getTime();
+        const tomorrowStart = new Date(todayStart);
+        tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+        const isTomorrow = dateObj.getTime() === tomorrowStart.getTime();
         const isReceivedThisMonth = !!r.receivedRecordId;
 
         // Calculate days remaining instead of showing the date
@@ -8424,9 +8621,8 @@ function renderUpcomingIncome() {
         } else if (isTomorrow) {
             dateLabel = '1 day left';
         } else {
-            const timeDiff = dateObj.getTime() - now.getTime();
-            const daysLeft = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
-            if (daysLeft < 0) {
+            const daysLeft = Math.ceil((dateObj.getTime() - todayStart.getTime()) / (1000 * 60 * 60 * 24));
+            if (dateObj < todayStart) {
                 dateLabel = 'Overdue';
             } else {
                 dateLabel = `${daysLeft} days left`;
@@ -8458,25 +8654,28 @@ function renderUpcomingIncome() {
             statusLabel = ' (Expected)';
         }
 
-        const isOverdue = !isReceivedThisMonth && !isAR && dateObj < now && !isToday;
+        const isOverdue = !isReceivedThisMonth && !isAR && dateObj < todayStart;
 
         // Build action buttons based on received state
-        let actionButtons = '';
+        let leftActionButtons = '';
+        let rightActionButton = '';
         if (isReceivedThisMonth) {
-            // Show Undo button for received items
-            actionButtons = `
+            rightActionButton = `
                 <button class="undo-btn" onclick="event.stopPropagation(); undoRecurringIncome(${r.receivedRecordId})" title="Undo - delete the recorded income">
                     <i class="fas fa-undo"></i> Undo
                 </button>
             `;
         } else {
-            actionButtons = `
+            leftActionButtons = `
                 ${!isAR ? `<button class="btn-icon edit-btn" onclick="event.stopPropagation(); editUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Edit Recurring' : 'Edit'}"><i class="fas fa-pen"></i></button>` : ''}
                 <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteUpcomingIncome(${r.id}, ${isRecurring})" title="${isRecurring ? 'Delete Recurring' : 'Delete'}"><i class="fas fa-trash"></i></button>
                 ${isOverdue ? `<button class="btn-icon skip-btn" onclick="event.stopPropagation(); skipUpcomingIncome(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring}, '${r.date}')" title="Skip this occurrence"><i class="fas fa-forward"></i></button>` : ''}
-                ${isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectAR(${r.id})" title="Mark as Collected">Collect</button>` : ''}
-                ${(isRecurring || isProjected) && !isAR ? `<button class="collect-btn" onclick="event.stopPropagation(); collectIncome(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring}, '${r.date}')" title="Mark as Received">Received</button>` : ''}
             `;
+            rightActionButton = isAR
+                ? `<button class="collect-btn" onclick="event.stopPropagation(); collectAR(${r.id})" title="Mark as Collected">Collect</button>`
+                : (isRecurring || isProjected)
+                    ? `<button class="collect-btn" onclick="event.stopPropagation(); collectIncome(${typeof r.id === 'string' ? `'${r.id}'` : r.id}, ${isRecurring}, '${r.date}')" title="Mark as Received">Received</button>`
+                    : '';
         }
 
         const item = document.createElement('div');
@@ -8527,7 +8726,10 @@ function renderUpcomingIncome() {
             </div>
             <div class="income-actions">
                 <span class="income-amount">+$${formatCurrency(amount)}</span>
-                ${actionButtons}
+                <div class="income-action-buttons">
+                    <div class="income-action-group income-action-group-left">${leftActionButtons}</div>
+                    <div class="income-action-group income-action-group-right">${rightActionButton}</div>
+                </div>
             </div>
         `;
 
@@ -8554,36 +8756,14 @@ function renderUpcomingIncome() {
         `;
         const arList = arSection.querySelector('.ar-upcoming-list');
         
-        // Show max 4 AR items with "Show More" functionality
         const maxARItems = 4;
-        const arItemsToShow = pendingAR.slice(0, maxARItems);
-        arItemsToShow.forEach(r => {
-            arList.appendChild(createUpcomingCard(r));
-        });
-
-        // Add "Show More" button if there are more AR items
-        if (pendingAR.length > maxARItems) {
-            const showMoreBtn = document.createElement('button');
-            showMoreBtn.className = 'btn btn-outline show-more-btn';
-            showMoreBtn.textContent = `Show More (${pendingAR.length - maxARItems} more)`;
-            showMoreBtn.onclick = () => {
-                // Show all AR items
-                const remainingItems = pendingAR.slice(maxARItems);
-                remainingItems.forEach(r => {
-                    arList.appendChild(createUpcomingCard(r));
-                });
-                showMoreBtn.textContent = 'Show Less';
-                showMoreBtn.onclick = () => {
-                    // Hide back to max items
-                    while (arList.children.length > maxARItems) {
-                        arList.removeChild(arList.lastChild);
-                    }
-                    showMoreBtn.textContent = `Show More (${pendingAR.length - maxARItems} more)`;
-                    showMoreBtn.onclick = arguments.callee;
-                };
-            };
-            arSection.appendChild(showMoreBtn);
-        }
+        const showMoreButton = renderGroupedUpcomingItems(
+            arList,
+            pendingAR,
+            maxARItems,
+            createUpcomingCard
+        );
+        if (showMoreButton) arSection.appendChild(showMoreButton);
 
         container.appendChild(arSection);
     }
@@ -8601,36 +8781,14 @@ function renderUpcomingIncome() {
         `;
         const incomeList = incomeSection.querySelector('.expected-income-list');
         
-        // Show max 4 expected income items with "Show More" functionality
         const maxIncomeItems = 4;
-        const incomeItemsToShow = pendingIncome.slice(0, maxIncomeItems);
-        incomeItemsToShow.forEach(r => {
-            incomeList.appendChild(createUpcomingCard(r));
-        });
-
-        // Add "Show More" button if there are more income items
-        if (pendingIncome.length > maxIncomeItems) {
-            const showMoreBtn = document.createElement('button');
-            showMoreBtn.className = 'btn btn-outline show-more-btn';
-            showMoreBtn.textContent = `Show More (${pendingIncome.length - maxIncomeItems} more)`;
-            showMoreBtn.onclick = () => {
-                // Show all income items
-                const remainingItems = pendingIncome.slice(maxIncomeItems);
-                remainingItems.forEach(r => {
-                    incomeList.appendChild(createUpcomingCard(r));
-                });
-                showMoreBtn.textContent = 'Show Less';
-                showMoreBtn.onclick = () => {
-                    // Hide back to max items
-                    while (incomeList.children.length > maxIncomeItems) {
-                        incomeList.removeChild(incomeList.lastChild);
-                    }
-                    showMoreBtn.textContent = `Show More (${pendingIncome.length - maxIncomeItems} more)`;
-                    showMoreBtn.onclick = arguments.callee;
-                };
-            };
-            incomeSection.appendChild(showMoreBtn);
-        }
+        const showMoreButton = renderGroupedUpcomingItems(
+            incomeList,
+            pendingIncome,
+            maxIncomeItems,
+            createUpcomingCard
+        );
+        if (showMoreButton) incomeSection.appendChild(showMoreButton);
 
         container.appendChild(incomeSection);
     }

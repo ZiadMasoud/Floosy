@@ -232,6 +232,24 @@ h1 {
   }
 }
 
+@media (max-width: 1024px) {
+  .user-info.analytics-active #current-month-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 86px;
+    min-height: 44px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 0.8rem;
+    line-height: 1.25;
+    text-align: center;
+    flex-shrink: 0;
+  }
+}
+
 
 
 .header-filters-btn {
@@ -251,6 +269,10 @@ h1 {
 }
 
 #privacy-toggle {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
   background: none;
   border: none;
   color: white;
@@ -262,6 +284,38 @@ h1 {
   justify-content: center;
   transition: all 0.2s ease;
   border-radius: 50%;
+}
+
+#privacy-toggle > i {
+  position: relative;
+  z-index: 1;
+}
+
+.privacy-countdown-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  pointer-events: none;
+}
+
+.privacy-countdown-track,
+.privacy-countdown-progress {
+  fill: none;
+  stroke-width: 7;
+}
+
+.privacy-countdown-track {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.privacy-countdown-progress {
+  stroke: #9fc9f0;
+  stroke-dasharray: 270.18;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.25s linear;
 }
 
 #privacy-toggle:hover {
@@ -3057,7 +3111,9 @@ tr:last-child td {
   margin-top: 0.75rem;
   padding: 0.75rem;
   border-radius: 14px;
+  border: 1px solid rgba(53, 88, 114, 0.12);
   background: #f1f3f5;
+  overflow: hidden;
 }
 
 .savings-period-separator {
@@ -5054,6 +5110,36 @@ tr:last-child td {
   font-size: 0.875rem;
 }
 
+.budget-limits-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+#add-budget-limit-btn,
+#reset-all-budgets-btn {
+  min-height: 40px;
+  padding: 0.5rem 0.875rem;
+  white-space: nowrap;
+}
+
+.budget-limits-card .card-header {
+  flex-wrap: nowrap;
+}
+
+.budget-limits-card .card-header h3 {
+  flex: 1 1 auto;
+}
+
+.budget-limits-card .budget-limits-header-actions .btn {
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
 /* Budget Modal Adjustments */
 #budget-limit-modal .modal-content {
   max-width: 450px;
@@ -5200,57 +5286,37 @@ tr:last-child td {
 /* Mobile Budget Adjustments */
 @media (max-width: 768px) {
   .budget-limit-header {
-    flex-wrap: wrap;
+    align-items: flex-start;
+    flex-wrap: nowrap;
   }
 
   .budget-limit-actions {
-    width: 100%;
-    justify-content: flex-end;
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
   }
 
-  #budget-kpis {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+  .budget-limit-actions .reset-budget-btn {
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
   }
 
-  #budget-kpis .kpi-card {
-    padding: 0.75rem;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  .budget-limit-actions .edit-budget-btn {
+    background: rgba(11, 40, 73, 0.1);
+    color: var(--primary-color);
   }
 
-  #budget-kpis .kpi-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 1.25rem;
-    background: rgba(53, 88, 114, 0.15);
-  }
-
-  #budget-kpis .kpi-details h3 {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    font-weight: 600;
-  }
-
-  #budget-kpis .kpi-details p {
-    font-size: 1.25rem;
-    color: var(--text-main);
-    font-weight: 700;
-  }
-
-  #budget-kpis .kpi-card.budget .kpi-icon {
-    background: rgba(11, 40, 73, 0.15);
-    color: #0B2849;
-  }
-
-  #budget-kpis .kpi-card.warning .kpi-icon {
-    background: rgba(245, 158, 11, 0.15);
-    color: #d97706;
-  }
-
-  #budget-kpis .kpi-card.danger .kpi-icon {
-    background: rgba(239, 68, 68, 0.15);
+  .budget-limit-actions .delete-budget-btn {
+    background: rgba(239, 68, 68, 0.12);
     color: #dc2626;
+  }
+
+  .budget-limit-actions .reset-budget-btn:hover,
+  .budget-limit-actions .edit-budget-btn:hover,
+  .budget-limit-actions .delete-budget-btn:hover {
+    filter: brightness(0.94);
   }
 
   .upcoming-widget {
@@ -5326,37 +5392,6 @@ tr:last-child td {
   justify-content: center;
 }
 
-/* Budget Tab FAB Button - ensure it's visible and clickable */
-#budget .fab {
-  z-index: 9999 !important;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  display: flex !important;
-}
-
-#add-budget-limit-btn {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 9999 !important;
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  display: flex !important;
-}
-
-@media (max-width: 768px) {
-  #add-budget-limit-btn {
-    right: 12px;
-    bottom: 80px;
-    z-index: 9999 !important;
-    display: flex !important;
-  }
-
-  #add-budget-limit-btn .fab-label {
-    display: none;
-  }
-}
-
 /* Ensure Budget tab content is properly layered */
 #budget.tab-content {
   position: relative;
@@ -5391,6 +5426,377 @@ tr:last-child td {
   gap: 0.75rem;
 }
 
+.upcoming-income-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(110deg, rgba(16, 185, 129, 0.09), rgba(16, 185, 129, 0.03));
+}
+
+.upcoming-income-summary-intro {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.upcoming-income-summary-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 2.5rem;
+  border-radius: 0.75rem;
+  background: rgba(16, 185, 129, 0.14);
+  color: #059669;
+}
+
+.upcoming-income-summary-intro > div,
+.upcoming-income-summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.upcoming-income-summary-eyebrow {
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.upcoming-income-summary-caption,
+.upcoming-income-summary-stat > span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.upcoming-income-summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.upcoming-income-summary-stat {
+  align-items: flex-end;
+  text-align: right;
+  min-width: 6.5rem;
+  padding: 0 1rem;
+}
+
+.upcoming-income-summary-stat.overdue-stat strong {
+  color: #b45309;
+}
+
+.upcoming-income-summary-stat strong {
+  color: #047857;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.upcoming-income-section .show-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.75rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(14, 116, 144, 0.25);
+  border-radius: var(--radius-sm);
+  background: rgba(14, 116, 144, 0.07);
+  color: #0e7490;
+  font-weight: 600;
+  text-align: center;
+}
+
+.upcoming-income-section .show-more-btn:hover {
+  border-color: #0e7490;
+  background: #0e7490;
+  color: #fff;
+}
+
+#reset-all-budgets-btn {
+  flex: 0 0 auto;
+  margin-left: 0;
+  border-color: rgba(217, 119, 6, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+  color: #b45309;
+}
+
+#reset-all-budgets-btn:hover {
+  border-color: #d97706;
+  background: #d97706;
+  color: #fff;
+}
+
+.budget-outlook {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin: 0.25rem 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(122, 170, 206, 0.3);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(110deg, rgba(122, 170, 206, 0.1), rgba(122, 170, 206, 0.03));
+}
+
+.budget-outlook-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.budget-outlook-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.budget-outlook-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  flex: 0 0 2.35rem;
+  border-radius: 0.7rem;
+  background: rgba(11, 40, 73, 0.1);
+  color: var(--primary-color);
+}
+
+.budget-outlook-heading > div,
+.budget-outlook-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.budget-outlook-heading strong {
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.budget-outlook-heading span:not(.budget-outlook-icon),
+.budget-outlook-stat > span {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.budget-outlook-stats {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.budget-outlook-stat {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.budget-outlook-stat strong {
+  color: var(--primary-color);
+  font-size: 1.1rem;
+  line-height: 1.2;
+}
+
+.budget-outlook-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.budget-outlook-kpi {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgba(122, 170, 206, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.budget-outlook-kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 0.55rem;
+  background: rgba(11, 40, 73, 0.1);
+  color: var(--primary-color);
+  font-size: 0.8rem;
+}
+
+.budget-outlook-kpi-label {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.budget-outlook-kpi strong {
+  color: var(--primary-color);
+  font-size: 1rem;
+}
+
+.budget-outlook-kpi.warning .budget-outlook-kpi-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}
+
+.budget-outlook-kpi.warning strong {
+  color: #d97706;
+}
+
+.budget-outlook-kpi.danger .budget-outlook-kpi-icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+
+.budget-outlook-kpi.danger strong {
+  color: #dc2626;
+}
+
+@media (max-width: 768px) {
+  .budget-limits-card .card-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .budget-limits-header-actions {
+    width: 100%;
+  }
+
+  .budget-limits-card .budget-limits-header-actions .btn {
+    flex: 1 1 0;
+  }
+
+  .budget-outlook-top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .budget-outlook-stats {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .budget-outlook-stat {
+    align-items: flex-start;
+    flex: 1 1 0;
+    text-align: left;
+  }
+}
+
+@media (max-width: 480px) {
+  .budget-limits-header-actions {
+    flex-direction: column;
+  }
+
+  .budget-limits-card .budget-limits-header-actions .btn {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 44px;
+    margin: 0 !important;
+    padding: 0.55rem 0.75rem;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .budget-limits-card #reset-all-budgets-btn {
+    margin-left: 0 !important;
+  }
+
+  .budget-limits-card .budget-limits-header-actions .btn i {
+    flex: 0 0 auto;
+  }
+
+  .budget-outlook {
+    padding: 0.75rem;
+  }
+
+  .budget-outlook-top {
+    gap: 0.65rem;
+  }
+
+  .budget-outlook-stats {
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .budget-outlook-stat {
+    align-items: center;
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  .budget-outlook-stat strong {
+    font-size: 1rem;
+  }
+
+  .budget-outlook-kpis {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .budget-outlook-kpi {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 0.5rem 0.65rem;
+  }
+
+  .upcoming-income-summary {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .upcoming-income-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .upcoming-income-summary-stat {
+    align-items: center;
+    min-width: 0;
+    padding: 0.15rem 0.45rem;
+    text-align: center;
+  }
+
+  .upcoming-income-summary-stat.count-stat {
+    grid-column: 1 / -1;
+    margin-top: 0.2rem;
+    padding-top: 0.45rem;
+    border-left: 0;
+  }
+
+  .upcoming-income-summary-stat > span {
+    font-size: 0.68rem;
+  }
+
+  #reset-all-budgets-btn {
+    margin-left: 0;
+  }
+}
+
 .upcoming-income-item {
   display: flex;
   align-items: center;
@@ -5411,7 +5817,9 @@ tr:last-child td {
   display: flex;
   align-items: center;
   gap: 1rem;
-  width: 100%;
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .upcoming-income-item .income-icon {
@@ -5429,7 +5837,9 @@ tr:last-child td {
 .upcoming-income-item .income-details {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .upcoming-income-item .income-header-row {
@@ -5521,6 +5931,19 @@ tr:last-child td {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.upcoming-income-item .income-action-buttons,
+.upcoming-income-item .income-action-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.upcoming-income-item .income-action-buttons {
+  flex: 0 0 auto;
 }
 
 .upcoming-income-item .income-actions .btn-icon {
@@ -5890,10 +6313,69 @@ tr:last-child td {
 }
 
 .savings-card .card-header h3 {
-  padding-right: 80px;
+  box-sizing: border-box;
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(100% - 80px);
+  padding-right: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.savings-account-name {
+  display: inline-flex;
+  width: max-content;
+  white-space: nowrap;
+}
+
+.savings-account-name-copy {
   display: inline-block;
-  flex: 0 1 auto;
-  max-width: calc(100% - 110px);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.savings-account-name-copy[aria-hidden="true"] {
+  padding-left: 2rem;
+}
+
+.savings-account-name.is-overflowing {
+  animation: savings-account-name-marquee var(--marquee-duration, 20s) linear infinite;
+}
+
+.savings-card .pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.savings-pagination-page {
+  min-width: 3.25rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.savings-card .card-header h3:hover .savings-account-name.is-overflowing {
+  animation-play-state: paused;
+}
+
+@keyframes savings-account-name-marquee {
+  to {
+    transform: translateX(calc(-50% - 1rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .savings-account-name.is-overflowing {
+    animation: none;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    max-width: 100%;
+  }
 }
 
 /* Upcoming Income Popup */
@@ -6016,30 +6498,80 @@ tr:last-child td {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.75rem;
-    padding: 0.875rem 1rem;
+    padding: 0.875rem 0.75rem;
   }
 
   .upcoming-income-item .income-info {
     width: 100%;
+    min-width: 0;
+    flex: 0 1 auto;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .upcoming-income-item .income-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    font-size: 0.8rem;
   }
 
   .upcoming-income-item .income-header-row {
-    flex-wrap: wrap;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
   }
 
   .upcoming-income-item .income-expected-date {
     font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: normal;
+    text-align: right;
+    overflow-wrap: anywhere;
   }
 
   .upcoming-income-item .income-actions {
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
   }
 
   .upcoming-income-item .income-amount {
     font-size: 1rem;
-    margin-right: auto;
+    margin: 0;
+    align-self: flex-end;
+    white-space: nowrap;
+  }
+
+  .upcoming-income-item .income-action-buttons {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .upcoming-income-item .income-action-group {
+    gap: 0.55rem;
+  }
+
+  .upcoming-income-item .income-action-group-right {
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  .upcoming-income-item .income-actions .btn-icon,
+  .upcoming-income-item .income-actions .skip-btn {
+    flex: 0 0 28px;
+  }
+
+  .upcoming-income-item .income-actions .collect-btn,
+  .upcoming-income-item .income-actions .undo-btn {
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 0.45rem 0.75rem;
+    white-space: nowrap;
   }
 
   .upcoming-income-item .income-name {
@@ -6054,6 +6586,21 @@ tr:last-child td {
   .upcoming-income-item .income-actions .btn-icon {
     width: 28px;
     height: 28px;
+  }
+
+  .upcoming-income-item .income-actions .edit-btn {
+    background: rgba(11, 40, 73, 0.1);
+    color: var(--primary-color);
+  }
+
+  .upcoming-income-item .income-actions .delete-btn {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+  }
+
+  .upcoming-income-item .income-actions .skip-btn {
+    background: rgba(139, 92, 246, 0.12);
+    color: #7c3aed;
   }
 
   /* Section headers mobile responsive */
@@ -6074,6 +6621,56 @@ tr:last-child td {
     width: 100%;
     padding: 0.6rem 1rem;
     font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .upcoming-income-summary-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .upcoming-income-summary-stat {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    text-align: left;
+  }
+
+  .upcoming-income-summary-stat.upcoming-stat,
+  .upcoming-income-summary-stat.count-stat {
+    grid-column: auto;
+    margin-top: 0;
+    padding-top: 0.4rem;
+    border-left: 0;
+  }
+
+  .upcoming-income-summary-stat > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .upcoming-income-item {
+    gap: 0.5rem;
+    padding-right: 0.6rem;
+    padding-left: 0.6rem;
+  }
+
+  .upcoming-income-item .income-info {
+    gap: 0.5rem;
+  }
+
+  .upcoming-income-item .income-icon {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+  }
+
+  .upcoming-income-item .income-expected-date {
+    white-space: normal;
+    text-align: right;
+    font-size: 0.65rem;
   }
 }
 
@@ -6764,6 +7361,37 @@ tr:last-child td {
 
 .expected-income-header h4 i {
   color: var(--success);
+}
+
+.upcoming-income-period-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.15rem;
+  color: var(--primary-color);
+}
+
+.upcoming-income-period-divider span {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.025em;
+}
+
+.upcoming-income-period-divider::after {
+  content: "";
+  flex: 1 1 auto;
+  border-top: 2px dashed currentColor;
+  opacity: 0.55;
+}
+
+.upcoming-income-period-divider.period-overdue {
+  color: #b45309;
+}
+
+.upcoming-income-period-divider.period-next-month,
+.upcoming-income-period-divider.period-later {
+  color: #64748b;
 }
 
 .ar-count-badge,
