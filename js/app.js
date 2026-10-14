@@ -8719,9 +8719,12 @@ function renderUpcomingIncome() {
                     <div class="income-header-row">
                         <span class="income-name">${description}</span>
                         ${!isReceivedThisMonth ? `<span class="income-expected-date">${expectedDate}</span>` : ''}
+                        ${isReceivedThisMonth ? awaitingBadgeHtml : ''}
                     </div>
-                    <span class="income-date">${dateLabel}${statusLabel}</span>
-                    ${awaitingBadgeHtml}
+                    <span class="income-date${isReceivedThisMonth ? ' received-status' : ''}">${isReceivedThisMonth
+                        ? `<span class="received-badge">✓ Received${statusLabel}</span>`
+                        : `${dateLabel}${statusLabel}`}</span>
+                    ${isReceivedThisMonth ? '' : awaitingBadgeHtml}
                 </div>
             </div>
             <div class="income-actions">

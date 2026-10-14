@@ -5188,6 +5188,26 @@ tr:last-child td {
   color: white !important;
 }
 
+.upcoming-widget-header > span:first-of-type {
+  flex: 1 1 auto;
+}
+
+.month-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+.month-countdown i {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
 .upcoming-list {
   display: flex;
   flex-direction: column;
@@ -5259,30 +5279,6 @@ tr:last-child td {
   border-radius: var(--radius-sm);
 }
 
-/* Month Countdown Item Styles (within upcoming widget) */
-.month-countdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.9rem;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-sm);
-  font-size: 0.875rem;
-  margin-bottom: 0.5rem;
-}
-
-.countdown-label {
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
-}
-
-.countdown-value {
-  color: white;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-
 /* Mobile Budget Adjustments */
 @media (max-width: 768px) {
   .budget-limit-header {
@@ -5322,10 +5318,6 @@ tr:last-child td {
   .upcoming-widget {
     margin-top: 1rem;
     padding: 0.75rem 1rem;
-  }
-
-  .month-countdown-item {
-    padding: 0.5rem 0.75rem;
   }
 
   .upcoming-item {
@@ -7286,9 +7278,14 @@ tr:last-child td {
    COLLECTED UPCOMING INCOME STYLES
    ======================================== */
 .collected-upcoming-section {
-  margin-top: 1.75rem;
-  padding-top: 1.5rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
   border-top: 2px dashed var(--border-color);
+}
+
+.expected-income-section:has(+ .collected-upcoming-section),
+.ar-upcoming-section:has(+ .collected-upcoming-section) {
+  margin-bottom: 0.35rem;
 }
 
 .collected-section-header {
@@ -7452,6 +7449,106 @@ tr:last-child td {
   background: rgba(16, 185, 129, 0.12);
   padding: 0.2rem 0.5rem;
   border-radius: 12px;
+}
+
+@media (max-width: 480px) {
+  .collected-upcoming-section {
+    margin-top: 0.5rem;
+    padding-top: 0.55rem;
+  }
+
+  .expected-income-section:has(+ .collected-upcoming-section),
+  .ar-upcoming-section:has(+ .collected-upcoming-section) {
+    margin-bottom: 0.15rem;
+  }
+
+  .collected-upcoming-section .show-more-btn {
+    margin-bottom: 0;
+  }
+
+  .upcoming-income-item.received-this-month {
+    position: relative;
+    min-height: 112px;
+    padding: 0.75rem;
+  }
+
+  .upcoming-income-item.received-this-month .income-details {
+    padding: 0;
+  }
+
+  .upcoming-income-item.received-this-month .income-info {
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .upcoming-income-item.received-this-month .income-header-row {
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+  }
+
+  .upcoming-income-item.received-this-month .income-name {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .upcoming-income-item.received-this-month .income-icon {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+  }
+
+  .upcoming-income-item.received-this-month .awaiting-badge {
+    position: static;
+    top: auto;
+    right: auto;
+    flex: 0 0 auto;
+    max-width: 62%;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .upcoming-income-item.received-this-month .income-date.received-status {
+    position: absolute;
+    bottom: 0.7rem;
+    left: 0.8rem;
+    margin: 0;
+  }
+
+  .upcoming-income-item.received-this-month .income-actions {
+    position: static;
+    width: auto;
+    display: block;
+  }
+
+  .upcoming-income-item.received-this-month .income-amount {
+    position: absolute;
+    display: block;
+    top: 2.8rem;
+    right: 0.8rem;
+    z-index: 1;
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .upcoming-income-item.received-this-month .income-action-buttons,
+  .upcoming-income-item.received-this-month .income-action-group,
+  .upcoming-income-item.received-this-month .income-action-group-right {
+    display: contents;
+  }
+
+  .upcoming-income-item.received-this-month .undo-btn {
+    position: absolute;
+    right: 0.8rem;
+    bottom: 0.45rem;
+    margin: 0;
+  }
 }
 
 /* ========================================
