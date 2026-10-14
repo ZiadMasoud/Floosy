@@ -6839,3 +6839,9 @@ tr:last-child td {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
+
+@media (max-width: 768px) {
+  #savings .savings-list {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
