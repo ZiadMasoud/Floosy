@@ -1,5 +1,5 @@
 const DB_NAME = 'HouseSpendingDB';
-const DB_VERSION = 9; // adds the app metadata store for export status
+const DB_VERSION = 10; // adds planning and item price tracking stores
 const STORE_RECORDS = 'records';
 const STORE_CATEGORIES = 'categories';
 const STORE_PEOPLE = 'people';
@@ -16,6 +16,10 @@ const STORE_MONTHLY_BALANCE_SETTINGS = 'monthlyBalanceSettings';
 
 // new store for recurring income templates
 const STORE_RECURRING_INCOME = 'recurringIncome';
+
+// Planner stores are independent from actual transaction records.
+const STORE_PLANNED_EVENTS = 'plannedEvents';
+const STORE_TRACKED_ITEMS = 'trackedItems';
 
 // application metadata store
 const STORE_APP_META = 'appMeta';
@@ -61,6 +65,10 @@ function initDB() {
 
             // Version 7: Added recurring income
             ensureStore(STORE_RECURRING_INCOME);
+
+            // Version 10: Added independent cash-flow planning and item price tracking
+            ensureStore(STORE_PLANNED_EVENTS);
+            ensureStore(STORE_TRACKED_ITEMS);
 
             // App meta store (keyed by 'key')
             if (!db.objectStoreNames.contains(STORE_APP_META)) {
@@ -266,12 +274,15 @@ async function selectiveReset(options) {
         endDate,
         resetRecords,
         resetSavings,
+        resetPlanner,
         resetCategories,
         resetPeople
     } = options;
     
     let recordsDeleted = 0;
     let savingsDeleted = 0;
+    let plannerEventsDeleted = 0;
+    let trackedItemsDeleted = 0;
     
     if (resetRecords) {
         if (resetType === 'all') {
@@ -297,6 +308,13 @@ async function selectiveReset(options) {
             savingsDeleted = await clearSavingsTransactionsByDateRange(startDate, endDate);
         }
     }
+
+    if (resetPlanner) {
+        plannerEventsDeleted = (await getAll(STORE_PLANNED_EVENTS)).length;
+        trackedItemsDeleted = (await getAll(STORE_TRACKED_ITEMS)).length;
+        await clearStore(STORE_PLANNED_EVENTS);
+        await clearStore(STORE_TRACKED_ITEMS);
+    }
     
     if (resetCategories) {
         await clearStore(STORE_CATEGORIES);
@@ -306,6 +324,5 @@ async function selectiveReset(options) {
         await clearStore(STORE_PEOPLE);
     }
     
-    return { recordsDeleted, savingsDeleted };
+    return { recordsDeleted, savingsDeleted, plannerEventsDeleted, trackedItemsDeleted };
 }
-

@@ -318,6 +318,12 @@ h1 {
   transition: stroke-dashoffset 0.25s linear;
 }
 
+body.privacy-mode .privacy-countdown-progress {
+  stroke: #ef4444;
+  stroke-dashoffset: 0 !important;
+  transition: none;
+}
+
 #privacy-toggle:hover {
   color: white;
   background: rgba(255, 255, 255, 0.1);
@@ -368,6 +374,15 @@ body.privacy-mode .insight-total-pair strong,
 body.privacy-mode .insight-rank-values,
 body.privacy-mode .savings-kpis p,
 body.privacy-mode .chart-container canvas,
+body.privacy-mode .planner-kpi strong,
+body.privacy-mode .planner-event-amount,
+body.privacy-mode .planner-item-latest strong,
+body.privacy-mode .planner-price-change,
+body.privacy-mode .planner-price-row > strong,
+body.privacy-mode .planner-price-chart-wrap canvas,
+body.privacy-mode .budget-outlook-stat strong,
+body.privacy-mode .budget-outlook-kpi strong,
+body.privacy-mode .upcoming-income-summary-stat strong,
 body.privacy-mode .week-stat,
 body.privacy-mode .savings-period-separator .period-stat,
 body.privacy-mode .upcoming-amount,
@@ -5355,6 +5370,7 @@ tr:last-child td {
 }
 
 /* Specific page top margins for pages with floating user-info */
+#planner,
 #analytics,
 #budget,
 #savings,
@@ -5364,6 +5380,7 @@ tr:last-child td {
 
 @media (max-width: 768px) {
 
+  #planner,
   #analytics,
   #budget,
   #savings,
@@ -5470,20 +5487,26 @@ tr:last-child td {
 }
 
 .upcoming-income-summary-stats {
-  display: flex;
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  gap: 0;
 }
 
 .upcoming-income-summary-stat {
   align-items: flex-end;
   text-align: right;
-  min-width: 6.5rem;
-  padding: 0 1rem;
+  min-width: 0;
+  padding: 0 0.75rem;
+  border-left: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .upcoming-income-summary-stat.overdue-stat strong {
   color: #b45309;
+}
+
+.upcoming-income-summary-stat.total-stat strong {
+  color: var(--primary-color);
 }
 
 .upcoming-income-summary-stat strong {
@@ -5773,11 +5796,18 @@ tr:last-child td {
     text-align: center;
   }
 
-  .upcoming-income-summary-stat.count-stat {
-    grid-column: 1 / -1;
+  .upcoming-income-summary-stat {
+    padding: 0.35rem 0.45rem;
+    border-left: 0;
+  }
+
+  .upcoming-income-summary-stat:nth-child(even) {
+    border-left: 1px solid rgba(16, 185, 129, 0.2);
+  }
+
+  .upcoming-income-summary-stat:nth-child(n + 3) {
     margin-top: 0.2rem;
     padding-top: 0.45rem;
-    border-left: 0;
   }
 
   .upcoming-income-summary-stat > span {
@@ -6630,10 +6660,9 @@ tr:last-child td {
     text-align: left;
   }
 
-  .upcoming-income-summary-stat.upcoming-stat,
-  .upcoming-income-summary-stat.count-stat {
+  .upcoming-income-summary-stat {
     grid-column: auto;
-    margin-top: 0;
+    margin-top: 0.2rem;
     padding-top: 0.4rem;
     border-left: 0;
   }
@@ -7386,11 +7415,6 @@ tr:last-child td {
   color: #b45309;
 }
 
-.upcoming-income-period-divider.period-next-month,
-.upcoming-income-period-divider.period-later {
-  color: #64748b;
-}
-
 .ar-count-badge,
 .expected-income-count-badge {
   background: rgba(53, 88, 114, 0.12);
@@ -7568,5 +7592,915 @@ tr:last-child td {
 @media (max-width: 768px) {
   #savings .savings-list {
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Planner */
+.nav-more {
+  position: relative;
+  z-index: 1401;
+}
+
+.nav-more-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-more.has-active {
+  color: #fff;
+}
+
+.nav-more-menu {
+  position: absolute;
+  z-index: 1402;
+  left: calc(100% + 0.5rem);
+  bottom: 0;
+  display: grid;
+  min-width: 180px;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-lg);
+}
+
+.nav-more-menu[hidden] {
+  display: none !important;
+}
+
+.nav-more-menu [data-tab] {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-more-menu [data-tab]:hover,
+.nav-more-menu [data-tab].active {
+  background: rgba(53, 88, 114, 0.1);
+  color: var(--primary-color);
+}
+
+.planner-page {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 1.25rem 0 2rem;
+}
+
+.planner-heading,
+.planner-section-heading,
+.planner-item-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.planner-heading {
+  margin-bottom: 1.5rem;
+}
+
+.planner-heading h2 {
+  color: var(--primary-color);
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.planner-eyebrow {
+  margin-bottom: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.planner-intro,
+.planner-section-heading p {
+  margin-top: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.planner-month-picker {
+  display: grid;
+  min-width: 190px;
+  gap: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.planner-month-picker input,
+.planner-form input,
+.planner-form select,
+.planner-price-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font: inherit;
+}
+
+.planner-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.planner-kpi {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.15rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+}
+
+.planner-kpi-icon {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  grid-row: span 2;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(53, 88, 114, 0.09);
+  color: var(--primary-color);
+}
+
+.planner-kpi.income .planner-kpi-icon,
+.planner-kpi.income strong {
+  color: var(--success);
+}
+
+.planner-kpi.expense .planner-kpi-icon,
+.planner-kpi.expense strong,
+.planner-kpi.negative strong {
+  color: var(--danger);
+}
+
+.planner-kpi-label {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.planner-kpi strong {
+  overflow: hidden;
+  color: var(--primary-color);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-kpi.next strong {
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.planner-section-card {
+  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+}
+
+.planner-section-heading {
+  margin-bottom: 1.15rem;
+}
+
+.planner-section-heading h3 {
+  color: var(--primary-color);
+}
+
+.planner-section-heading .btn {
+  flex: 0 0 auto;
+}
+
+.planner-form {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: rgba(244, 246, 241, 0.65);
+}
+
+.planner-form[hidden] {
+  display: none;
+}
+
+.planner-event-modal {
+  z-index: 12000;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.planner-event-modal .planner-event-form {
+  max-width: 620px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+
+.planner-event-form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.planner-event-form-heading h3 {
+  color: var(--primary-color);
+}
+
+.planner-event-form-heading .btn-icon {
+  flex: 0 0 auto;
+}
+
+.planner-event-modal .planner-form-actions {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.planner-end-date-field[hidden] {
+  display: none !important;
+}
+
+.planner-form h4 {
+  margin-bottom: 0.85rem;
+  color: var(--primary-color);
+}
+
+.planner-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.planner-form .form-group,
+.planner-price-form .form-group {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.planner-field-hint {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.planner-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.planner-timeline {
+  position: relative;
+  padding: 0.15rem 0 0.15rem 0.2rem;
+}
+
+.planner-timeline::before {
+  position: absolute;
+  top: 1rem;
+  bottom: 1rem;
+  left: 0.48rem;
+  width: 2px;
+  background: var(--border-color);
+  content: "";
+}
+
+.planner-day {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(90px, 135px) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0 0 1.15rem 1.55rem;
+}
+
+.planner-day:last-child {
+  padding-bottom: 0;
+}
+
+.planner-day-date {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.8rem;
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.planner-timeline-dot {
+  position: absolute;
+  top: 1.05rem;
+  left: -1.56rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 2px solid var(--primary-color);
+  border-radius: 50%;
+  background: var(--card-bg);
+}
+
+.planner-day-events {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.planner-event-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.7rem;
+  row-gap: 0.35rem;
+  padding: 0.7rem;
+  border: 2px solid var(--border-color);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
+.planner-event-row.income {
+  border-color: rgba(16, 185, 129, 0.55);
+  border-left-color: var(--success);
+}
+
+.planner-event-row.expense {
+  border-color: rgba(239, 68, 68, 0.42);
+  border-left-color: var(--danger);
+}
+
+.planner-event-row > .planner-event-kind {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  margin-top: 0.05rem;
+}
+
+.planner-event-kind {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(53, 88, 114, 0.08);
+  color: var(--primary-color);
+}
+
+.planner-event-kind.income {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.planner-event-kind.expense {
+  background: rgba(239, 68, 68, 0.09);
+  color: var(--danger);
+}
+
+.planner-event-copy {
+  display: grid;
+  min-width: 0;
+  grid-column: 2;
+  gap: 0.1rem;
+}
+
+.planner-event-main-line {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.planner-event-copy strong {
+  overflow: hidden;
+  color: var(--text-main);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-event-copy span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.planner-event-amount {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.planner-event-main-line .planner-event-amount {
+  margin-left: auto;
+  overflow: visible;
+  text-align: right;
+}
+
+.planner-event-amount.income {
+  color: var(--success);
+}
+
+.planner-event-amount.expense {
+  color: var(--danger);
+}
+
+.planner-event-actions,
+.planner-item-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.15rem;
+}
+
+.planner-event-actions {
+  grid-column: 2;
+  justify-self: end;
+}
+
+.planner-event-actions .btn-icon,
+.planner-item-actions .btn-icon,
+.planner-price-row .btn-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.planner-event-actions [data-edit-event],
+.planner-item-actions [data-edit-item] {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+.planner-event-actions [data-delete-event],
+.planner-item-actions [data-delete-item],
+.planner-price-row [data-delete-price] {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.planner-event-actions [data-edit-event]:hover,
+.planner-item-actions [data-edit-item]:hover {
+  background: rgba(37, 99, 235, 0.18);
+  color: #1d4ed8;
+}
+
+.planner-event-actions [data-delete-event]:hover,
+.planner-item-actions [data-delete-item]:hover,
+.planner-price-row [data-delete-price]:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #b91c1c;
+}
+
+.planner-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  padding: 2rem 1rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.planner-empty-state > i {
+  margin-bottom: 0.35rem;
+  color: var(--primary-color);
+  font-size: 1.6rem;
+}
+
+.planner-empty-state strong {
+  color: var(--text-main);
+}
+
+.planner-empty-state span {
+  font-size: 0.82rem;
+}
+
+.planner-items-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.planner-items-empty {
+  grid-column: 1 / -1;
+}
+
+.planner-item-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.planner-item-heading {
+  padding: 1rem 1rem 0.75rem;
+}
+
+.planner-item-name {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.planner-item-name h4 {
+  overflow: hidden;
+  color: var(--primary-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-item-name > div > span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.planner-item-latest {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 1rem 0.85rem;
+}
+
+.planner-item-latest > div {
+  display: grid;
+}
+
+.planner-item-latest > div > span,
+.planner-price-change {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.planner-item-latest strong {
+  color: var(--primary-color);
+  font-size: 1.25rem;
+}
+
+.planner-price-change {
+  text-align: right;
+}
+
+.planner-price-change.up {
+  color: var(--danger);
+}
+
+.planner-price-change.down {
+  color: var(--success);
+}
+
+.planner-item-details {
+  border-top: 1px solid rgba(122, 170, 206, 0.22);
+}
+
+.planner-item-details summary {
+  padding: 0.75rem 1rem;
+  color: var(--primary-color);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.planner-item-detail-body {
+  padding: 0.25rem 1rem 1rem;
+}
+
+.planner-price-chart-wrap {
+  position: relative;
+  height: 155px;
+  margin: 0 0 0.85rem;
+}
+
+.planner-price-history {
+  list-style: none;
+  max-height: 190px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+}
+
+.planner-price-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(122, 170, 206, 0.18);
+  font-size: 0.76rem;
+}
+
+.planner-price-row > span:first-child {
+  color: var(--text-muted);
+}
+
+.planner-price-record small {
+  display: block;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-price-row > strong {
+  color: var(--primary-color);
+  white-space: nowrap;
+}
+
+.planner-no-price-history {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.planner-price-form {
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(122, 170, 206, 0.22);
+}
+
+.planner-price-form h5 {
+  margin-bottom: 0.6rem;
+  color: var(--primary-color);
+}
+
+.planner-price-form-fields {
+  display: grid;
+  grid-template-columns: 1fr 0.8fr;
+  align-items: end;
+  gap: 0.6rem;
+}
+
+.planner-price-form .btn {
+  min-height: 42px;
+}
+
+.planner-chart-unavailable {
+  padding: 1rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1024px) {
+  .planner-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .nav-more-menu {
+    right: 0;
+    bottom: calc(100% + 0.65rem);
+    left: auto;
+  }
+
+  .nav-more-menu [data-tab] {
+    min-height: 44px;
+  }
+
+  .nav-more-toggle {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 54px;
+    text-align: center;
+  }
+
+  .planner-page {
+    padding-top: 0.35rem;
+  }
+
+  .planner-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .planner-month-picker {
+    width: 100%;
+  }
+
+  .planner-section-card {
+    padding: 1rem;
+  }
+
+  .planner-section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .planner-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .planner-day {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding-bottom: 1rem;
+  }
+
+  .planner-day-date {
+    padding-top: 0.3rem;
+  }
+
+  .planner-timeline::before {
+    top: 0.6rem;
+    bottom: 0.6rem;
+  }
+
+  .planner-timeline-dot {
+    top: 0.58rem;
+  }
+
+  .planner-items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-price-form-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .planner-kpis {
+    gap: 0.55rem;
+  }
+
+  .planner-kpi {
+    position: relative;
+    display: flex;
+    min-height: 94px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.65rem 0.45rem 0.55rem;
+    text-align: center;
+  }
+
+  .planner-kpi-icon {
+    position: static;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 8px;
+    font-size: 0.68rem;
+  }
+
+  .planner-kpi-label {
+    max-width: 100%;
+    min-height: 0;
+    padding: 0;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .planner-kpi strong {
+    font-size: 0.9rem;
+  }
+
+  .planner-kpi.next strong {
+    font-size: 0.74rem;
+  }
+
+  .planner-section-card {
+    padding: 0.85rem;
+  }
+
+  .planner-section-heading .btn {
+    width: 100%;
+  }
+
+  .planner-form-grid,
+  .planner-price-form-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .planner-form-actions .btn {
+    width: 100%;
+  }
+
+  .planner-event-row {
+    column-gap: 0.55rem;
+    row-gap: 0.3rem;
+    padding: 0.55rem;
+  }
+
+  .planner-event-copy strong {
+    font-size: 0.9rem;
+  }
+
+  .planner-event-main-line {
+    gap: 0.35rem;
+  }
+
+  .planner-event-main-line .planner-event-amount {
+    font-size: 0.82rem;
+  }
+
+  .planner-event-copy > span {
+    font-size: 0.68rem;
+  }
+
+  .planner-event-kind {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 8px;
+  }
+
+  .planner-event-actions {
+    gap: 0.25rem;
+  }
+
+  .planner-event-actions .btn-icon,
+  .planner-item-actions .btn-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .planner-item-heading {
+    align-items: flex-start;
+    padding: 0.85rem 0.85rem 0.65rem;
+  }
+
+  .planner-item-name {
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .planner-item-name > div {
+    min-width: 0;
+  }
+
+  .planner-item-name > div > span {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+
+  .planner-item-actions {
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .planner-event-modal {
+    align-items: flex-end;
+    padding: 0.5rem;
+  }
+
+  .planner-event-modal .planner-event-form {
+    max-height: calc(94dvh - env(safe-area-inset-bottom, 0px));
+    padding: 1rem;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .planner-price-row {
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .planner-price-record {
+    display: none;
   }
 }

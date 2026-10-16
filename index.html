@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Floosy</title>
   <link rel="icon" type="image/png" href="images/favicon.png" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/style.css?v=8" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
   <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
@@ -28,9 +28,9 @@
           <i class="fas fa-th-large"></i>
           <span>Dashboard</span>
         </li>
-        <li data-tab="analytics">
-          <i class="fas fa-chart-line"></i>
-          <span>Analytics</span>
+        <li data-tab="planner">
+          <i class="fas fa-calendar-alt"></i>
+          <span>Planner</span>
         </li>
         <li data-tab="budget">
           <i class="fas fa-bullseye"></i>
@@ -40,9 +40,22 @@
           <i class="fas fa-piggy-bank"></i>
           <span>Savings</span>
         </li>
-        <li data-tab="settings">
-          <i class="fas fa-cog"></i>
-          <span>Settings</span>
+        <li class="nav-more">
+          <button type="button" class="nav-more-toggle" id="nav-more-toggle" aria-haspopup="true"
+            aria-expanded="false" aria-controls="nav-more-menu">
+            <i class="fas fa-ellipsis-h"></i>
+            <span>More</span>
+          </button>
+          <div class="nav-more-menu" id="nav-more-menu" role="menu" hidden>
+            <button type="button" data-tab="analytics" role="menuitem">
+              <i class="fas fa-chart-line"></i>
+              <span>Analytics</span>
+            </button>
+            <button type="button" data-tab="settings" role="menuitem">
+              <i class="fas fa-cog"></i>
+              <span>Settings</span>
+            </button>
+          </div>
         </li>
       </ul>
     </nav>
@@ -295,6 +308,127 @@
         </div>
       </section>
 
+      <!-- Planner Tab -->
+      <section id="planner" class="tab-content">
+        <div class="planner-page">
+          <div class="planner-heading">
+            <div>
+              <p class="planner-eyebrow">YOUR MONTH, AT A GLANCE</p>
+              <h2>Cash-flow planner</h2>
+              <p class="planner-intro">Plan expected income and fixed expenses separately from your recorded transactions.</p>
+            </div>
+            <label class="planner-month-picker">
+              <span>Planning month</span>
+              <input type="month" id="planner-month" />
+            </label>
+          </div>
+
+          <div class="planner-kpis" id="planner-kpis" aria-live="polite"></div>
+
+          <section class="card planner-section-card" aria-labelledby="planner-timeline-title">
+            <div class="planner-section-heading">
+              <div>
+                <h3 id="planner-timeline-title">Planned cash flow</h3>
+                <p>Recurring and one-time events you've planned for this month.</p>
+              </div>
+              <button class="btn btn-primary" id="planner-add-event-toggle" type="button">
+                <i class="fas fa-plus"></i> Add event
+              </button>
+            </div>
+
+            <div id="planner-timeline" class="planner-timeline"></div>
+          </section>
+
+          <div class="modal planner-event-modal" id="planner-event-modal" aria-hidden="true">
+            <form id="planner-event-form" class="planner-form planner-event-form modal-content" aria-labelledby="planner-event-form-title">
+              <div class="planner-event-form-heading">
+                <h3 id="planner-event-form-title">New planned event</h3>
+                <button class="btn-icon" type="button" id="planner-event-close" aria-label="Close event form">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <input type="hidden" name="id" />
+              <div class="planner-form-grid">
+                <label class="form-group">
+                  <span>Event name <small>(optional)</small></span>
+                  <input name="title" type="text" maxlength="80" placeholder="e.g. Rent, Paycheck" />
+                </label>
+                <label class="form-group">
+                  <span>Type</span>
+                  <select name="type" required>
+                    <option value="income" selected>Income</option>
+                    <option value="expense">Expense</option>
+                  </select>
+                </label>
+                <label class="form-group">
+                  <span>Amount ($)</span>
+                  <input name="amount" type="number" min="0.01" step="0.01" required placeholder="0.00" />
+                </label>
+                <label class="form-group">
+                  <span>Repeats</span>
+                  <select name="frequency" required>
+                    <option value="once">One time</option>
+                    <option value="monthly" selected>Monthly</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </label>
+                <label class="form-group">
+                  <span class="planner-date-label">First date</span>
+                  <input name="startDate" type="date" required />
+                  <small class="planner-field-hint">Weekly events repeat on this weekday. Monthly events use this day (or the month's last day if shorter).</small>
+                </label>
+                <label class="form-group planner-end-date-field">
+                  <span>End date <small>(optional)</small></span>
+                  <input name="endDate" type="date" />
+                  <small class="planner-field-hint">Leave blank for an ongoing schedule.</small>
+                </label>
+              </div>
+              <div class="planner-form-actions">
+                <button class="btn btn-secondary" type="button" id="planner-event-cancel">Cancel</button>
+                <button class="btn btn-primary" type="submit">Save event</button>
+              </div>
+            </form>
+          </div>
+
+          <section class="card planner-section-card" aria-labelledby="planner-items-title">
+            <div class="planner-section-heading">
+              <div>
+                <h3 id="planner-items-title">Item price tracker</h3>
+                <p>Log prices when you buy something and see how its price changes over time.</p>
+              </div>
+              <button class="btn btn-primary" id="planner-add-item-toggle" type="button">
+                <i class="fas fa-plus"></i> Add item
+              </button>
+            </div>
+
+            <form id="planner-item-form" class="planner-form" hidden>
+              <h4 id="planner-item-form-title">Track an item</h4>
+              <input type="hidden" name="id" />
+              <div class="planner-form-grid planner-item-form-grid">
+                <label class="form-group">
+                  <span>Item name</span>
+                  <input name="name" type="text" maxlength="80" required placeholder="e.g. Coffee, Laundry detergent" />
+                </label>
+                <label class="form-group">
+                  <span>Usual purchase frequency</span>
+                  <select name="frequency" required>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="as-needed">As needed</option>
+                  </select>
+                  <small class="planner-field-hint">For reference only; this does not create reminders.</small>
+                </label>
+              </div>
+              <div class="planner-form-actions">
+                <button class="btn btn-secondary" type="button" id="planner-item-cancel">Cancel</button>
+                <button class="btn btn-primary" type="submit">Save item</button>
+              </div>
+            </form>
+
+            <div id="planner-items" class="planner-items-grid"></div>
+          </section>
+        </div>
+      </section>
 
       <!-- Analytics Tab -->
       <section id="analytics" class="tab-content">
@@ -785,6 +919,10 @@
                     <label class="checkbox-label">
                       <input type="checkbox" id="reset-savings" checked>
                       <span class="checkbox-text">Savings</span>
+                    </label>
+                    <label class="checkbox-label">
+                      <input type="checkbox" id="reset-planner">
+                      <span class="checkbox-text">Planner (all events and item histories)</span>
                     </label>
                     <label class="checkbox-label">
                       <input type="checkbox" id="reset-categories">
@@ -1471,8 +1609,9 @@
   </div>
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
-  <script src="js/db.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/db.js?v=3"></script>
+  <script src="js/app.js?v=10"></script>
+  <script src="js/planner.js?v=3"></script>
   <script src="js/monthly-summary.js?v=2"></script>
 </body>
 

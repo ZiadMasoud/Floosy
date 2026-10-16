@@ -16,6 +16,8 @@ Floosy is a modern, user-friendly personal finance tracking web application desi
 - **Data Export/Import**: Export your financial data as JSON or import records from external sources.
 - **Selective Data Reset**: Choose specific data to reset - current month only, custom periods, or all data with granular control.
 - **Savings Tracker**: Create and manage multiple savings accounts, record deposits and withdrawals, and view account‑specific KPIs with pagination for transactions.
+- **Planner**: Plan monthly, weekly, and one-time income and fixed expenses separately from actual transactions. Track manually entered item prices with a small price-history chart.
+- **Compact Navigation**: Open Analytics and Settings from the More menu; Dashboard, Planner, Budget, and Savings remain directly available.
 - **Responsive Design**: Fully responsive interface that works seamlessly on desktop and mobile devices.
 - **Local Storage**: All data is stored locally using IndexedDB, ensuring privacy and offline functionality.
 
@@ -29,7 +31,8 @@ Floosy is a modern, user-friendly personal finance tracking web application desi
 2. **Records**: Add new transactions by clicking the "Add Transaction" button. Categorize your income and expenses.
 3. **Analytics**: Explore charts showing spending by category, monthly trends, and person-based spending analysis.
 4. **Savings**: Create savings accounts, track deposits and withdrawals with pagination support.
-5. **Settings**: 
+5. **Planner**: Create a separate cash-flow plan, view planned income, expenses, remaining balance, and the next event for a selected month. Add tracked items and log prices manually to see their price history and trend.
+6. **More → Settings**:
    - Manage categories and people
    - Export/import data as JSON
    - Use selective reset to clear specific data (current month, custom periods, or all data)
@@ -40,13 +43,16 @@ Floosy is a modern, user-friendly personal finance tracking web application desi
 ### Export/Import
 - Export all data as JSON for backup
 - Import data from JSON files
-- Preserves all records, categories, people, and savings data
+- Preserves transactions, categories, people, savings, recurring income, planned events, and tracked item price histories
+
+Planner events and item prices are stored separately from actual transactions. They do not change Dashboard or Analytics totals. Item purchase frequency is informational only and does not create reminders.
 
 ### Selective Reset Options
 - **All Data**: Complete database reset
 - **Current Month Only**: Clears only current month transactions
 - **Custom Period**: Select specific date ranges to clear
 - **Granular Control**: Choose what to reset (transactions, savings, categories, people)
+- **Planner Data**: Optionally clear all planned events and tracked item price histories; this is independent of the selected transaction date range
 
 ## 🛠️ Technologies Used
 

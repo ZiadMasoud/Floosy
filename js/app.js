@@ -9,6 +9,7 @@ let inactivityTimer = null;
 let privacyCountdownTimer = null;
 let privacyCountdownDeadline = 0;
 let isContentBlurred = false;
+let isManualPrivacyMode = false;
 const PRIVACY_COUNTDOWN_CIRCUMFERENCE = 2 * Math.PI * 43;
 
 // ============================================
@@ -232,7 +233,7 @@ let budgetLimits = [];
 let recurringIncomeTemplates = [];
 
 // DOM Elements
-const navLinks = document.querySelectorAll('.nav-links li');
+const navLinks = document.querySelectorAll('.nav-links [data-tab]');
 const tabContents = document.querySelectorAll('.tab-content');
 const tabTitle = document.getElementById('tab-title');
 const recordModal = document.getElementById('record-modal');
@@ -399,25 +400,21 @@ function showConfirm(message) {
 // INACTIVITY BLUR FUNCTIONS
 // ============================================
 function blurContent() {
-    // Enable privacy mode instead of blurring
-    if (!isContentBlurred) {
-        isPrivacyMode = true;
-        document.body.classList.add('privacy-mode');
-        localStorage.setItem('floosy_privacy_mode', true);
-        updatePrivacyIcon();
-        isContentBlurred = true;
-    }
+    isContentBlurred = true;
+    isPrivacyMode = true;
+    document.body.classList.add('privacy-mode', 'auto-blurred');
+    updatePrivacyIcon();
 }
 
 function unblurContent() {
-    // Disable privacy mode instead of unblurring
-    if (isContentBlurred) {
-        isPrivacyMode = false;
-        document.body.classList.remove('privacy-mode');
-        localStorage.setItem('floosy_privacy_mode', false);
-        updatePrivacyIcon();
-        isContentBlurred = false;
-    }
+    if (!isContentBlurred) return;
+    isContentBlurred = false;
+    isPrivacyMode = isManualPrivacyMode;
+    document.body.classList.toggle('privacy-mode', isPrivacyMode);
+    document.body.classList.remove('auto-blurred');
+    localStorage.setItem('floosy_privacy_mode', isManualPrivacyMode);
+    localStorage.setItem('floosy_manual_privacy_mode', isManualPrivacyMode);
+    updatePrivacyIcon();
 }
 
 function resetInactivityTimer() {
@@ -429,7 +426,6 @@ function resetInactivityTimer() {
         clearInterval(privacyCountdownTimer);
     }
     
-    // Unblur content if it was blurred
     unblurContent();
     
     // Set new timer for inactivity
@@ -438,6 +434,7 @@ function resetInactivityTimer() {
     privacyCountdownTimer = setInterval(updatePrivacyCountdown, 250);
     inactivityTimer = setTimeout(() => {
         blurContent();
+        updatePrivacyCountdown();
     }, INACTIVITY_TIMEOUT);
 }
 
@@ -455,7 +452,9 @@ function updatePrivacyCountdown() {
     const remainingSeconds = Math.ceil(remaining / 1000);
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = String(remainingSeconds % 60).padStart(2, '0');
-    const label = `Toggle Privacy Mode. Auto-blur in ${minutes}:${seconds}`;
+    const label = isContentBlurred
+        ? 'Toggle Privacy Mode. Content is blurred until you interact.'
+        : `Toggle Privacy Mode. Auto-blur in ${minutes}:${seconds}`;
     privacyToggleButton.title = label;
     privacyToggleButton.setAttribute('aria-label', label);
     if (!remaining && privacyCountdownTimer) {
@@ -470,9 +469,20 @@ document.addEventListener('DOMContentLoaded', async function initApp() {
         await initDB();
 
         // Initialize Privacy Mode
-        isPrivacyMode = localStorage.getItem('floosy_privacy_mode') === 'true';
+        const savedManualPrivacyMode = localStorage.getItem('floosy_manual_privacy_mode');
+        if (savedManualPrivacyMode === null) {
+            isManualPrivacyMode = false;
+            isContentBlurred = localStorage.getItem('floosy_privacy_mode') === 'true';
+            localStorage.setItem('floosy_manual_privacy_mode', 'false');
+        } else {
+            isManualPrivacyMode = savedManualPrivacyMode === 'true';
+            isContentBlurred = false;
+        }
+        isPrivacyMode = isManualPrivacyMode;
+        if (isContentBlurred) isPrivacyMode = true;
         if (isPrivacyMode) {
             document.body.classList.add('privacy-mode');
+            if (isContentBlurred) document.body.classList.add('auto-blurred');
             updatePrivacyIcon();
         }
 
@@ -533,6 +543,7 @@ function initEventListeners() {
     document.addEventListener('click', (e) => {
         // Only reset on trusted (genuine user) clicks, not programmatic events
         if (e.isTrusted && (e.target.closest('button') || e.target.closest('[data-tab]'))) {
+            if (e.target.closest('#privacy-toggle, #hero-privacy-toggle')) return;
             resetInactivityTimer();
         }
     });
@@ -540,9 +551,33 @@ function initEventListeners() {
     // Navigation
     navLinks.forEach(link => {
         link.addEventListener('click', async () => {
-            await switchTab(link.getAttribute('data-tab'));
+            const tabId = link.getAttribute('data-tab');
+            if (tabId) await switchTab(tabId);
         });
     });
+
+    const moreToggle = document.getElementById('nav-more-toggle');
+    const moreMenu = document.getElementById('nav-more-menu');
+    if (moreToggle && moreMenu) {
+        moreToggle.addEventListener('click', () => {
+            const isOpen = !moreMenu.hidden;
+            moreMenu.hidden = isOpen;
+            moreToggle.setAttribute('aria-expanded', String(!isOpen));
+        });
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.nav-more')) {
+                moreMenu.hidden = true;
+                moreToggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !moreMenu.hidden) {
+                moreMenu.hidden = true;
+                moreToggle.setAttribute('aria-expanded', 'false');
+                moreToggle.focus();
+            }
+        });
+    }
 
     if (viewAllRecordsBtn) {
         viewAllRecordsBtn.addEventListener('click', async () => await switchTab('records'));
@@ -2142,6 +2177,12 @@ async function switchTab(tabId) {
     navLinks.forEach(link => {
         link.classList.toggle('active', link.getAttribute('data-tab') === tabId);
     });
+    const moreNavItem = document.querySelector('.nav-more');
+    const moreMenu = document.getElementById('nav-more-menu');
+    const moreToggle = document.getElementById('nav-more-toggle');
+    if (moreNavItem) moreNavItem.classList.toggle('has-active', tabId === 'analytics' || tabId === 'settings');
+    if (moreMenu) moreMenu.hidden = true;
+    if (moreToggle) moreToggle.setAttribute('aria-expanded', 'false');
     tabContents.forEach(content => {
         content.classList.toggle('active', content.id === tabId);
     });
@@ -2177,7 +2218,7 @@ async function switchTab(tabId) {
     const userInfo = document.querySelector('.user-info');
 
     // Show floating user-info on analytics, budget, savings, and settings only
-    const showUserInfoTabs = ['analytics', 'budget', 'savings', 'settings'];
+    const showUserInfoTabs = ['planner', 'analytics', 'budget', 'savings', 'settings'];
     if (userInfo) {
         userInfo.style.display = showUserInfoTabs.includes(tabId) ? 'flex' : 'none';
         userInfo.classList.toggle('analytics-active', tabId === 'analytics');
@@ -2232,6 +2273,7 @@ async function switchTab(tabId) {
 
 async function renderAll() {
     if (currentTab === 'dashboard') await renderDashboard();
+    else if (currentTab === 'planner') await renderPlanner();
     else if (currentTab === 'analytics') await renderAnalytics();
     else if (currentTab === 'settings') renderSettings();
     else if (currentTab === 'savings') renderSavings();
@@ -6528,6 +6570,8 @@ async function handleExport() {
         savingsTransactions: await getAll(STORE_SAVINGS_TRANSACTIONS),
         budgetLimits: await getAll(STORE_BUDGET_LIMITS),
         recurringIncome: await getAll(STORE_RECURRING_INCOME),
+        plannedEvents: await getAll(STORE_PLANNED_EVENTS),
+        trackedItems: await getAll(STORE_TRACKED_ITEMS),
         exportedAt
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -6613,6 +6657,8 @@ async function handleImport(e) {
                     await clearStore(STORE_CATEGORIES);
                     await clearStore(STORE_PEOPLE);
                     await clearStore(STORE_RECURRING_INCOME);
+                    await clearStore(STORE_PLANNED_EVENTS);
+                    await clearStore(STORE_TRACKED_ITEMS);
                     for (const c of data.categories) {
                         delete c.id;
                         await add(STORE_CATEGORIES, c);
@@ -6637,6 +6683,18 @@ async function handleImport(e) {
                             }
                         }
                     }
+                    const recurringIncomeIdMap = new Map();
+                    if (data.recurringIncome) {
+                        await clearStore(STORE_RECURRING_INCOME);
+                        for (const template of data.recurringIncome) {
+                            const oldId = template.id;
+                            delete template.id;
+                            const newId = await add(STORE_RECURRING_INCOME, template);
+                            if (oldId !== undefined && oldId !== null) {
+                                recurringIncomeIdMap.set(String(oldId), newId);
+                            }
+                        }
+                    }
                     // import records AFTER savings accounts to remap savingsAccountId
                     if (data.records) {
                         for (const r of data.records) {
@@ -6644,6 +6702,12 @@ async function handleImport(e) {
                             if (oldSavingsAccountId !== undefined && oldSavingsAccountId !== null && String(oldSavingsAccountId).trim() !== '') {
                                 const mapped = savingsAccountIdMap.get(oldSavingsAccountId) ?? savingsAccountIdMap.get(String(oldSavingsAccountId));
                                 if (mapped) r.savingsAccountId = String(mapped);
+                            }
+                            if (r.fromRecurringTemplate !== undefined && r.fromRecurringTemplate !== null) {
+                                const mappedTemplateId = recurringIncomeIdMap.get(String(r.fromRecurringTemplate));
+                                if (mappedTemplateId !== undefined) {
+                                    r.fromRecurringTemplate = mappedTemplateId;
+                                }
                             }
                             delete r.id;
                             await add(STORE_RECORDS, r);
@@ -6667,12 +6731,16 @@ async function handleImport(e) {
                             await add(STORE_BUDGET_LIMITS, l);
                         }
                     }
-                    // import recurring income
-                    if (data.recurringIncome) {
-                        await clearStore(STORE_RECURRING_INCOME);
-                        for (const ri of data.recurringIncome) {
-                            delete ri.id;
-                            await add(STORE_RECURRING_INCOME, ri);
+                    if (data.plannedEvents) {
+                        for (const plannedEvent of data.plannedEvents) {
+                            delete plannedEvent.id;
+                            await add(STORE_PLANNED_EVENTS, plannedEvent);
+                        }
+                    }
+                    if (data.trackedItems) {
+                        for (const trackedItem of data.trackedItems) {
+                            delete trackedItem.id;
+                            await add(STORE_TRACKED_ITEMS, trackedItem);
                         }
                     }
                     if (data.exportedAt && !Number.isNaN(new Date(data.exportedAt).getTime())) {
@@ -6719,11 +6787,12 @@ async function handleSelectiveReset() {
     const resetType = resetTypeSelect.value;
     const resetRecords = document.getElementById('reset-records')?.checked || false;
     const resetSavings = document.getElementById('reset-savings')?.checked || false;
+    const resetPlanner = document.getElementById('reset-planner')?.checked || false;
     const resetCategories = document.getElementById('reset-categories')?.checked || false;
     const resetPeople = document.getElementById('reset-people')?.checked || false;
 
     // Validate at least one option is selected
-    if (!resetRecords && !resetSavings && !resetCategories && !resetPeople) {
+    if (!resetRecords && !resetSavings && !resetPlanner && !resetCategories && !resetPeople) {
         showToast('Please select at least one type of data to reset.', 'warning');
         return;
     }
@@ -6754,6 +6823,9 @@ async function handleSelectiveReset() {
     if (resetSavings) {
         confirmMessage += `• Savings Data (${resetType === 'all' ? 'all time' : resetType === 'month' ? 'current month' : 'selected period'})\n`;
     }
+    if (resetPlanner) {
+        confirmMessage += '• Planner Data (all planned events and item price histories)\n';
+    }
     if (resetCategories) {
         confirmMessage += '• Categories (will restore defaults)\n';
     }
@@ -6774,6 +6846,7 @@ async function handleSelectiveReset() {
             endDate,
             resetRecords,
             resetSavings,
+            resetPlanner,
             resetCategories,
             resetPeople
         });
@@ -6787,6 +6860,9 @@ async function handleSelectiveReset() {
         }
         if (result.savingsDeleted > 0) {
             successMessage += `• ${result.savingsDeleted === -1 ? 'All' : result.savingsDeleted} savings transactions deleted\n`;
+        }
+        if (resetPlanner) {
+            successMessage += `• Planner data cleared (${result.plannerEventsDeleted} events, ${result.trackedItemsDeleted} tracked items)\n`;
         }
         if (resetCategories) {
             successMessage += '• Categories reset to defaults\n';
@@ -7820,10 +7896,20 @@ async function checkAndCarryForwardAR() { /* no-op */ }
 
 // Privacy Mode Functions
 function togglePrivacyMode() {
-    isPrivacyMode = !isPrivacyMode;
+    isManualPrivacyMode = isContentBlurred ? false : !isManualPrivacyMode;
+    isContentBlurred = false;
+    isPrivacyMode = isManualPrivacyMode;
     document.body.classList.toggle('privacy-mode', isPrivacyMode);
+    document.body.classList.remove('auto-blurred');
     localStorage.setItem('floosy_privacy_mode', isPrivacyMode);
+    localStorage.setItem('floosy_manual_privacy_mode', isManualPrivacyMode);
     updatePrivacyIcon();
+    updatePrivacyCountdown();
+    if (!isPrivacyMode) {
+        isContentBlurred = false;
+        document.body.classList.remove('auto-blurred');
+        resetInactivityTimer();
+    }
 }
 
 function updateSavingsAccountNameMarquees() {
@@ -8240,7 +8326,7 @@ function renderUpcomingWidget() {
     const receivedThisMonth = new Set();
     records.forEach(r => {
         if (r.fromRecurringTemplate && r.type === 'income' && !r.isProjected) {
-            const rDate = new Date(r.date);
+            const rDate = parseDateLocal(r.date);
             if (rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear) {
                 receivedThisMonth.add(parseInt(r.fromRecurringTemplate));
             }
@@ -8259,11 +8345,6 @@ function renderUpcomingWidget() {
         if (receivedThisMonth.has(template.id)) return; // Skip if already received
 
         const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-        const nextMonth = now.getMonth() + 1;
-        const nextYear = now.getFullYear() + (nextMonth > 11 ? 1 : 0);
-        const adjustedNextMonth = nextMonth % 12;
-        const nextMonthKey = `${nextYear}-${String(adjustedNextMonth + 1).padStart(2, '0')}`;
-
         // Current month occurrence
         if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
             const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
@@ -8375,6 +8456,8 @@ function renderUpcomingIncome() {
     thirtyDaysFromNow.setDate(now.getDate() + 30);
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
+    const currentMonthStart = new Date(currentYear, currentMonth, 1);
+    const currentMonthEnd = new Date(currentYear, currentMonth + 1, 0);
 
     // Build a map of templateId -> received record id for THIS month
     // This lets us detect which recurring incomes have already been received
@@ -8395,7 +8478,7 @@ function renderUpcomingIncome() {
     // Get regular upcoming income and AR (next 30 days)
     const upcomingIncome = records.filter(r => {
         if (r.skipped) return false;
-        const recordDate = new Date(r.date);
+        const recordDate = parseDateLocal(r.date);
         // Include: future income dates, pending AR, and overdue projected expected income for this month
         if (r.type === 'income' && r.isProjected) {
             if (recordDate > now && recordDate <= thirtyDaysFromNow) {
@@ -8418,22 +8501,20 @@ function renderUpcomingIncome() {
         return false;
     }).sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Generate recurring income occurrences for next 30 days
-    // Also include current month occurrences even if their day has passed (so we can show received state)
+    // Include this month's recurring occurrence even if its day has passed so its received state remains visible.
     const recurringOccurrences = [];
     recurringIncomeTemplates.forEach(template => {
         const numericId = template.id;
         const alreadyReceived = receivedThisMonth.hasOwnProperty(numericId);
         
         const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-        const nextMonth = now.getMonth() + 1;
-        const nextYear = now.getFullYear() + (nextMonth > 11 ? 1 : 0);
-        const adjustedNextMonth = nextMonth % 12;
-        const nextMonthKey = `${nextYear}-${String(adjustedNextMonth + 1).padStart(2, '0')}`;
-
         // Current month occurrence
         if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
-            const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
+            const currentMonthDate = new Date(
+                currentYear,
+                currentMonth,
+                Math.min(template.dayOfMonth, currentMonthEnd.getDate())
+            );
             if (currentMonthDate <= thirtyDaysFromNow) {
                 recurringOccurrences.push({
                     id: template.id,
@@ -8451,35 +8532,30 @@ function renderUpcomingIncome() {
             }
         }
 
-        // Check next month occurrence
-        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) {
-            const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
-            if (nextMonthDate > now && nextMonthDate <= thirtyDaysFromNow) {
-                recurringOccurrences.push({
-                    id: template.id + '_next', // Unique ID for this occurrence
-                    date: formatDateLocal(nextMonthDate),
-                    amount: template.amount,
-                    category: template.category,
-                    projectedSource: template.source,
-                    notes: template.notes,
-                    isRecurring: true,
-                    isProjected: true,
-                    templateId: template.id,
-                    dayOfMonth: template.dayOfMonth,
-                    receivedRecordId: null // Next month can't be received yet
-                });
-            }
-        }
     });
 
-    // Combine all upcoming income items
-    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences];
+    // Only show income and receivables dated within the current month.
+    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences].filter(item => {
+        const date = parseDateLocal(item.date);
+        return date >= currentMonthStart && date <= currentMonthEnd;
+    });
     const pendingUpcoming = allUpcomingIncome.filter(r => !r.receivedRecordId);
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const overdueItems = pendingUpcoming.filter(r => parseDateLocal(r.date) < todayStart);
     const upcomingItems = pendingUpcoming.filter(r => parseDateLocal(r.date) >= todayStart);
     const overdueTotal = overdueItems.reduce((total, r) => total + (parseFloat(r.amount) || 0), 0);
     const upcomingTotal = upcomingItems.reduce((total, r) => total + (parseFloat(r.amount) || 0), 0);
+    const collectedExpectedIncome = records.reduce((total, record) => {
+        if (record.type !== 'income' || record.isProjected || record.fromRecurringTemplate || !record.projectedSource) {
+            return total;
+        }
+        const date = parseDateLocal(record.date);
+        if (date < currentMonthStart || date > todayStart) return total;
+        return total + (parseFloat(record.amount) || 0);
+    }, 0);
+    const totalIncome = allUpcomingIncome
+        .filter(record => record.type !== 'account_receivable')
+        .reduce((total, record) => total + (parseFloat(record.amount) || 0), collectedExpectedIncome);
     const summary = document.createElement('div');
     summary.className = 'upcoming-income-summary';
     summary.innerHTML = `
@@ -8491,6 +8567,10 @@ function renderUpcomingIncome() {
             </div>
         </div>
         <div class="upcoming-income-summary-stats">
+            <div class="upcoming-income-summary-stat total-stat">
+                <span>Total expected income</span>
+                <strong>$${formatCurrency(totalIncome)}</strong>
+            </div>
             <div class="upcoming-income-summary-stat overdue-stat">
                 <span>Overdue</span>
                 <strong>$${formatCurrency(overdueTotal)}</strong>
@@ -8532,12 +8612,9 @@ function renderUpcomingIncome() {
     // Sort collected items too
     collectedUpcoming.sort((a, b) => parseDateLocal(a.date) - parseDateLocal(b.date));
 
-    const nextMonthDate = new Date(currentYear, currentMonth + 1, 1);
     const upcomingGroups = [
         { key: 'overdue', label: 'Overdue' },
-        { key: 'current-month', label: 'Upcoming This Month' },
-        { key: 'next-month', label: 'Upcoming Next Month' },
-        { key: 'later', label: 'Upcoming Later' }
+        { key: 'current-month', label: 'Upcoming This Month' }
     ];
     const getUpcomingGroup = (item) => {
         const date = parseDateLocal(item.date);
@@ -8545,11 +8622,7 @@ function renderUpcomingIncome() {
         if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
             return 'current-month';
         }
-        if (date.getFullYear() === nextMonthDate.getFullYear()
-            && date.getMonth() === nextMonthDate.getMonth()) {
-            return 'next-month';
-        }
-        return 'later';
+        return null;
     };
     const renderGroupedUpcomingItems = (list, items, initialLimit, createCard) => {
         const groupedItems = upcomingGroups
