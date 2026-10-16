@@ -291,6 +291,24 @@ h1 {
   z-index: 1;
 }
 
+.hero-eye-icon {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.hero-eye-icon > i {
+  position: relative;
+  z-index: 1;
+}
+
 .privacy-countdown-ring {
   position: absolute;
   inset: 0;
@@ -329,9 +347,20 @@ body.privacy-mode .privacy-countdown-progress {
   background: rgba(255, 255, 255, 0.1);
 }
 
+#hero-privacy-toggle:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
 body.privacy-mode #privacy-toggle {
   color: white;
   font-weight: 700;
+}
+
+body.privacy-mode #hero-privacy-toggle {
+  color: white;
+  opacity: 1;
 }
 
 /* Privacy Mode Blurring */

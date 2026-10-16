@@ -418,6 +418,8 @@ function unblurContent() {
 }
 
 function resetInactivityTimer() {
+    if (isContentBlurred) return;
+
     // Clear existing timer if any
     if (inactivityTimer) {
         clearTimeout(inactivityTimer);
@@ -425,9 +427,7 @@ function resetInactivityTimer() {
     if (privacyCountdownTimer) {
         clearInterval(privacyCountdownTimer);
     }
-    
-    unblurContent();
-    
+
     // Set new timer for inactivity
     privacyCountdownDeadline = Date.now() + INACTIVITY_TIMEOUT;
     updatePrivacyCountdown();
@@ -439,24 +439,27 @@ function resetInactivityTimer() {
 }
 
 function updatePrivacyCountdown() {
-    const progress = document.querySelector('.privacy-countdown-progress');
-    const privacyToggleButton = document.getElementById('privacy-toggle');
-    if (!progress || !privacyToggleButton || !privacyCountdownDeadline) return;
+    const progressElements = document.querySelectorAll('.privacy-countdown-progress');
+    const privacyToggleButtons = document.querySelectorAll('#privacy-toggle, #hero-privacy-toggle');
+    if (!progressElements.length || !privacyToggleButtons.length || !privacyCountdownDeadline) return;
 
     const remaining = Math.max(0, privacyCountdownDeadline - Date.now());
     const fractionRemaining = remaining / INACTIVITY_TIMEOUT;
-    progress.style.strokeDashoffset = String(
-        PRIVACY_COUNTDOWN_CIRCUMFERENCE * (1 - fractionRemaining)
-    );
+    const strokeDashoffset = String(PRIVACY_COUNTDOWN_CIRCUMFERENCE * (1 - fractionRemaining));
+    progressElements.forEach(progress => {
+        progress.style.strokeDashoffset = strokeDashoffset;
+    });
 
     const remainingSeconds = Math.ceil(remaining / 1000);
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = String(remainingSeconds % 60).padStart(2, '0');
     const label = isContentBlurred
-        ? 'Toggle Privacy Mode. Content is blurred until you interact.'
+        ? 'Content is blurred. Toggle Privacy Mode to reveal it.'
         : `Toggle Privacy Mode. Auto-blur in ${minutes}:${seconds}`;
-    privacyToggleButton.title = label;
-    privacyToggleButton.setAttribute('aria-label', label);
+    privacyToggleButtons.forEach(button => {
+        button.title = label;
+        button.setAttribute('aria-label', label);
+    });
     if (!remaining && privacyCountdownTimer) {
         clearInterval(privacyCountdownTimer);
         privacyCountdownTimer = null;
@@ -2626,11 +2629,10 @@ async function renderDashboard() {
     const originalNonCarriedRecords = records.filter(r => !(r.type === 'account_receivable' && r.carriedForwardFrom));
     renderDashboardRecords(originalNonCarriedRecords);
     
+    renderMonthCountdown();
+
     // Render upcoming widget
     renderUpcomingWidget();
-    
-    // Render month countdown
-    renderMonthCountdown();
 }
 
 // Helper function: Convert savings transactions to displayable record format
@@ -8321,6 +8323,10 @@ function renderUpcomingWidget() {
     fiveDaysFromNow.setDate(now.getDate() + 5);
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
+    const nextMonthStart = new Date(currentYear, currentMonth + 1, 1);
+    const nextMonth = nextMonthStart.getMonth();
+    const nextYear = nextMonthStart.getFullYear();
+    const nextMonthKey = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}`;
 
     // Get a set of templateIds already received this month
     const receivedThisMonth = new Set();
@@ -8362,7 +8368,7 @@ function renderUpcomingWidget() {
 
         // Check next month occurrence (if within 5 days)
         if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) {
-            const nextMonthDate = new Date(nextYear, adjustedNextMonth, template.dayOfMonth);
+            const nextMonthDate = new Date(nextYear, nextMonth, template.dayOfMonth);
             if (nextMonthDate > now && nextMonthDate <= fiveDaysFromNow) {
                 recurringOccurrences.push({
                     date: formatDateLocal(nextMonthDate),
@@ -8432,18 +8438,15 @@ function renderUpcomingWidget() {
 
 function renderMonthCountdown() {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    // Calculate days until first of next month
-    const firstOfNextMonth = new Date(currentYear, currentMonth + 1, 1);
-    const daysUntilFirstOfMonth = Math.ceil((firstOfNextMonth - now) / (1000 * 60 * 60 * 24));
+    const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const daysUntilFirstOfMonth = Math.round((firstOfNextMonth - today) / (1000 * 60 * 60 * 24));
 
     // Update DOM element
     const firstOfMonthElement = document.getElementById('first-of-month-countdown');
 
     if (firstOfMonthElement) {
-        firstOfMonthElement.textContent = `${daysUntilFirstOfMonth} days`;
+        firstOfMonthElement.textContent = `${daysUntilFirstOfMonth} ${daysUntilFirstOfMonth === 1 ? 'day' : 'days'}`;
     }
 }
 
