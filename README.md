@@ -1,75 +1,132 @@
-# Floosy 💰
-
-## Overview
-
-Floosy is a modern, user-friendly personal finance tracking web application designed to help individuals manage their income, expenses, and financial habits. Built with vanilla JavaScript, HTML, and CSS, it brings powerful financial insights right to your browser—no installation, no complications, just start tracking!
-
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Start%20Tracking%20Now-blue?style=for-the-badge)](https://ziadmasoud.github.io/Floosy)
-
-## ✨ Features
-
-- **Dashboard Overview**: Get a quick snapshot of your total income, spending, and balance with intuitive KPI cards.
-- **Transaction Management**: Add, view, and manage income and expense records with detailed categorization.
-- **Analytics & Charts**: Visualize spending by category and track income vs. spending trends over time using interactive Chart.js charts.
-- **Category Management**: Create and organize custom categories for better expense tracking.
-- **People Management**: Track expenses by different people or family members.
-- **Data Export/Import**: Export your financial data as JSON or import records from external sources.
-- **Selective Data Reset**: Choose specific data to reset - current month only, custom periods, or all data with granular control.
-- **Savings Tracker**: Create and manage multiple savings accounts, record deposits and withdrawals, and view account‑specific KPIs with pagination for transactions.
-- **Planner**: Plan monthly, weekly, and one-time income and fixed expenses separately from actual transactions. Track manually entered item prices with a small price-history chart.
-- **Compact Navigation**: Open Analytics and Settings from the More menu; Dashboard, Planner, Budget, and Savings remain directly available.
-- **Responsive Design**: Fully responsive interface that works seamlessly on desktop and mobile devices.
-- **Local Storage**: All data is stored locally using IndexedDB, ensuring privacy and offline functionality.
-
-## 🚀 Get Started in Seconds
-
-**No installation required!** Simply [open Floosy](https://ziadmasoud.github.io/Floosy) in your browser and start tracking your finances immediately. Your data stays on your device—100% private.
-
-## 📖 How to Use
-
-1. **Dashboard**: View your financial overview with total income, spending, and balance for the current month.
-2. **Records**: Add new transactions by clicking the "Add Transaction" button. Categorize your income and expenses.
-3. **Analytics**: Explore charts showing spending by category, monthly trends, and person-based spending analysis.
-4. **Savings**: Create savings accounts, track deposits and withdrawals with pagination support.
-5. **Planner**: Create a separate cash-flow plan, view planned income, expenses, remaining balance, and the next event for a selected month. Add tracked items and log prices manually to see their price history and trend.
-6. **More → Settings**:
-   - Manage categories and people
-   - Export/import data as JSON
-   - Use selective reset to clear specific data (current month, custom periods, or all data)
-   - Reset all records if needed
-
-## 💾 Data Management Features
-
-### Export/Import
-- Export all data as JSON for backup
-- Import data from JSON files
-- Preserves transactions, categories, people, savings, recurring income, planned events, and tracked item price histories
-
-Planner events and item prices are stored separately from actual transactions. They do not change Dashboard or Analytics totals. Item purchase frequency is informational only and does not create reminders.
-
-### Selective Reset Options
-- **All Data**: Complete database reset
-- **Current Month Only**: Clears only current month transactions
-- **Custom Period**: Select specific date ranges to clear
-- **Granular Control**: Choose what to reset (transactions, savings, categories, people)
-- **Planner Data**: Optionally clear all planned events and tracked item price histories; this is independent of the selected transaction date range
-
-## 🛠️ Technologies Used
-
-- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
-- **Charts**: Chart.js for data visualization
-- **Icons**: Font Awesome for UI icons
-- **Storage**: IndexedDB for client-side data persistence
-- **Styling**: Custom CSS with responsive design
-
-## 🔒 Data Privacy
-
-Floosy stores all financial data locally in your browser using IndexedDB. **No data is transmitted to external servers**, ensuring complete privacy and security. Your finances stay yours.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request to help improve Floosy.
-
-## 📄 License
-
-This project is open source and available under the [MIT License](LICENSE).
+# Floosy
+ 
+Floosy is a personal finance tracker for managing income, expenses, savings, and monthly plans. It is built with vanilla JavaScript, HTML, and CSS, runs entirely in the browser, and can be installed on Android as an app. All data stays on your device.
+ 
+[Open the live app](https://ziadmasoud.github.io/Floosy)
+ 
+## Contents
+ 
+- [Features](#features)
+- [Install as an app](#install-as-an-app)
+- [Offline support](#offline-support)
+- [Data and privacy](#data-and-privacy)
+- [Data management](#data-management)
+- [Technology](#technology)
+- [Project structure](#project-structure)
+- [Running locally](#running-locally)
+- [Releasing an update](#releasing-an-update)
+- [Known limitations](#known-limitations)
+- [Contributing](#contributing)
+- [License](#license)
+## Features
+ 
+**Tracking**
+- Dashboard with income, spending, and balance for the current month.
+- Transaction management with categories and per-person tracking.
+- Multiple savings accounts with deposits, withdrawals, account-level indicators, and paginated history.
+**Planning**
+- Planner for monthly, weekly, and one-time income and fixed expenses, kept separate from actual transactions.
+- Manually logged item prices with a price-history chart.
+**Analysis**
+- Interactive charts for spending by category, income versus spending over time, and spending by person.
+- Monthly summary export as PDF.
+**Data control**
+- JSON export and import for backup and transfer.
+- Selective reset: all data, the current month, a custom date range, or specific data types.
+**Interface**
+- Responsive layout for desktop and mobile.
+- Compact navigation: Dashboard, Planner, Budget, and Savings are always available; Analytics and Settings are under the More menu.
+## Install as an app
+ 
+Floosy is a Progressive Web App (PWA). On Android:
+ 
+1. Open https://ziadmasoud.github.io/Floosy in Chrome.
+2. Use the app briefly, then reload the page once while online.
+3. Open the Chrome menu and choose **Install app**.
+4. Launch Floosy from the home screen. It opens fullscreen without the browser address bar.
+It also works as a normal website in any modern desktop or mobile browser.
+ 
+## Offline support
+ 
+After the first two online visits, Floosy loads and runs without an internet connection. A service worker stores the application files on the device, including the charting, notification, and icon libraries, which are bundled in the project rather than loaded from external servers.
+ 
+Offline you can view, add, and edit records, use the planner and savings, and browse analytics.
+ 
+## Data and privacy
+ 
+Floosy stores all data locally in your browser using IndexedDB. No financial data is sent to any server.
+ 
+Because data lives in browser storage:
+ 
+- Clearing Chrome's site data or storage for this site deletes your records.
+- The installed app shares storage with the website at the same address.
+- Export a JSON backup regularly and keep a copy outside the device, for example in cloud storage.
+## Data management
+ 
+### Export and import
+ 
+- Export all data as JSON from **More > Settings**.
+- Import a JSON file to restore or transfer data.
+- The export includes transactions, categories, people, savings, recurring income, planned events, and tracked item price histories.
+Planner events and item prices are stored separately from actual transactions. They do not affect Dashboard or Analytics totals. Item purchase frequency is informational only and does not create reminders.
+ 
+### Selective reset
+ 
+- **All data**: complete database reset.
+- **Current month**: clears only the current month's transactions.
+- **Custom period**: clears transactions in a selected date range.
+- **Granular control**: choose what to reset (transactions, savings, categories, people).
+- **Planner data**: optionally clear all planned events and tracked item price histories, independent of the selected transaction range.
+## Technology
+ 
+| Area | Technology |
+|---|---|
+| Frontend | HTML5, CSS3, JavaScript (ES6+) |
+| Storage | IndexedDB |
+| Charts | Chart.js 4.6.1 (bundled in `vendor/`) |
+| Notifications | Toastify (bundled in `vendor/`) |
+| Icons | Font Awesome 6.0.0 (bundled in `vendor/`) |
+| PDF export | jsPDF 2.5.1 (loaded from a CDN) |
+| Offline and install | Web App Manifest and service worker |
+ 
+## Project structure
+ 
+```
+Floosy/
+├── index.html            Application entry point
+├── manifest.json         PWA manifest (name, colors, icons)
+├── service-worker.js     Offline caching and versioning
+├── css/                  Stylesheets
+├── js/                   Application logic (database, planner, summaries)
+├── images/               Favicon and app icons
+└── vendor/               Locally hosted libraries and their licenses
+```
+ 
+## Running locally
+ 
+Service workers require a web server, so opening `index.html` directly from the file system will not work.
+ 
+1. Clone the repository.
+2. Open the folder in VS Code and install the **Live Server** extension.
+3. Right-click `index.html` and choose **Open with Live Server**.
+To test the PWA behavior, open DevTools (F12) and check the **Application** tab: Manifest, Service Workers, and Cache Storage. Use the **Network** tab with **Offline** selected to confirm offline loading.
+ 
+## Releasing an update
+ 
+The service worker caches exact file URLs, so any change to an application file needs three updates or installed copies will keep serving the old version:
+ 
+1. Increase the `?v=` number for the changed file in `index.html`.
+2. Update the same URL in the `APP_SHELL` list in `service-worker.js`.
+3. Increase the cache name in `service-worker.js` (for example `floosy-v3` to `floosy-v4`).
+## Known limitations
+ 
+- PDF export loads jsPDF and an Arabic-capable font from the internet, so it requires a connection. Offline, the rest of the app is unaffected.
+- Data is tied to the browser profile. Clearing browser data removes it, so keep JSON backups.
+- Exports download as files and cannot overwrite a previous file on Android, so repeated exports create separate files.
+## Contributing
+ 
+Contributions are welcome. Please open an issue to discuss a change, or submit a pull request.
+ 
+## License
+ 
+Released under the [MIT License](LICENSE).
