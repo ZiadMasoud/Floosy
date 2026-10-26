@@ -442,6 +442,11 @@ body.privacy-mode #record-details-content [style*="text-align: right"] {
   user-select: none !important;
 }
 
+body.privacy-mode .dashboard-records-list .transaction-name {
+  filter: blur(3px);
+  user-select: none;
+}
+
 /* Cards & Components */
 .card {
   background: var(--card-bg);
@@ -3786,7 +3791,7 @@ tr:last-child td {
     align-items: center;
     background: #0B2849;
     backdrop-filter: blur(10px);
-    z-index: 100;
+    z-index: 999;
   }
 
   .logo {

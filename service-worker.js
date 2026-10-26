@@ -1,10 +1,10 @@
-const CACHE = 'floosy-v3';
+const CACHE = 'floosy-v4';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
-  './css/style.css?v=9',
+  './css/style.css?v=10',
   './js/db.js?v=3',
   './js/app.js?v=11',
   './js/planner.js?v=3',
