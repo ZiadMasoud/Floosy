@@ -1,9 +1,17 @@
 let plannerSelectedMonth = null;
 let plannerEvents = [];
 let plannerItems = [];
+let plannerRecords = [];
 let plannerPriceCharts = new Map();
 let plannerExpandedItems = new Set();
 let plannerEventReturnFocus = null;
+const PLANNER_TIMELINE_PREVIEW_COUNT = 3;
+const PLANNER_OUTLOOK_RANGES = {
+    '6-months': { label: '6 months', months: 6 },
+    '12-months': { label: '12 months', months: 12 },
+    '5-years': { label: '5 years', months: 60 },
+    'all-time': { label: 'All time', months: null }
+};
 
 function plannerEscape(value) {
     const element = document.createElement('span');
@@ -18,6 +26,10 @@ function plannerGetMonthParts() {
     }
     const [year, month] = plannerSelectedMonth.split('-').map(Number);
     return { year, month };
+}
+
+function plannerGetTrackedItemType(item) {
+    return item.type === 'income' ? 'income' : 'spending';
 }
 
 function plannerDateFromParts(year, month, day) {
@@ -89,21 +101,22 @@ function plannerRenderTimeline(occurrences) {
     }
 
     const grouped = new Map();
-    occurrences.forEach(occurrence => {
-        if (!grouped.has(occurrence.date)) grouped.set(occurrence.date, []);
-        grouped.get(occurrence.date).push(occurrence.event);
+    occurrences.slice().sort((left, right) => left.date.localeCompare(right.date))
+        .forEach((occurrence, index) => {
+            if (!grouped.has(occurrence.date)) grouped.set(occurrence.date, []);
+            grouped.get(occurrence.date).push({ ...occurrence, index });
     });
 
-    timeline.innerHTML = Array.from(grouped.entries()).sort(([left], [right]) => left.localeCompare(right))
-        .map(([dateString, events]) => {
+    const dayMarkup = Array.from(grouped.entries())
+        .map(([dateString, dayOccurrences]) => {
             const date = parseDateLocal(dateString);
             const formattedDate = date.toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',
                 day: 'numeric'
             });
-            const rows = events.map(event => `
-              <div class="planner-event-row ${event.type}">
+            const rows = dayOccurrences.map(({ event, index }) => `
+              <div class="planner-event-row ${event.type}" data-event-index="${index}" ${index >= PLANNER_TIMELINE_PREVIEW_COUNT ? 'hidden' : ''}>
                 <span class="planner-event-kind ${event.type}" aria-hidden="true">
                   <i class="fas ${event.type === 'income' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i>
                 </span>
@@ -125,8 +138,9 @@ function plannerRenderTimeline(occurrences) {
                   </button>
                 </div>
               </div>`).join('');
+            const hasVisibleEvent = dayOccurrences.some(({ index }) => index < PLANNER_TIMELINE_PREVIEW_COUNT);
             return `
-              <div class="planner-day">
+              <div class="planner-day" ${hasVisibleEvent ? '' : 'hidden'}>
                 <div class="planner-day-date">
                   <span class="planner-timeline-dot" aria-hidden="true"></span>
                   <time datetime="${plannerEscape(dateString)}">${plannerEscape(formattedDate)}</time>
@@ -134,6 +148,31 @@ function plannerRenderTimeline(occurrences) {
                 <div class="planner-day-events">${rows}</div>
               </div>`;
         }).join('');
+
+    const remainingCount = Math.max(0, occurrences.length - PLANNER_TIMELINE_PREVIEW_COUNT);
+    const toggleButton = remainingCount
+        ? `<button type="button" class="btn btn-outline show-more-btn planner-timeline-toggle" aria-expanded="false">
+             <i class="fas fa-chevron-down" aria-hidden="true"></i> Show ${remainingCount} more
+           </button>`
+        : '';
+    timeline.innerHTML = `${dayMarkup}${toggleButton}`;
+
+    const toggle = timeline.querySelector('.planner-timeline-toggle');
+    if (toggle) {
+        toggle.addEventListener('click', () => {
+            const expanded = toggle.getAttribute('aria-expanded') !== 'true';
+            timeline.querySelectorAll('.planner-day').forEach(day => {
+                day.querySelectorAll('.planner-event-row').forEach(row => {
+                    row.hidden = !expanded && Number(row.dataset.eventIndex) >= PLANNER_TIMELINE_PREVIEW_COUNT;
+                });
+                day.hidden = !expanded && !day.querySelector('.planner-event-row:not([hidden])');
+            });
+            toggle.setAttribute('aria-expanded', String(expanded));
+            toggle.innerHTML = expanded
+                ? '<i class="fas fa-chevron-up" aria-hidden="true"></i> Show less'
+                : `<i class="fas fa-chevron-down" aria-hidden="true"></i> Show ${remainingCount} more`;
+        });
+    }
 }
 
 function plannerRenderKpis(occurrences) {
@@ -217,6 +256,149 @@ function plannerRenderPriceChart(item, canvas) {
     plannerPriceCharts.set(item.id, chart);
 }
 
+function plannerGetCategoryHistory(item, range = '12-months') {
+    const monthlyTotals = new Map();
+    const addRecord = record => {
+        if (record.type !== plannerGetTrackedItemType(item) || record.category !== item.category) return;
+        if (!record.date || record.isProjected || record.excludeFromIncomeTotals) return;
+        if (record.type === 'spending' &&
+            (record.isSavingsTransfer || record.savingsAccountId || record.category === 'Savings Transfer')) return;
+
+        const amount = Number.parseFloat(record.amount);
+        if (!Number.isFinite(amount)) return;
+        const date = record.type === 'income' && typeof getIncomeAttributionDate === 'function'
+            ? getIncomeAttributionDate(record)
+            : parseDateLocal(record.date);
+        if (!date || Number.isNaN(date.getTime())) return;
+
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const total = monthlyTotals.get(monthKey) || { amount: 0, count: 0 };
+        total.amount += amount;
+        total.count += 1;
+        monthlyTotals.set(monthKey, total);
+    };
+
+    plannerRecords.forEach(record => {
+        if (record.formatType === 'combined' && Array.isArray(record.combinedTransactions)) {
+            record.combinedTransactions.forEach(transaction => {
+                addRecord({
+                    ...record,
+                    ...transaction,
+                    amount: (Number.parseFloat(transaction.amount) || 0) * (Number.parseInt(transaction.quantity, 10) || 1),
+                    isSavingsTransfer: !!(record.isSavingsTransfer || record.savingsAccountId || transaction.savingsAccountId)
+                });
+            });
+        } else {
+            addRecord(record);
+        }
+    });
+
+    const now = new Date();
+    const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonth = `${currentMonthDate.getFullYear()}-${String(currentMonthDate.getMonth() + 1).padStart(2, '0')}`;
+    const rangeConfig = PLANNER_OUTLOOK_RANGES[range] || PLANNER_OUTLOOK_RANGES['12-months'];
+    const recordedMonths = Array.from(monthlyTotals.keys()).filter(month => month <= currentMonth).sort();
+    const defaultStartDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const defaultStartMonth = `${defaultStartDate.getFullYear()}-${String(defaultStartDate.getMonth() + 1).padStart(2, '0')}`;
+    const rangeStartDate = rangeConfig.months === null
+        ? null
+        : new Date(now.getFullYear(), now.getMonth() - rangeConfig.months + 1, 1);
+    const firstMonth = rangeConfig.months === null
+        ? recordedMonths[0] || defaultStartMonth
+        : `${rangeStartDate.getFullYear()}-${String(rangeStartDate.getMonth() + 1).padStart(2, '0')}`;
+    const [startYear, startMonth] = firstMonth.split('-').map(Number);
+    const monthsToRender = Math.max(1,
+        (currentMonthDate.getFullYear() - startYear) * 12 + currentMonthDate.getMonth() - (startMonth - 1) + 1);
+
+    return Array.from({ length: monthsToRender }, (_, index) => {
+        const monthDate = new Date(startYear, startMonth - 1 + index, 1);
+        const month = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+        return { month, ...(monthlyTotals.get(month) || { amount: 0, count: 0 }) };
+    });
+}
+
+function plannerFilterOutlierMonths(months) {
+    const values = months.filter(month => month.count > 0 && month.amount > 0)
+        .map(month => month.amount)
+        .sort((left, right) => left - right);
+    if (values.length < 3) return values;
+
+    const quantile = fraction => {
+        const position = (values.length - 1) * fraction;
+        const lower = Math.floor(position);
+        const upper = Math.ceil(position);
+        return values[lower] + ((values[upper] - values[lower]) * (position - lower));
+    };
+    const q1 = quantile(0.25);
+    const q3 = quantile(0.75);
+    const spread = q3 - q1;
+    const lowerFence = q1 - 1.5 * spread;
+    const upperFence = q3 + 1.5 * spread;
+    const middle = Math.floor(values.length / 2);
+    const median = values.length % 2
+        ? values[middle]
+        : (values[middle - 1] + values[middle]) / 2;
+    const deviations = values.map(value => Math.abs(value - median)).sort((left, right) => left - right);
+    const madMiddle = Math.floor(deviations.length / 2);
+    const medianDeviation = deviations.length % 2
+        ? deviations[madMiddle]
+        : (deviations[madMiddle - 1] + deviations[madMiddle]) / 2;
+    const robustZScore = value => medianDeviation
+        ? 0.6745 * Math.abs(value - median) / medianDeviation
+        : 0;
+    return values.filter(value =>
+        value >= lowerFence &&
+        value <= upperFence &&
+        (!medianDeviation || robustZScore(value) <= 3.5));
+}
+
+function plannerRenderCategoryChart(item, canvas, history) {
+    if (!history.length) return;
+    if (typeof Chart === 'undefined') {
+        const message = document.createElement('p');
+        message.className = 'planner-chart-unavailable';
+        message.textContent = 'The category chart is unavailable right now; monthly totals are still shown below.';
+        canvas.replaceWith(message);
+        return;
+    }
+
+    const isIncome = plannerGetTrackedItemType(item) === 'income';
+    const chart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: history.map(entry => {
+                const [year, month] = entry.month.split('-').map(Number);
+                return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            }),
+            datasets: [{
+                data: history.map(entry => entry.amount),
+                backgroundColor: isIncome ? 'rgba(16, 185, 129, 0.72)' : 'rgba(239, 68, 68, 0.68)',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: context => `$${formatCurrency(context.parsed.y)}`
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: value => `$${formatCurrency(Number(value))}` }
+                }
+            }
+        }
+    });
+    plannerPriceCharts.set(item.id, chart);
+}
+
 function plannerRenderItems() {
     const container = document.getElementById('planner-items');
     if (!container) return;
@@ -227,74 +409,153 @@ function plannerRenderItems() {
           <div class="planner-empty-state planner-items-empty">
             <i class="fas fa-tags" aria-hidden="true"></i>
             <strong>No tracked items yet</strong>
-            <span>Add an item, then log its price each time you want to compare it.</span>
+            <span>Track recorded income or spending by category, or log prices for named items.</span>
           </div>`;
         return;
     }
 
     const today = formatDateLocal(new Date());
     container.innerHTML = plannerItems.map(item => {
-        const history = Array.isArray(item.priceHistory) ? item.priceHistory : [];
-        const sortedHistory = history.slice().sort((left, right) => left.date.localeCompare(right.date));
-        const latest = sortedHistory[sortedHistory.length - 1];
-        const previous = sortedHistory.length > 1 ? sortedHistory[sortedHistory.length - 2] : null;
-        const change = latest && previous && Number(previous.price) > 0
-            ? ((Number(latest.price) - Number(previous.price)) / Number(previous.price)) * 100
+        const isCategoryTracker = !!item.category;
+        const outlookRange = PLANNER_OUTLOOK_RANGES[item.outlookRange] ? item.outlookRange : '12-months';
+        const categoryHistory = isCategoryTracker ? plannerGetCategoryHistory(item, outlookRange) : [];
+        const allTimeHistory = isCategoryTracker ? plannerGetCategoryHistory(item, 'all-time') : [];
+        const priceHistory = Array.isArray(item.priceHistory) ? item.priceHistory : [];
+        const sortedPriceHistory = priceHistory.slice().sort((left, right) => left.date.localeCompare(right.date));
+        const latestPrice = sortedPriceHistory[sortedPriceHistory.length - 1];
+        const previousPrice = sortedPriceHistory.length > 1 ? sortedPriceHistory[sortedPriceHistory.length - 2] : null;
+        const totalCategoryAmount = categoryHistory.reduce((total, entry) => total + entry.amount, 0);
+        const rangeStatValues = plannerFilterOutlierMonths(categoryHistory);
+        const averageCategoryAmount = rangeStatValues.length
+            ? rangeStatValues.reduce((total, amount) => total + amount, 0) / rangeStatValues.length
+            : 0;
+        const minimumCategoryMonth = categoryHistory.filter(entry =>
+            entry.count > 0 && rangeStatValues.includes(entry.amount)).reduce((minimum, entry) =>
+            !minimum || entry.amount < minimum.amount ? entry : minimum, null);
+        const maximumCategoryMonth = categoryHistory.filter(entry =>
+            entry.count > 0 && rangeStatValues.includes(entry.amount)).reduce((maximum, entry) =>
+            !maximum || entry.amount > maximum.amount ? entry : maximum, null);
+        const currentDate = new Date();
+        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+        const previousMonthKey = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}`;
+        const currentCategoryMonth = allTimeHistory.find(entry => entry.month === currentMonthKey) || { amount: 0 };
+        const previousCategoryMonth = allTimeHistory.find(entry => entry.month === previousMonthKey) || { amount: 0 };
+        const change = latestPrice && previousPrice && Number(previousPrice.price) > 0
+            ? ((Number(latestPrice.price) - Number(previousPrice.price)) / Number(previousPrice.price)) * 100
             : null;
         const frequencyLabels = { weekly: 'Weekly', monthly: 'Monthly', 'as-needed': 'As needed' };
         const frequency = frequencyLabels[item.frequency] || 'As needed';
+        const displayName = String(item.name || '').trim() || item.category;
+        const categoryLabel = isCategoryTracker
+            ? `<span class="planner-item-category">${plannerEscape(plannerGetTrackedItemType(item) === 'income' ? 'Income' : 'Spending')} · ${plannerEscape(item.category)}</span>`
+            : '';
         const expanded = plannerExpandedItems.has(String(item.id));
-        const historyRows = sortedHistory.slice().reverse().map(entry => `
+        const priceHistoryRows = sortedPriceHistory.slice().reverse().map(entry => `
           <li class="planner-price-row">
             <span>${plannerEscape(parseDateLocal(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))}</span>
             <span class="planner-price-record">${entry.notes ? `<small>${plannerEscape(entry.notes)}</small>` : ''}</span>
             <strong>$${formatCurrency(Number(entry.price) || 0)}</strong>
             <button type="button" class="btn-icon" data-delete-price="${plannerEscape(entry.id)}" data-item-id="${item.id}"
-              aria-label="Delete price entry for ${plannerEscape(item.name)}">
+              aria-label="Delete price entry for ${plannerEscape(displayName)}">
               <i class="fas fa-times"></i>
             </button>
           </li>`).join('');
+        const categoryHistoryRows = categoryHistory.slice().reverse().map(entry => {
+            const [year, month] = entry.month.split('-').map(Number);
+            const monthLabel = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            return `
+              <li class="planner-price-row category-month">
+                <span>${plannerEscape(monthLabel)}</span>
+                <span class="planner-price-record"><small>${entry.count === 0 ? 'No transactions' : entry.count === 1 ? '1 transaction' : `${entry.count} transactions`}</small></span>
+                <strong>$${formatCurrency(entry.amount)}</strong>
+              </li>`;
+        }).join('');
+        const displayedHistoryRows = isCategoryTracker ? categoryHistoryRows : priceHistoryRows;
+        const historyCount = isCategoryTracker ? categoryHistory.length : priceHistory.length;
+        const itemType = plannerGetTrackedItemType(item);
+        const categoryMonthLabel = monthKey => {
+            if (!monthKey) return 'No recorded months';
+            const [year, month] = monthKey.split('-').map(Number);
+            return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        };
+        const outlookStats = isCategoryTracker ? `
+          <div class="planner-category-outlook" aria-label="${plannerEscape(PLANNER_OUTLOOK_RANGES[outlookRange].label)} ${itemType} outlook">
+            <label class="planner-outlook-range">
+              <span>Outlook range</span>
+              <select data-outlook-range="${item.id}" aria-label="Outlook range for ${plannerEscape(displayName)}">
+                ${Object.entries(PLANNER_OUTLOOK_RANGES).map(([value, option]) =>
+                    `<option value="${value}" ${value === outlookRange ? 'selected' : ''}>${option.label}</option>`).join('')}
+              </select>
+            </label>
+            <div class="planner-outlook-stat total">
+              <span>Total</span>
+              <strong>$${formatCurrency(totalCategoryAmount)}</strong>
+            </div>
+            <div class="planner-outlook-stat average">
+              <span>Monthly Avg</span>
+              <strong>$${formatCurrency(averageCategoryAmount)}</strong>
+            </div>
+            <div class="planner-outlook-stat minimum">
+              <span>Minimum · ${plannerEscape(categoryMonthLabel(minimumCategoryMonth?.month))}</span>
+              <strong>${minimumCategoryMonth ? `$${formatCurrency(minimumCategoryMonth.amount)}` : 'N/A'}</strong>
+            </div>
+            <div class="planner-outlook-stat maximum">
+              <span>Maximum · ${plannerEscape(categoryMonthLabel(maximumCategoryMonth?.month))}</span>
+              <strong>${maximumCategoryMonth ? `$${formatCurrency(maximumCategoryMonth.amount)}` : 'N/A'}</strong>
+            </div>
+            <div class="planner-outlook-stat current">
+              <span>This month</span>
+              <strong>$${formatCurrency(currentCategoryMonth.amount)}</strong>
+            </div>
+            <div class="planner-outlook-stat previous">
+              <span>Last month</span>
+              <strong>$${formatCurrency(previousCategoryMonth.amount)}</strong>
+            </div>
+          </div>` : '';
+        const chartContent = isCategoryTracker
+            ? `<div class="planner-price-chart-wrap"><canvas id="planner-chart-${item.id}" aria-label="Monthly ${itemType} totals for ${plannerEscape(item.category)} over ${plannerEscape(PLANNER_OUTLOOK_RANGES[outlookRange].label)}"></canvas></div>`
+            : (priceHistory.length
+                ? `<div class="planner-price-chart-wrap"><canvas id="planner-chart-${item.id}" aria-label="Price history chart for ${plannerEscape(displayName)}"></canvas></div>`
+                : `<div class="planner-no-price-history"><i class="fas fa-chart-line" aria-hidden="true"></i><span>No price history yet. Add your first price below to start the chart.</span></div>`);
+        const historyContent = historyCount
+            ? `${chartContent}<ul class="planner-price-history">${displayedHistoryRows}</ul>`
+            : chartContent;
 
         return `
           <article class="planner-item-card">
             <div class="planner-item-heading">
               <div class="planner-item-name">
                 <div>
-                  <h4>${plannerEscape(item.name)}</h4>
-                  <span>${plannerEscape(frequency)} · descriptive only</span>
+                  <h4>${plannerEscape(displayName)}</h4>
+                  <span>${isCategoryTracker ? `${plannerEscape(PLANNER_OUTLOOK_RANGES[outlookRange].label)} outlook · from recorded transactions` : `${plannerEscape(frequency)} · descriptive only`}</span>
+                  ${categoryLabel}
                 </div>
               </div>
               <div class="planner-item-actions">
-                <button type="button" class="btn-icon" data-edit-item="${item.id}" aria-label="Edit ${plannerEscape(item.name)}">
+                <button type="button" class="btn-icon" data-edit-item="${item.id}" aria-label="Edit ${plannerEscape(displayName)}">
                   <i class="fas fa-pen"></i>
                 </button>
-                <button type="button" class="btn-icon" data-delete-item="${item.id}" aria-label="Delete ${plannerEscape(item.name)}">
+                <button type="button" class="btn-icon" data-delete-item="${item.id}" aria-label="Delete ${plannerEscape(displayName)}">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
             </div>
-            <div class="planner-item-latest">
-              <div>
-                <span>Latest price</span>
-                <strong>${latest ? `$${formatCurrency(Number(latest.price) || 0)}` : 'No prices yet'}</strong>
-              </div>
-              <span class="planner-price-change ${change === null ? '' : change > 0 ? 'up' : change < 0 ? 'down' : 'steady'}">
-                ${change === null ? `${history.length} ${history.length === 1 ? 'entry' : 'entries'}` : `${change > 0 ? '+' : ''}${formatCurrency(change)}% since previous`}
-              </span>
-            </div>
+            ${isCategoryTracker ? outlookStats : `
+              <div class="planner-item-latest">
+                <div>
+                  <span>Latest price</span>
+                  <strong>${latestPrice ? `$${formatCurrency(Number(latestPrice.price) || 0)}` : 'No prices yet'}</strong>
+                </div>
+                <span class="planner-price-change ${change === null ? '' : change > 0 ? 'up' : change < 0 ? 'down' : 'steady'}">
+                  ${change === null ? `${priceHistory.length} ${priceHistory.length === 1 ? 'entry' : 'entries'}` : `${change > 0 ? '+' : ''}${formatCurrency(change)}% since previous`}
+                </span>
+              </div>`}
             <details class="planner-item-details" data-item-details="${item.id}" ${expanded ? 'open' : ''}>
-              <summary>${expanded ? 'Hide details' : 'Price history & details'}</summary>
+              <summary>${expanded ? 'Hide details' : isCategoryTracker ? `${plannerEscape(PLANNER_OUTLOOK_RANGES[outlookRange].label)} outlook` : 'Price history & details'}</summary>
               <div class="planner-item-detail-body">
-                ${history.length ? `
-                  <div class="planner-price-chart-wrap">
-                    <canvas id="planner-chart-${item.id}" aria-label="Price history chart for ${plannerEscape(item.name)}"></canvas>
-                  </div>
-                  <ul class="planner-price-history">${historyRows}</ul>` : `
-                  <div class="planner-no-price-history">
-                    <i class="fas fa-chart-line" aria-hidden="true"></i>
-                    <span>No price history yet. Add your first price below to start the chart.</span>
-                  </div>`}
-                <form class="planner-price-form" data-item-id="${item.id}">
+                ${historyContent}
+                ${!isCategoryTracker ? `<form class="planner-price-form" data-item-id="${item.id}">
                   <h5>Log a price</h5>
                   <div class="planner-price-form-fields">
                     <label class="form-group">
@@ -311,7 +572,7 @@ function plannerRenderItems() {
                     </label>
                     <button class="btn btn-outline" type="submit"><i class="fas fa-plus"></i> Add price</button>
                   </div>
-                </form>
+                </form>` : ''}
               </div>
             </details>
           </article>`;
@@ -324,7 +585,10 @@ function plannerRenderItems() {
                 plannerExpandedItems.add(itemId);
                 const item = plannerItems.find(current => String(current.id) === itemId);
                 const canvas = document.getElementById(`planner-chart-${itemId}`);
-                if (item && canvas && !plannerPriceCharts.has(item.id)) plannerRenderPriceChart(item, canvas);
+                if (item && canvas && !plannerPriceCharts.has(item.id)) {
+                    if (item.category) plannerRenderCategoryChart(item, canvas, plannerGetCategoryHistory(item, item.outlookRange));
+                    else plannerRenderPriceChart(item, canvas);
+                }
             } else {
                 plannerExpandedItems.delete(itemId);
                 const item = plannerItems.find(current => String(current.id) === itemId);
@@ -335,12 +599,22 @@ function plannerRenderItems() {
                 }
             }
             const summary = details.querySelector('summary');
-            if (summary) summary.textContent = details.open ? 'Hide details' : 'Price history & details';
+            const item = plannerItems.find(current => String(current.id) === details.getAttribute('data-item-details'));
+            if (summary) {
+                summary.textContent = details.open
+                    ? 'Hide details'
+                    : item && item.category
+                        ? `${PLANNER_OUTLOOK_RANGES[item.outlookRange]?.label || '12 months'} outlook`
+                        : 'Price history & details';
+            }
         });
         if (details.open) {
             const item = plannerItems.find(current => String(current.id) === details.getAttribute('data-item-details'));
             const canvas = details.querySelector('canvas');
-            if (item && canvas) plannerRenderPriceChart(item, canvas);
+            if (item && canvas) {
+                if (item.category) plannerRenderCategoryChart(item, canvas, plannerGetCategoryHistory(item, item.outlookRange));
+                else plannerRenderPriceChart(item, canvas);
+            }
         }
     });
 }
@@ -357,12 +631,14 @@ async function renderPlanner() {
         monthInput.value = plannerSelectedMonth;
         const monthDisplay = document.getElementById('current-month-display');
         if (monthDisplay) {
-            monthDisplay.textContent = new Date()
-                .toLocaleString('default', { month: 'long', year: 'numeric' });
+            const { year, month } = plannerGetMonthParts();
+            monthDisplay.textContent = new Date(year, month - 1)
+                .toLocaleString('default', { month: 'short', year: 'numeric' });
         }
         const { year, month } = plannerGetMonthParts();
         plannerEvents = await getAll(STORE_PLANNED_EVENTS);
         plannerItems = await getAll(STORE_TRACKED_ITEMS);
+        plannerRecords = await getAll(STORE_RECORDS);
         const occurrences = plannerEvents.flatMap(event => plannerGetOccurrences(event, year, month))
             .sort((left, right) => left.date.localeCompare(right.date));
 
@@ -432,8 +708,37 @@ function plannerResetItemForm() {
     if (!form) return;
     form.reset();
     form.elements.id.value = '';
+    form.elements.type.value = 'spending';
+    form.elements.category.value = '';
+    plannerPopulateItemCategories('spending');
+    plannerUpdateItemFormFields();
     form.hidden = true;
     document.getElementById('planner-item-form-title').textContent = 'Track an item';
+}
+
+function plannerPopulateItemCategories(type = 'spending', selectedCategory = '') {
+    const categorySelect = document.querySelector('#planner-item-form [name="category"]');
+    if (!categorySelect) return;
+    const availableCategories = (Array.isArray(categories) ? categories : [])
+        .filter(category => category.type === type);
+    const options = availableCategories
+        .slice()
+        .sort((left, right) => left.name.localeCompare(right.name))
+        .map(category => `<option value="${plannerEscape(category.name)}">${plannerEscape(category.name)}</option>`)
+        .join('');
+    const placeholder = availableCategories.length ? 'Select category (optional)' : `No ${type} categories`;
+    categorySelect.innerHTML = `<option value="">${plannerEscape(placeholder)}</option>${options}`;
+    categorySelect.value = selectedCategory;
+    plannerUpdateItemFormFields();
+}
+
+function plannerUpdateItemFormFields() {
+    const form = document.getElementById('planner-item-form');
+    if (!form) return;
+    const hasCategory = !!form.elements.category.value;
+    form.elements.name.required = !hasCategory;
+    form.elements.frequency.required = !hasCategory;
+    form.querySelector('[data-frequency-field]').hidden = hasCategory;
 }
 
 function plannerEditItem(id) {
@@ -443,6 +748,8 @@ function plannerEditItem(id) {
     form.elements.id.value = item.id;
     form.elements.name.value = item.name;
     form.elements.frequency.value = item.frequency;
+    form.elements.type.value = plannerGetTrackedItemType(item);
+    plannerPopulateItemCategories(form.elements.type.value, item.category || '');
     form.hidden = false;
     document.getElementById('planner-item-form-title').textContent = 'Edit tracked item';
     form.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -457,6 +764,8 @@ function plannerInit() {
     const timeline = document.getElementById('planner-timeline');
     const itemsContainer = document.getElementById('planner-items');
     const eventFrequency = eventForm.elements.frequency;
+    const itemType = itemForm.elements.type;
+    const itemCategory = itemForm.elements.category;
     const endDateLabel = eventForm.querySelector('.planner-end-date-field');
     const updateEndDateVisibility = () => {
         const isOneTime = eventFrequency.value === 'once';
@@ -485,6 +794,8 @@ function plannerInit() {
         itemForm.elements.name.focus();
     });
     document.getElementById('planner-item-cancel').addEventListener('click', plannerResetItemForm);
+    itemType.addEventListener('change', () => plannerPopulateItemCategories(itemType.value));
+    itemCategory.addEventListener('change', plannerUpdateItemFormFields);
 
     monthInput.addEventListener('change', async () => {
         if (!monthInput.value) return;
@@ -550,9 +861,11 @@ function plannerInit() {
         event.preventDefault();
         const formData = new FormData(itemForm);
         const name = String(formData.get('name') || '').trim();
+        const type = String(formData.get('type') || '');
         const frequency = String(formData.get('frequency'));
-        if (!name || !['weekly', 'monthly', 'as-needed'].includes(frequency)) {
-            showToast('Enter an item name and choose a purchase frequency.', 'warning');
+        const category = String(formData.get('category') || '').trim();
+        if ((!name && !category) || !['income', 'spending'].includes(type) || !['weekly', 'monthly', 'as-needed'].includes(frequency)) {
+            showToast('Choose income or spending and add a name or category.', 'warning');
             return;
         }
 
@@ -561,7 +874,9 @@ function plannerInit() {
             const existing = id ? plannerItems.find(item => String(item.id) === String(id)) : null;
             const record = {
                 name,
+                type,
                 frequency,
+                category,
                 priceHistory: existing && Array.isArray(existing.priceHistory) ? existing.priceHistory : [],
                 updatedAt: new Date().toISOString()
             };
@@ -633,6 +948,25 @@ function plannerInit() {
         } catch (error) {
             console.error('Failed to save item price:', error);
             showToast('Could not save the item price.', 'error');
+        }
+    });
+
+    itemsContainer.addEventListener('change', async event => {
+        if (!(event.target instanceof Element)) return;
+        const rangeSelect = event.target.closest('[data-outlook-range]');
+        if (!rangeSelect) return;
+        const item = plannerItems.find(current => String(current.id) === rangeSelect.getAttribute('data-outlook-range'));
+        const range = rangeSelect.value;
+        if (!item || !PLANNER_OUTLOOK_RANGES[range]) return;
+
+        try {
+            item.outlookRange = range;
+            item.updatedAt = new Date().toISOString();
+            await updateRecord(STORE_TRACKED_ITEMS, item);
+            await renderPlanner();
+        } catch (error) {
+            console.error('Failed to save tracker outlook range:', error);
+            showToast('Could not save the outlook range.', 'error');
         }
     });
 

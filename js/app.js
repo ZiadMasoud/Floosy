@@ -10,6 +10,8 @@ let privacyCountdownTimer = null;
 let privacyCountdownDeadline = 0;
 let isContentBlurred = false;
 let isManualPrivacyMode = false;
+let areDashboardKpisBlurred = false;
+let areDashboardKpisRevealed = false;
 const PRIVACY_COUNTDOWN_CIRCUMFERENCE = 2 * Math.PI * 43;
 
 // ============================================
@@ -48,6 +50,39 @@ function getWeekOfMonth(date) {
     if (day < 15) return 2;
     if (day < 22) return 3;
     return 4;
+}
+
+function getCategoryIconValue(category) {
+    const iconValue = typeof category === 'string' ? category : category?.icon;
+    return CATEGORY_ICON_OPTIONS.some(option => option.value === iconValue) ? iconValue : 'fa-tag';
+}
+
+function populateCategoryIconSelect(selectId, selectedIcon = 'fa-tag') {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = '';
+    CATEGORY_ICON_OPTIONS.forEach(option => {
+        const element = document.createElement('option');
+        element.value = option.value;
+        element.textContent = option.label;
+        select.appendChild(element);
+    });
+    select.value = getCategoryIconValue(selectedIcon);
+}
+
+function updateCategoryIconPreview(selectId, previewId) {
+    const select = document.getElementById(selectId);
+    const preview = document.getElementById(previewId);
+    if (!select || !preview) return;
+    const icon = document.createElement('i');
+    icon.className = `fas ${getCategoryIconValue(select.value)}`;
+    preview.replaceChildren(icon);
+}
+
+function getSavingsTransactionCategory(transaction) {
+    if (transaction.category) return transaction.category;
+    const categoryMatch = (transaction.notes || '').match(/^(Income|Spending):\s*([^-]+)/);
+    return categoryMatch ? categoryMatch[2].trim() : '';
 }
 
 // Convert hex color to lighter transparent RGBA format
@@ -129,6 +164,15 @@ function getUsageMaps() {
 
 function incomeExcludedFromTotals(r) {
     return !!(r && (r.isProjected || r.excludeFromIncomeTotals));
+}
+
+function getIncomeAttributionDate(r) {
+    return r ? parseDateLocal(r.date) : null;
+}
+
+function isDateInMonth(dateValue, year, month) {
+    const date = parseDateLocal(dateValue);
+    return date.getFullYear() === year && date.getMonth() === month - 1;
 }
 
 function getAROutstandingAmount(r) {
@@ -225,6 +269,36 @@ let combinedTransactionIdCounter = 0;
 let savingsAccounts = [];
 let savingsTransactions = [];
 let savingsPage = {}; // tracks current page for each account (zero-based)
+const SAVINGS_OUTLOOK_RANGES = {
+    '3-months': { months: 3 },
+    '6-months': { months: 6 },
+    '1-year': { months: 12 },
+    '5-years': { months: 60 },
+    'all-time': { months: null }
+};
+let savingsOutlookRange = 'all-time';
+const CATEGORY_ICON_OPTIONS = [
+    { value: 'fa-tag', label: 'Tag' },
+    { value: 'fa-utensils', label: 'Food' },
+    { value: 'fa-house', label: 'Home' },
+    { value: 'fa-car', label: 'Car' },
+    { value: 'fa-heart', label: 'Health' },
+    { value: 'fa-bolt', label: 'Utilities' },
+    { value: 'fa-book', label: 'Education' },
+    { value: 'fa-gift', label: 'Gift' },
+    { value: 'fa-plane', label: 'Travel' },
+    { value: 'fa-paw', label: 'Pets' },
+    { value: 'fa-cart-shopping', label: 'Shopping' },
+    { value: 'fa-shirt', label: 'Clothing' },
+    { value: 'fa-laptop', label: 'Technology' },
+    { value: 'fa-briefcase', label: 'Work' },
+    { value: 'fa-coins', label: 'Money' },
+    { value: 'fa-piggy-bank', label: 'Savings' },
+    { value: 'fa-train', label: 'Transport' },
+    { value: 'fa-wifi', label: 'Internet' },
+    { value: 'fa-mug-hot', label: 'Cafe' },
+    { value: 'fa-child', label: 'Family' }
+];
 
 // Budget limits state
 let budgetLimits = [];
@@ -402,7 +476,9 @@ function showConfirm(message) {
 function blurContent() {
     isContentBlurred = true;
     isPrivacyMode = true;
+    areDashboardKpisRevealed = false;
     document.body.classList.add('privacy-mode', 'auto-blurred');
+    updateDashboardKpiPrivacy();
     updatePrivacyIcon();
 }
 
@@ -412,6 +488,7 @@ function unblurContent() {
     isPrivacyMode = isManualPrivacyMode;
     document.body.classList.toggle('privacy-mode', isPrivacyMode);
     document.body.classList.remove('auto-blurred');
+    updateDashboardKpiPrivacy();
     localStorage.setItem('floosy_privacy_mode', isManualPrivacyMode);
     localStorage.setItem('floosy_manual_privacy_mode', isManualPrivacyMode);
     updatePrivacyIcon();
@@ -595,6 +672,9 @@ function initEventListeners() {
         heroPrivacyToggle.addEventListener('click', togglePrivacyMode);
     }
 
+    setupDashboardKpiPrivacy();
+    setupCarriedDebtRepaymentListeners();
+
     // Records
     addRecordBtn.addEventListener('click', () => openModal());
     cancelModalBtn.addEventListener('click', closeModal);
@@ -722,6 +802,14 @@ function initEventListeners() {
             if (dashboardFilterBtn) {
                 dashboardFilterBtn.click();
             }
+        });
+    }
+
+    const heroAnalyticsBtn = document.getElementById('hero-analytics-btn');
+    if (heroAnalyticsBtn) {
+        heroAnalyticsBtn.addEventListener('click', async event => {
+            event.stopPropagation();
+            await switchTab('analytics');
         });
     }
 
@@ -1005,9 +1093,31 @@ function initEventListeners() {
 
     if (transactionForm) {
         transactionForm.addEventListener('submit', handleTransactionSubmit);
+        const transactionTypeSelect = document.getElementById('tx-type-display');
+        const transactionCategorySelect = document.getElementById('tx-category');
+        if (transactionTypeSelect) {
+            transactionTypeSelect.addEventListener('change', () => {
+                populateSavingsCategoryDropdown(transactionTypeSelect.value, transactionCategorySelect?.value);
+            });
+        }
     }
     if (cancelTransactionBtn) {
         cancelTransactionBtn.addEventListener('click', closeTransactionModal);
+    }
+
+    const savingsOutlookRangeSelect = document.getElementById('savings-outlook-range');
+    if (savingsOutlookRangeSelect) {
+        const savedRange = localStorage.getItem('floosy_savings_outlook_range');
+        if (Object.prototype.hasOwnProperty.call(SAVINGS_OUTLOOK_RANGES, savedRange)) {
+            savingsOutlookRange = savedRange;
+        }
+        savingsOutlookRangeSelect.value = savingsOutlookRange;
+        savingsOutlookRangeSelect.addEventListener('change', () => {
+            if (!Object.prototype.hasOwnProperty.call(SAVINGS_OUTLOOK_RANGES, savingsOutlookRangeSelect.value)) return;
+            savingsOutlookRange = savingsOutlookRangeSelect.value;
+            localStorage.setItem('floosy_savings_outlook_range', savingsOutlookRange);
+            renderSavings();
+        });
     }
 
     // delegate click events inside savings list (deposit/withdraw buttons, pagination)
@@ -1186,6 +1296,20 @@ function initEventListeners() {
     if (categoryEditForm) {
         categoryEditForm.addEventListener('submit', handleEditSubmit);
     }
+    const newCategoryIconSelect = document.getElementById('new-category-icon');
+    const editCategoryIconSelect = document.getElementById('edit-category-icon');
+    populateCategoryIconSelect('new-category-icon');
+    populateCategoryIconSelect('edit-category-icon');
+    updateCategoryIconPreview('new-category-icon', 'new-category-icon-preview');
+    updateCategoryIconPreview('edit-category-icon', 'edit-category-icon-preview');
+    newCategoryIconSelect?.addEventListener('change', () => updateCategoryIconPreview(
+        'new-category-icon',
+        'new-category-icon-preview'
+    ));
+    editCategoryIconSelect?.addEventListener('change', () => updateCategoryIconPreview(
+        'edit-category-icon',
+        'edit-category-icon-preview'
+    ));
 
     // Budget Limit Modal
     if (addBudgetLimitBtn) {
@@ -1850,6 +1974,11 @@ async function calculateBalanceAtTransaction(recordDate, excludeRecordId = null)
             return;
         }
 
+        if (r.isCarriedDebt) return;
+        if (r.type === 'debt_repayment') {
+            spending += amount;
+            return;
+        }
         if (r.type === 'income') {
             if (!r.excludeFromIncomeTotals) income += amount;
         } else if (r.type === 'spending') {
@@ -1914,8 +2043,9 @@ function calculateRecordBalanceEffect(record) {
             ? -amount
             : 0;
     }
+    if (record.isCarriedDebt) return 0;
     if (record.type === 'income') return record.excludeFromIncomeTotals ? 0 : amount;
-    if (record.type === 'spending' || record.type === 'provisional') return -amount;
+    if (record.type === 'spending' || record.type === 'provisional' || record.type === 'debt_repayment') return -amount;
     if (record.type === 'account_receivable' && !record.collected) return -getAROutstandingAmount(record);
     if (record.type === 'account_payable') return -(parseFloat(record.paidAmount) || 0);
     return 0;
@@ -1993,9 +2123,13 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     });
 
     // Carry-over transactions are the source of truth for the month's opening balance.
-    const carriedBalance = monthRecords
+    const storedCarryoverBalance = monthRecords
         .filter(r => r.isCarryover)
         .reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
+    const hasStoredCarryover = monthRecords.some(r => r.isCarryover);
+    const carriedBalance = hasStoredCarryover
+        ? storedCarryoverBalance
+        : await getLiveCarriedBalance(year, month);
 
     let income = 0;
     let spending = 0;
@@ -2003,6 +2137,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
     let arImpact = 0;
     let apImpact = 0;
     let provImpact = 0;
+    let debtRepayments = 0;
 
     monthRecords.forEach(r => {
         // Skip projected/expected income - they don't affect actual balance
@@ -2032,6 +2167,11 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
             });
         } else {
             const amount = parseFloat(r.amount) || 0;
+
+            if (r.type === 'debt_repayment') {
+                debtRepayments += amount;
+                return;
+            }
 
             // Current Balance -> Savings is Saved, while Savings spending is isolated.
             if (r.isSavingsTransfer) {
@@ -2076,7 +2216,7 @@ async function calculateCurrentMonthRemainingBalance(year, month) {
             return sum;
         }, 0);
 
-    return carriedBalance + walletIncome - spending - saved + arImpact + apImpact + provImpact;
+    return carriedBalance + walletIncome - spending - saved - debtRepayments + arImpact + apImpact + provImpact;
 }
 
 // Update the carry-over button UI
@@ -2296,48 +2436,362 @@ async function ensureCarryoverRecord(year, month) {
         return;
     }
     
-    // Check if carryover is enabled for previous month
+    // A prior-month deficit is tracked separately as debt, even when cash carry-over is disabled.
     const prevMonth = month === 1 ? 12 : month - 1;
     const prevYear = month === 1 ? year - 1 : year;
     const prevSettings = await getMonthlyBalanceSettings(prevYear, prevMonth);
-    
-    if (!prevSettings || !prevSettings.carryOver) {
-        return;
-    }
-    
-    // Calculate the carried balance
-    const carriedBalance = await getLiveCarriedBalance(year, month);
-    
-    if (Math.abs(carriedBalance) < 0.01) {
-        return; // No balance to carry over
-    }
-    
-    // Check if a carryover record already exists for this month
+
+    const previousClosingBalance = await calculateCurrentMonthRemainingBalance(prevYear, prevMonth);
+    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
     const monthStart = new Date(year, month - 1, 1);
     const monthEnd = new Date(year, month, 0);
-    
-    const existingCarryover = records.find(r => {
-        const rDate = parseDateLocal(r.date);
-        return rDate >= monthStart && rDate <= monthEnd && r.isCarryover;
+    const legacyNegativeCarryover = records.find(r => {
+        if (!r.isCarryover || (parseFloat(r.amount) || 0) >= 0) return false;
+        const date = parseDateLocal(r.date);
+        return date >= monthStart && date <= monthEnd;
     });
-    
-    if (existingCarryover) {
-        return; // Already exists
+
+    if (legacyNegativeCarryover) {
+        legacyNegativeCarryover.amount = 0;
+        await updateRecord(STORE_RECORDS, legacyNegativeCarryover);
     }
-    
-    // Create the carryover record
-    const carryoverRecord = {
-        type: 'income',
-        category: 'Balance Carryover',
-        amount: carriedBalance,
-        date: formatDateLocal(new Date(year, month - 1, 1)), // First day of the month
-        notes: `Balance carried over from ${new Date(prevYear, prevMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}`,
-        excludeFromIncomeTotals: true, // This ensures it doesn't affect income totals
-        isCarryover: true
-    };
-    
-    await add(STORE_RECORDS, carryoverRecord);
-    await refreshData(); // Reload records to include the new carryover record
+
+    const existingDebt = records.find(r => r.isCarriedDebt && r.debtMonthKey === monthKey);
+    const debtPayments = existingDebt
+        ? records
+            .filter(record => record.type === 'debt_repayment' && record.debtId === existingDebt.id)
+            .reduce((total, record) => total + (parseFloat(record.amount) || 0), 0)
+        : 0;
+
+    if (previousClosingBalance < -0.01) {
+        const originDate = new Date(prevYear, prevMonth - 1, 1);
+        const originRecordIds = getCarriedDebtOriginIds(prevYear, prevMonth);
+        const debtAmount = Math.abs(previousClosingBalance);
+
+        if (!existingDebt) {
+            const debtRecord = {
+                type: 'carried_debt',
+                formatType: 'single',
+                item: `Carried shortfall from ${originDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+                category: 'Prior Debt',
+                amount: debtAmount,
+                date: formatDateLocal(monthStart),
+                timestamp: Date.now(),
+                isCarriedDebt: true,
+                debtMonthKey: monthKey,
+                originMonthKey: `${prevYear}-${String(prevMonth).padStart(2, '0')}`,
+                originRecordIds,
+                notes: `Unfunded balance from ${originDate.toLocaleString('default', { month: 'long', year: 'numeric' })}`
+            };
+            const debtId = await add(STORE_RECORDS, debtRecord);
+            debtRecord.id = debtId;
+            records.push(debtRecord);
+        } else {
+            existingDebt.amount = Math.max(debtAmount, debtPayments);
+            existingDebt.originRecordIds = originRecordIds;
+            await updateRecord(STORE_RECORDS, existingDebt);
+        }
+    } else if (existingDebt) {
+        if (debtPayments > 0) {
+            existingDebt.amount = debtPayments;
+            existingDebt.originRecordIds = getCarriedDebtOriginIds(prevYear, prevMonth);
+            await updateRecord(STORE_RECORDS, existingDebt);
+        } else {
+            await remove(STORE_RECORDS, existingDebt.id);
+            records = records.filter(record => record.id !== existingDebt.id);
+        }
+    }
+
+    if (previousClosingBalance > 0.01 && prevSettings?.carryOver) {
+        const existingCarryover = records.find(r => {
+            const date = parseDateLocal(r.date);
+            return date >= monthStart && date <= monthEnd && r.isCarryover;
+        });
+
+        if (existingCarryover) return;
+
+        const carryoverRecord = {
+            type: 'income',
+            category: 'Balance Carryover',
+            amount: previousClosingBalance,
+            date: formatDateLocal(monthStart),
+            notes: `Balance carried over from ${new Date(prevYear, prevMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}`,
+            excludeFromIncomeTotals: true,
+            isCarryover: true
+        };
+        const carryoverId = await add(STORE_RECORDS, carryoverRecord);
+        carryoverRecord.id = carryoverId;
+        records.push(carryoverRecord);
+    }
+}
+
+function getCarriedDebtOutstanding(debtRecord, asOfDate = new Date()) {
+    const paidAmount = records
+        .filter(record => record.type === 'debt_repayment' && record.debtId === debtRecord.id)
+        .filter(record => parseDateLocal(record.date) <= asOfDate)
+        .reduce((total, record) => total + (parseFloat(record.amount) || 0), 0);
+    return Math.max(0, (parseFloat(debtRecord.amount) || 0) - paidAmount);
+}
+
+function hasCarriedDebtPaymentInPeriod(debtRecord, year, month) {
+    return records.some(record => {
+        if (record.type !== 'debt_repayment' || record.debtId !== debtRecord.id) return false;
+        const date = parseDateLocal(record.date);
+        return (!year || date.getFullYear().toString() === year) &&
+            (!month || (date.getMonth() + 1).toString().padStart(2, '0') === month);
+    });
+}
+
+function getCarriedDebtTotal(year, month) {
+    const monthEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    return records
+        .filter(record => record.isCarriedDebt && parseDateLocal(record.date) <= monthEnd)
+        .reduce((total, record) => total + getCarriedDebtOutstanding(record, monthEnd), 0);
+}
+
+function getCarriedDebtOriginIds(year, month) {
+    const openingCash = records
+        .filter(record => record.isCarryover && isDateInMonth(record.date, year, month))
+        .reduce((sum, record) => sum + (parseFloat(record.amount) || 0), 0);
+
+    const monthRecords = records
+        .filter(record => {
+            if (record.isProjected || record.isCarryover || record.isCarriedDebt) return false;
+            return isDateInMonth(record.date, year, month);
+        })
+        .sort((a, b) => {
+            const dateCompare = parseDateLocal(a.date) - parseDateLocal(b.date);
+            if (dateCompare !== 0) return dateCompare;
+            return (a.timestamp || 0) - (b.timestamp || 0) || Number(a.id) - Number(b.id);
+        });
+
+    let running = openingCash;
+    let originIds = [];
+    monthRecords.forEach(record => {
+        const effect = calculateRecordBalanceEffect(record);
+        running += effect;
+        if (running >= -0.01) {
+            originIds = [];
+        } else if (effect < -0.01) {
+            originIds.push(record.id);
+        }
+    });
+    return originIds;
+}
+
+function getCarriedDebtOriginAmounts(debtRecord) {
+    const [year, month] = (debtRecord.originMonthKey || '').split('-').map(Number);
+    if (!year || !month) return new Map();
+
+    const openingCash = records
+        .filter(record => record.isCarryover && isDateInMonth(record.date, year, month))
+        .reduce((sum, record) => sum + (parseFloat(record.amount) || 0), 0);
+    const monthRecords = records
+        .filter(record => {
+            if (record.isProjected || record.isCarryover || record.isCarriedDebt) return false;
+            return isDateInMonth(record.date, year, month);
+        })
+        .sort((a, b) => {
+            const dateCompare = parseDateLocal(a.date) - parseDateLocal(b.date);
+            if (dateCompare !== 0) return dateCompare;
+            return (a.timestamp || 0) - (b.timestamp || 0) || Number(a.id) - Number(b.id);
+        });
+
+    let runningBalance = openingCash;
+    const contributions = new Map();
+    monthRecords.forEach(record => {
+        const effect = calculateRecordBalanceEffect(record);
+        if (effect < -0.01) {
+            const contribution = Math.max(0, -effect - Math.max(0, runningBalance));
+            if (contribution > 0.01) {
+                contributions.set(record.id, (contributions.get(record.id) || 0) + contribution);
+            }
+        } else if (effect > 0.01 && runningBalance < 0) {
+            let amountToApply = effect;
+            for (const [originId, contribution] of contributions) {
+                const applied = Math.min(amountToApply, contribution);
+                const remaining = contribution - applied;
+                if (remaining <= 0.01) {
+                    contributions.delete(originId);
+                } else {
+                    contributions.set(originId, remaining);
+                }
+                amountToApply -= applied;
+                if (amountToApply <= 0.01) break;
+            }
+        }
+
+        runningBalance += effect;
+        if (runningBalance >= -0.01) contributions.clear();
+    });
+
+    const originIds = new Set((debtRecord.originRecordIds || []).map(Number));
+    return new Map([...contributions].filter(([originId]) => originIds.has(Number(originId))));
+}
+
+function findCarriedDebtForOrigin(recordId) {
+    return records.find(record =>
+        record.isCarriedDebt &&
+        Array.isArray(record.originRecordIds) &&
+        record.originRecordIds.some(originId => Number(originId) === Number(recordId))
+    );
+}
+
+function setupCarriedDebtRepaymentListeners() {
+    const overlay = document.getElementById('debt-repayment-overlay');
+    const closeButton = document.getElementById('close-debt-repayment-card');
+    const cancelButton = document.getElementById('cancel-debt-repayment');
+    const confirmButton = document.getElementById('confirm-debt-repayment');
+    const availableButton = document.getElementById('debt-repay-available-btn');
+    const amountInput = document.getElementById('debt-repayment-amount');
+
+    overlay?.addEventListener('click', closeCarriedDebtRepayment);
+    closeButton?.addEventListener('click', closeCarriedDebtRepayment);
+    cancelButton?.addEventListener('click', closeCarriedDebtRepayment);
+    confirmButton?.addEventListener('click', processCarriedDebtRepayment);
+    availableButton?.addEventListener('click', () => {
+        if (!currentCarriedDebtRepayment || !amountInput) return;
+        const repayable = Math.min(
+            currentCarriedDebtRepayment.outstanding,
+            currentCarriedDebtRepayment.availableBalance
+        );
+        amountInput.value = repayable.toFixed(2);
+    });
+    document.getElementById('debt-repay-full-btn')?.addEventListener('click', () => {
+        if (!currentCarriedDebtRepayment || !amountInput) return;
+        amountInput.value = Math.min(
+            currentCarriedDebtRepayment.outstanding,
+            currentCarriedDebtRepayment.availableBalance
+        ).toFixed(2);
+    });
+    amountInput?.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') processCarriedDebtRepayment();
+    });
+}
+
+async function openCarriedDebtRepayment(debtId) {
+    const debtRecord = records.find(record => record.isCarriedDebt && record.id === debtId);
+    if (!debtRecord) {
+        showToast('This carried debt could not be found.', 'error');
+        return;
+    }
+
+    const now = new Date();
+    const availableBalance = Math.max(0, await calculateCurrentMonthRemainingBalance(
+        now.getFullYear(),
+        now.getMonth() + 1
+    ));
+    const outstanding = getCarriedDebtOutstanding(debtRecord);
+    if (outstanding <= 0.01) {
+        showToast('This carried debt has already been repaid.', 'info');
+        return;
+    }
+
+    currentCarriedDebtRepayment = { debtId, outstanding, availableBalance };
+    document.getElementById('debt-repayment-outstanding').textContent = `$${formatCurrency(outstanding)}`;
+    document.getElementById('debt-repayment-available').textContent = `$${formatCurrency(availableBalance)}`;
+    const amountInput = document.getElementById('debt-repayment-amount');
+    amountInput.value = '';
+    amountInput.max = Math.min(outstanding, availableBalance).toFixed(2);
+    document.getElementById('debt-repay-available-btn').disabled = availableBalance <= 0;
+    const fullButton = document.getElementById('debt-repay-full-btn');
+    if (fullButton) {
+        fullButton.disabled = availableBalance <= 0;
+        fullButton.innerHTML = `<i class="fas fa-check"></i> Repay full ($${formatCurrency(Math.min(outstanding, availableBalance))})`;
+    }
+    document.getElementById('confirm-debt-repayment').disabled = availableBalance <= 0;
+
+    document.getElementById('debt-repayment-card')?.classList.add('active');
+    document.getElementById('debt-repayment-overlay')?.classList.add('active');
+    setTimeout(() => amountInput.focus(), 100);
+}
+
+function closeCarriedDebtRepayment() {
+    document.getElementById('debt-repayment-card')?.classList.remove('active');
+    document.getElementById('debt-repayment-overlay')?.classList.remove('active');
+    currentCarriedDebtRepayment = null;
+}
+
+async function processCarriedDebtRepayment() {
+    if (!currentCarriedDebtRepayment) return;
+    const amount = parseFloat(document.getElementById('debt-repayment-amount').value);
+    const debtRecord = records.find(record => record.isCarriedDebt && record.id === currentCarriedDebtRepayment.debtId);
+    if (!debtRecord) {
+        showToast('This carried debt could not be found.', 'error');
+        closeCarriedDebtRepayment();
+        return;
+    }
+
+    const now = new Date();
+    const currentBalance = await calculateCurrentMonthRemainingBalance(now.getFullYear(), now.getMonth() + 1);
+    const availableBalance = Math.max(0, currentBalance);
+    const outstanding = getCarriedDebtOutstanding(debtRecord);
+    if (!Number.isFinite(amount) || amount <= 0) {
+        showToast('Enter a valid repayment amount.', 'error');
+        return;
+    }
+    if (amount > outstanding + 0.001) {
+        showToast(`Repayment cannot exceed the outstanding debt of $${formatCurrency(outstanding)}.`, 'error');
+        return;
+    }
+    if (amount > availableBalance + 0.001) {
+        showToast(`Repayment cannot exceed the available balance of $${formatCurrency(availableBalance)}.`, 'error');
+        return;
+    }
+
+    try {
+        await add(STORE_RECORDS, {
+            type: 'debt_repayment',
+            formatType: 'single',
+            item: 'Prior debt repayment',
+            category: 'Debt Repayment',
+            amount,
+            date: formatDateLocal(now),
+            timestamp: Date.now(),
+            debtId: debtRecord.id,
+            isDebtRepayment: true,
+            notes: `Repayment toward ${debtRecord.item}`
+        });
+        closeCarriedDebtRepayment();
+        await refreshData();
+        renderBudget();
+        showToast(`Debt repayment of $${formatCurrency(amount)} recorded.`, 'success');
+    } catch (error) {
+        console.error('Error recording carried debt repayment:', error);
+        showToast(`Error recording repayment: ${error.message || error}`, 'error');
+    }
+}
+
+async function undoCarriedDebtRepayment(repaymentId) {
+    const repayment = records.find(record =>
+        record.id === repaymentId && record.type === 'debt_repayment'
+    );
+    if (!repayment) {
+        showToast('This debt repayment could not be found.', 'error');
+        return;
+    }
+
+    const debt = records.find(record =>
+        record.isCarriedDebt && record.id === repayment.debtId
+    );
+    if (!debt) {
+        showToast('The carried debt for this repayment could not be found.', 'error');
+        return;
+    }
+
+    if (!await showConfirm(`Undo the $${formatCurrency(parseFloat(repayment.amount) || 0)} debt repayment? The amount will be restored to your balance.`)) {
+        return;
+    }
+
+    try {
+        await remove(STORE_RECORDS, repayment.id);
+        await refreshData();
+        renderBudget();
+        showToast('Debt repayment undone and balance restored.', 'success');
+    } catch (error) {
+        console.error('Error undoing carried debt repayment:', error);
+        showToast(`Error undoing repayment: ${error.message || error}`, 'error');
+    }
 }
 
 async function renderDashboard() {
@@ -2363,17 +2817,27 @@ async function renderDashboard() {
     const displayDate = new Date(currentYear, currentMonth);
     let displayLabel = "";
     if (filterMonthValue && filterYearValue) {
-        displayLabel = displayDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+        displayLabel = displayDate.toLocaleString('default', { month: 'short', year: 'numeric' });
     } else if (filterMonthValue) {
-        displayLabel = displayDate.toLocaleString('default', { month: 'long' });
+        displayLabel = displayDate.toLocaleString('default', { month: 'short' });
     } else if (filterYearValue) {
         displayLabel = filterYearValue;
     } else {
-        displayLabel = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        displayLabel = now.toLocaleString('default', { month: 'short', year: 'numeric' });
     }
 
     if (monthDisplay) monthDisplay.textContent = displayLabel;
-    if (heroMonthEl) heroMonthEl.textContent = displayLabel;
+    if (heroMonthEl) {
+        const shortDisplayDate = new Date(currentYear, currentMonth);
+        const shortDisplayLabel = filterMonthValue
+            ? (filterYearValue
+                ? shortDisplayDate.toLocaleString('default', { month: 'short', year: 'numeric' })
+                : shortDisplayDate.toLocaleString('default', { month: 'short' }))
+            : filterYearValue
+                ? filterYearValue
+                : now.toLocaleString('default', { month: 'short', year: 'numeric' });
+        heroMonthEl.textContent = shortDisplayLabel;
+    }
     updateExportStatusUI();
 
 
@@ -2445,7 +2909,7 @@ async function renderDashboard() {
             }
         }
 
-        const d = parseDateLocal(r.date);
+        const d = (r.type === 'income' && !r.isProjected) ? getIncomeAttributionDate(r) : parseDateLocal(r.date);
         const yearMatch = !filterYearValue || d.getFullYear().toString() === filterYearValue;
         const monthMatch = !filterMonthValue || (d.getMonth() + 1).toString().padStart(2, '0') === filterMonthValue;
 
@@ -2465,10 +2929,9 @@ async function renderDashboard() {
 
     // Get the year/month we're displaying
     const displayYear = filterYearValue ? parseInt(filterYearValue) : now.getFullYear();
-    const displayMonth = filterMonthValue ? parseInt(filterMonthValue) : now.getMonth() + 1;
-
-    // Check if there's a carried balance from previous month (CALCULATE LIVE)
-    const carriedBalance = await getLiveCarriedBalance(displayYear, displayMonth);
+    const displayMonth = filterMonthValue
+        ? parseInt(filterMonthValue)
+        : filterYearValue ? 12 : now.getMonth() + 1;
 
     // Calculate the remaining balance for current month (what will be carried TO next month)
     const currentLiveRemainingBalance = await calculateCurrentMonthRemainingBalance(displayYear, displayMonth);
@@ -2578,13 +3041,27 @@ async function renderDashboard() {
     const arEl = document.getElementById('total-ar');
     const apEl = document.getElementById('total-ap');
     const heldEl = document.getElementById('total-held');
+    const carriedDebtEl = document.getElementById('total-carried-debt');
 
+    const carriedDebtTotal = getCarriedDebtTotal(displayYear, displayMonth);
     if (incomeEl) incomeEl.innerHTML = `<span class="dollar-positive">+$</span><span class="amount-num">${formatCurrency(income)}</span>`;
     if (spendingEl) spendingEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
-    if (balanceEl) balanceEl.innerHTML = `<span class="${balance >= 0 ? 'dollar-positive' : 'dollar-negative'}">${balance >= 0 ? '+' : '-'}$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
+    if (balanceEl) {
+        balanceEl.innerHTML = `<span class="${balance >= 0 ? 'dollar-positive' : 'dollar-negative'}">${balance >= 0 ? '+' : '-'}$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
+        const debtNote = document.getElementById('balance-debt-note');
+        if (debtNote) {
+            debtNote.hidden = carriedDebtTotal <= 0.01;
+            debtNote.textContent = carriedDebtTotal > 0.01
+                ? `Prior debt -$${formatCurrency(carriedDebtTotal)}`
+                : '';
+        }
+    }
     if (arEl) arEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(arPending)}</span>`;
     if (apEl) apEl.innerHTML = `<span class="ap-kpi-amount">$</span><span class="amount-num">${formatCurrency(apOutstanding)}</span>`;
     if (heldEl) heldEl.innerHTML = `<span class="held-kpi-amount">$</span><span class="amount-num">${formatCurrency(heldTotal)}</span>`;
+    if (carriedDebtEl) carriedDebtEl.innerHTML = `<span class="dollar-negative">-$</span><span class="amount-num">${formatCurrency(carriedDebtTotal)}</span>`;
+    const carriedDebtCard = document.querySelector('.carried-debt-kpi');
+    if (carriedDebtCard) carriedDebtCard.classList.toggle('is-empty', carriedDebtTotal <= 0.01);
 
     // Update Mobile Hero Metrics
     // heroMonthEl update already handled above
@@ -2595,14 +3072,31 @@ async function renderDashboard() {
     const heroIncomeEl = document.getElementById('hero-income');
     const heroThisMonthValEl = document.getElementById('hero-this-month-val');
     const heroTrendIconEl = document.getElementById('hero-trend-icon');
+    const heroBalanceLabelEl = document.querySelector('.hero-balance-label');
     const heroArDisplayEl = document.getElementById('hero-ar-display');
     const heroApDisplayEl = document.getElementById('hero-ap-display');
     const heroHeldDisplayEl = document.getElementById('hero-held-display');
+    const heroDebtDisplayEl = document.getElementById('hero-debt-display');
 
     if (heroSpendingEl) heroSpendingEl.innerHTML = `<span class="dollar-icon spending-icon">$</span><span class="amount-num">${formatCurrency(spending)}</span>`;
     if (heroSavedEl) heroSavedEl.innerHTML = `Saved: <span class="dollar-icon savings-icon">$</span><span class="amount-num">${formatCurrency(saved)}</span>`;
     if (heroIncomeEl) heroIncomeEl.innerHTML = `<span class="dollar-icon income-icon">$</span><span class="amount-num">${formatCurrency(income)}</span>`;
     if (heroThisMonthValEl) heroThisMonthValEl.innerHTML = `<span class="currency-sign">$</span><span class="amount-num">${formatCurrency(Math.abs(balance))}</span>`;
+
+    // Show debt breakdown in hero section when debt is present
+    const heroDebtBreakdownEl = document.getElementById('hero-debt-breakdown');
+    const heroBalanceRow = document.querySelector('.hero-balance-row');
+    if (heroDebtBreakdownEl) {
+        heroDebtBreakdownEl.style.display = carriedDebtTotal > 0.01 ? 'inline' : 'none';
+        heroDebtBreakdownEl.innerHTML = carriedDebtTotal > 0.01
+            ? `(Debt: <span class="dollar-negative">-$</span><span class="amount-num" data-privacy-value>${formatCurrency(carriedDebtTotal)}</span>)`
+            : '';
+    }
+    if (heroBalanceRow) heroBalanceRow.classList.toggle('has-debt', carriedDebtTotal > 0.01);
+    if (heroBalanceLabelEl) {
+        heroBalanceLabelEl.textContent = 'CURRENT BALANCE';
+    }
+
     if (heroTrendIconEl) {
         // Trend based on balance (positive = up/green, negative = down/red)
         if (balance >= 0) {
@@ -2623,6 +3117,12 @@ async function renderDashboard() {
         heroHeldDisplayEl.style.display = 'block';
         heroHeldDisplayEl.innerHTML = `Held: <span class="dollar-icon held-icon">$</span><span class="amount-num">${formatCurrency(heldTotal)}</span>`;
     }
+    if (heroDebtDisplayEl) {
+        heroDebtDisplayEl.style.display = carriedDebtTotal > 0.01 ? 'flex' : 'none';
+        heroDebtDisplayEl.innerHTML = `Debt: <span class="dollar-icon spending-icon">-$</span><span class="amount-num">${formatCurrency(carriedDebtTotal)}</span>`;
+    }
+
+    markDashboardKpiValuesPrivate();
 
     // Render records - pass ORIGINAL records (not expanded) so combined transactions appear as single entries
     // Only expand for the dashboard display list, not for KPI calculations which need to count each component
@@ -2651,7 +3151,7 @@ function convertSavingsTransactionsToRecords(savingsTxs, now) {
             date: tx.date,
             timestamp: 0,
             item: tx.item || accountName,
-            category: tx.type === 'deposit' ? 'Savings Transfer' : 'Savings Transfer',
+            category: getSavingsTransactionCategory(tx) || 'Savings Transfer',
             person: tx.person || '',
             amount: tx.amount,
             quantity: 1,
@@ -2712,7 +3212,18 @@ function renderDashboardRecords(recordsToRender) {
         }
 
         const recordDate = parseDateLocal(r.date);
+        const expectedDate = r.type === 'income' && r.expectedDate
+            ? parseDateLocal(r.expectedDate)
+            : null;
+        const isEarlyReceipt = expectedDate && expectedDate > recordDate && !r.isProjected;
         const now = new Date();
+        const viewYear = filterYear || String(now.getFullYear());
+        const viewMonth = filterMonth || String(now.getMonth() + 1).padStart(2, '0');
+        const originDebt = findCarriedDebtForOrigin(r.id);
+        const originVisible = originDebt && (
+            getCarriedDebtOutstanding(originDebt) > 0.01 ||
+            hasCarriedDebtPaymentInPeriod(originDebt, viewYear, viewMonth)
+        ) && isDateInMonth(originDebt.date, parseInt(viewYear, 10), parseInt(viewMonth, 10));
 
         // Date Period Match logic
         let periodMatch = false;
@@ -2722,12 +3233,27 @@ function renderDashboardRecords(recordsToRender) {
             const isPendingAR = r.type === 'account_receivable' && !r.collected;
             const isPendingAP = r.type === 'account_payable' && !r.paid;
             const isOpenProv = r.type === 'provisional' && r.status !== 'closed' && getProvisionalHeld(r) > 0;
-            periodMatch = isCurrentMonth || isPendingAR || isPendingAP || isOpenProv;
+            const expectedThisMonth = isEarlyReceipt &&
+                expectedDate.getMonth() === now.getMonth() &&
+                expectedDate.getFullYear() === now.getFullYear();
+            const isOutstandingDebt = r.isCarriedDebt && getCarriedDebtOutstanding(r) > 0.01;
+            const debtPaidThisMonth = r.isCarriedDebt && hasCarriedDebtPaymentInPeriod(
+                r,
+                String(now.getFullYear()),
+                String(now.getMonth() + 1).padStart(2, '0')
+            );
+            periodMatch = isCurrentMonth || expectedThisMonth || isPendingAR || isPendingAP ||
+                isOpenProv || isOutstandingDebt || debtPaidThisMonth || originVisible;
         } else {
             // Explicit Filter View: Match the selected Year and/or Month
             const yearMatch = !filterYear || recordDate.getFullYear().toString() === filterYear;
             const monthMatch = !filterMonth || (recordDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth;
-            periodMatch = yearMatch && monthMatch;
+            const expectedYearMatch = !filterYear || expectedDate?.getFullYear().toString() === filterYear;
+            const expectedMonthMatch = !filterMonth ||
+                (expectedDate && (expectedDate.getMonth() + 1).toString().padStart(2, '0') === filterMonth);
+            const expectedPeriodMatch = !!isEarlyReceipt && expectedYearMatch && expectedMonthMatch;
+            const debtPaidInPeriod = r.isCarriedDebt && hasCarriedDebtPaymentInPeriod(r, filterYear, filterMonth);
+            periodMatch = (yearMatch && monthMatch) || expectedPeriodMatch || debtPaidInPeriod || originVisible;
 
             // Special Dashboard Case: Pending AR is often kept visible on the dashboard even when filtering by month,
             // as it represents outstanding action items. Only show if it matches other active filters.
@@ -2797,10 +3323,18 @@ function renderDashboardRecords(recordsToRender) {
     // Calculate week stats
     const weekStats = {};
     filteredRecords.forEach(r => {
+        if (r.isCarriedDebt || r.type === 'debt_repayment') return;
         // Skip projected/expected income - they don't affect actual totals
         if (r.isProjected) return;
+        const originDebt = findCarriedDebtForOrigin(r.id);
+        const viewYear = filterYear || String(now.getFullYear());
+        const viewMonth = filterMonth || String(now.getMonth() + 1).padStart(2, '0');
+        if (originDebt && !isDateInMonth(r.date, parseInt(viewYear, 10), parseInt(viewMonth, 10))) return;
 
-        const recordDateObj = parseDateLocal(r.date);
+        // Use attribution date for early-received income to avoid double-counting
+        const recordDateObj = (r.type === 'income' && !r.isProjected)
+            ? (getIncomeAttributionDate(r) || parseDateLocal(r.date))
+            : parseDateLocal(r.date);
         const weekKey = getWeekKey(recordDateObj);
         
         if (!weekStats[weekKey]) {
@@ -2835,10 +3369,18 @@ function renderDashboardRecords(recordsToRender) {
     // reuse `now` from above
     let currentWeek = -1;
     let currentMonthYear = '';
+    const shortfallGroups = new Map();
 
     filteredRecords.forEach(r => {
         const isCombined = r.formatType === 'combined';
+        const isCarriedDebt = !!r.isCarriedDebt;
         const recordDateObj = parseDateLocal(r.date);
+        const originDebt = findCarriedDebtForOrigin(r.id);
+        const shortfallDebt = isCarriedDebt ? r : originDebt;
+        const viewYear = filterYear || String(now.getFullYear());
+        const viewMonth = filterMonth || String(now.getMonth() + 1).padStart(2, '0');
+        const shownAsOrigin = !!(originDebt && !isDateInMonth(r.date, parseInt(viewYear, 10), parseInt(viewMonth, 10)));
+        const isShortfallRecord = isCarriedDebt || shownAsOrigin;
 
         // Add Week Separators logic
         const monthYearKey = `${recordDateObj.getMonth()}-${recordDateObj.getFullYear()}`;
@@ -2850,7 +3392,23 @@ function renderDashboardRecords(recordsToRender) {
             currentWeek = -1; // Reset week tracking for the new month
         }
 
-        if (recordWeek !== currentWeek) {
+        let shortfallGroup = null;
+        if (isShortfallRecord && shortfallDebt) {
+            currentWeek = recordWeek;
+            shortfallGroup = shortfallGroups.get(shortfallDebt.id);
+            if (!shortfallGroup) {
+                shortfallGroup = document.createElement('div');
+                shortfallGroup.className = 'shortfall-transactions';
+                shortfallGroup.innerHTML = `
+                    <div class="week-separator-header">
+                        <div class="week-name"><span>Shortfall</span></div>
+                    </div>
+                    <div class="shortfall-transaction-list"></div>
+                `;
+                container.appendChild(shortfallGroup);
+                shortfallGroups.set(shortfallDebt.id, shortfallGroup);
+            }
+        } else if (recordWeek !== currentWeek) {
             currentWeek = recordWeek;
             const weekKey = getWeekKey(recordDateObj);
             const stats = weekStats[weekKey] || { count: 0, spending: 0, income: 0 };
@@ -2893,6 +3451,12 @@ function renderDashboardRecords(recordsToRender) {
         const isAR = r.type === 'account_receivable';
         const isAP = r.type === 'account_payable';
         const isProv = r.type === 'provisional';
+        const isDebtRepayment = r.type === 'debt_repayment';
+        const originDebtOutstanding = originDebt ? getCarriedDebtOutstanding(originDebt) : 0;
+        const isOriginDebtRepaid = shownAsOrigin && originDebtOutstanding <= 0.01;
+        const carriedDebtOutstanding = isCarriedDebt ? getCarriedDebtOutstanding(r) : 0;
+        const isDebtRepaid = (isCarriedDebt && carriedDebtOutstanding <= 0.01) || isOriginDebtRepaid;
+        const originAmounts = shownAsOrigin ? getCarriedDebtOriginAmounts(originDebt) : null;
         const isSavingsTransfer = r.category === 'Savings Transfer' || r.type === 'savings_transfer';
         const savingsAccountName = isSavingsTransfer
             ? (savingsAccounts.find(account => account.id === parseInt(r.savingsAccountId))?.name || 'Savings Account')
@@ -2973,6 +3537,16 @@ function renderDashboardRecords(recordsToRender) {
                 amountClass = 'spending';
                 amountPrefix = '-';
             }
+        } else if (isCarriedDebt) {
+            icon = isDebtRepaid ? 'fa-circle-check' : 'fa-credit-card';
+            typeClass = 'carried-debt';
+            amountClass = isDebtRepaid ? 'income' : 'account_payable';
+            amountPrefix = isDebtRepaid ? '' : '-';
+        } else if (isDebtRepayment) {
+            icon = 'fa-exclamation';
+            typeClass = 'debt-repayment';
+            amountClass = 'spending';
+            amountPrefix = '-';
         } else if (r.type === 'income') {
             icon = 'fa-dollar-sign';
             typeClass = 'income';
@@ -3000,6 +3574,10 @@ function renderDashboardRecords(recordsToRender) {
             amountPrefix = '-';
         }
 
+        if (shownAsOrigin) {
+            typeClass = `${typeClass} carried-debt-origin`;
+        }
+
         // Get display name - fallback to category if item is empty
         let displayName = r.isCombinedComponent ? (r.item || r.actualCategory || 'Combined Transaction') :
             (isCombined ? (r.item || 'Combined Transaction') : (r.item || r.category));
@@ -3008,7 +3586,18 @@ function renderDashboardRecords(recordsToRender) {
 
         // Get category name
         const categoryName = r.isCombinedComponent ? r.actualCategory : r.category;
-
+        const expectedIncomeDate = r.type === 'income' && r.expectedDate
+            ? parseDateLocal(r.expectedDate)
+            : null;
+        const showEarlyReceipt = expectedIncomeDate && expectedIncomeDate > parseDateLocal(r.date);
+        const viewingExpectedMonth = showEarlyReceipt &&
+            isDateInMonth(r.expectedDate, parseInt(viewYear, 10), parseInt(viewMonth, 10)) &&
+            !isDateInMonth(r.date, parseInt(viewYear, 10), parseInt(viewMonth, 10));
+        const earlyReceiptLabel = showEarlyReceipt
+            ? (viewingExpectedMonth
+                ? `Received early on ${parseDateLocal(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                : `Received early for ${expectedIncomeDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`)
+            : '';
         // Format date
         const dateObj = parseDateLocal(r.date);
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -3016,17 +3605,21 @@ function renderDashboardRecords(recordsToRender) {
         const isSavingsRelevant = !!(r.savingsAccountId || r.isSavingsTransfer || isSavingsTransaction);
         const card = document.createElement('div');
         const provResolvedClass = isProv && r.status === 'closed' ? ' provisional-resolved' : '';
-        card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}${provResolvedClass}`;
+        card.className = `transaction-card ${typeClass} ${isSavingsRelevant ? 'savings-belong' : ''}${provResolvedClass}${isDebtRepaid ? ' carried-debt-repaid' : ''}`;
 
         // Apply custom category color as background and border
         const catObj = categories.find(c => c.name === categoryName);
         const catColor = catObj?.color || '#355872';
+        if (catObj && !isCarriedDebt && !isDebtRepayment && !isAR && !isAP && !isProv && !isCombined && !isSavingsTransfer) {
+            icon = getCategoryIconValue(catObj);
+        }
         const lightBg = getLighterColor(catColor, 0.08);
         card.style.backgroundColor = lightBg;
         card.style.border = `1px solid ${catColor}`;
         card.onclick = async (e) => {
             // Don't open details if clicking on action buttons
             if (e.target.closest('.transaction-actions')) return;
+            if (isCarriedDebt) return;
             
             // For savings transactions, open the savings account modal instead of details modal
             if (isSavingsTransaction) {
@@ -3049,16 +3642,22 @@ function renderDashboardRecords(recordsToRender) {
             displayAmount = getAROutstandingAmount(r);
         } else if (isAP) {
             displayAmount = getAPOutstandingAmount(r);
+        } else if (isCarriedDebt) {
+            displayAmount = isDebtRepaid ? parseFloat(r.amount) || 0 : carriedDebtOutstanding;
+        } else if (shownAsOrigin && originAmounts) {
+            displayAmount = originAmounts.get(r.id) ?? displayAmount;
         }
 
-        let badgeType = isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : r.type;
-        let badgeDisplay = categoryName;
+        let badgeType = isCombined ? (combinedNet >= 0 ? 'income' : 'spending') : typeClass;
+        let badgeDisplay = isCarriedDebt
+            ? (isDebtRepaid ? 'Prior Debt (Paid)' : 'Prior Debt (Open)')
+            : isDebtRepayment ? 'Debt Repayment' : categoryName;
         let typeExtraStatus = isAR ? arStatus : (isAP ? apStatus : (isProv ? provStatus : ''));
         
         // For savings transactions, show clear "Savings" badge with type
         if (isSavingsTransaction) {
             badgeType = 'savings';
-            badgeDisplay = `Savings - ${r.savingsTransactionType === 'deposit' ? 'Deposit' : 'Withdrawal'}`;
+            badgeDisplay = `Savings - ${categoryName || (r.savingsTransactionType === 'deposit' ? 'Deposit' : 'Withdrawal')}`;
         } else if (isCombined) {
             badgeDisplay = 'Combined';
         }
@@ -3068,12 +3667,13 @@ function renderDashboardRecords(recordsToRender) {
 
         card.innerHTML = `
             <div class="transaction-icon">
-                <i class="fas ${icon}"></i>
+                <i class="fas ${icon}"${catObj ? ` style="color: ${catColor};"` : ''}></i>
             </div>
             <div class="transaction-info">
                 <div class="transaction-name"><span>${displayName}</span>${isProv && r.status === 'closed' ? ' <i class="fas fa-check-circle prov-closed-icon" title="Resolved"></i>' : ''}</div>
                 <div class="transaction-category">
                     <span class="category-badge badge-${badgeType}">${badgeDisplay}${typeExtraStatus}</span>
+                    ${earlyReceiptLabel ? `<span class="early-receipt-badge">${earlyReceiptLabel}</span>` : ''}
                     ${r.person ? (() => {
                         const personObj = people.find(p => p.name === r.person);
                         const personColor = personObj?.color || '#355872';
@@ -3135,10 +3735,22 @@ function renderDashboardRecords(recordsToRender) {
                             <i class="fas fa-undo"></i>
                         </button>
                 ` : ''}
-                ${!isSavingsTransaction ? `
+                ${isDebtRepayment ? `
+                    <button class="btn-icon undo-btn debt-repayment-undo-btn" onclick="event.stopPropagation(); undoCarriedDebtRepayment(${r.id})" title="Undo debt repayment">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                ` : ''}
+                ${isCarriedDebt && !isDebtRepaid ? `
+                    <button class="btn btn-primary debt-repay-btn" onclick="event.stopPropagation(); openCarriedDebtRepayment(${r.id})">
+                        Repay
+                    </button>
+                ` : ''}
+                ${!isSavingsTransaction && !isCarriedDebt && !isDebtRepayment ? `
                     <button class="btn-icon edit-btn" onclick="event.stopPropagation(); editRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Edit">
                         <i class="fas fa-pen"></i>
                     </button>
+                ` : ''}
+                ${!isSavingsTransaction && !isCarriedDebt ? `
                     <button class="btn-icon delete-btn" onclick="event.stopPropagation(); deleteRecord(${r.isCombinedComponent ? r.originalId : r.id})" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -3146,7 +3758,11 @@ function renderDashboardRecords(recordsToRender) {
             </div>
         `;
 
-        container.appendChild(card);
+        if (isShortfallRecord && shortfallGroup) {
+            shortfallGroup.querySelector('.shortfall-transaction-list').appendChild(card);
+        } else {
+            container.appendChild(card);
+        }
 
         // Add scroll animation if text overflows
         const nameEl = card.querySelector('.transaction-name');
@@ -3365,6 +3981,10 @@ function renderCategoryBreakdown(records, type) {
             totalSpending += amt;
             spendingCount += 1;
         } else if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
+            // Use attribution date for early-received income to avoid double-counting
+            const attributionDate = getIncomeAttributionDate(r);
+            if (!attributionDate) return;
+
             if (!incomeStats[categoryKey]) {
                 incomeStats[categoryKey] = { 
                     name: categoryName, 
@@ -3378,7 +3998,6 @@ function renderCategoryBreakdown(records, type) {
             totalIncome += amt;
             incomeCount += 1;
         }
-
 
     });
 
@@ -4023,12 +4642,12 @@ async function renderAnalytics() {
         let displayLabel = "All History";
         if (filterYear && filterMonth) {
             const date = new Date(parseInt(filterYear), parseInt(filterMonth) - 1);
-            displayLabel = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+            displayLabel = date.toLocaleString('default', { month: 'short', year: 'numeric' });
         } else if (filterYear) {
             displayLabel = filterYear;
         } else if (filterMonth) {
             const date = new Date(2000, parseInt(filterMonth) - 1);
-            displayLabel = date.toLocaleString('default', { month: 'long' });
+            displayLabel = date.toLocaleString('default', { month: 'short' });
         }
         monthDisplay.textContent = displayLabel;
     }
@@ -4098,8 +4717,11 @@ async function renderAnalytics() {
         // Skip projected/expected income - they don't affect actual totals
         if (r.isProjected) return;
 
-        const date = new Date(r.date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        // Use attribution date for early-received income to avoid double-counting
+        const attributionDate = (r.type === 'income' && !r.isProjected)
+            ? (getIncomeAttributionDate(r) || parseDateLocal(r.date))
+            : parseDateLocal(r.date);
+        const monthKey = `${attributionDate.getFullYear()}-${String(attributionDate.getMonth() + 1).padStart(2, '0')}`;
         if (!monthlyStats[monthKey]) {
             monthlyStats[monthKey] = { income: 0, spending: 0, savings: 0, arPending: 0, arCollected: 0, categories: {} };
         }
@@ -4189,6 +4811,58 @@ async function renderAnalytics() {
 
     // Render charts moved from Dashboard
     renderCharts(filteredRecords);
+    renderSavingsCategoryAnalytics(filterYear, filterMonth);
+}
+
+function renderSavingsCategoryAnalytics(filterYear, filterMonth) {
+    const body = document.getElementById('savings-category-analytics-body');
+    const countElement = document.getElementById('savings-category-analytics-count');
+    const totalElement = document.getElementById('savings-category-analytics-total');
+    if (!body || !countElement || !totalElement) return;
+
+    const categoryTotals = new Map();
+    savingsTransactions.forEach(transaction => {
+        const date = parseDateLocal(transaction.date);
+        if (filterYear && date.getFullYear().toString() !== filterYear) return;
+        if (filterMonth && (date.getMonth() + 1).toString() !== filterMonth) return;
+
+        const isDeposit = transaction.type === 'deposit';
+        const categoryName = getSavingsTransactionCategory(transaction) || 'Uncategorized';
+        const key = `${isDeposit ? 'income' : 'spending'}:${categoryName}`;
+        const summary = categoryTotals.get(key) || {
+            category: categoryName,
+            type: isDeposit ? 'income' : 'spending',
+            count: 0,
+            amount: 0
+        };
+        summary.count += 1;
+        summary.amount += parseFloat(transaction.amount) || 0;
+        categoryTotals.set(key, summary);
+    });
+
+    const summaries = [...categoryTotals.values()].sort((a, b) =>
+        a.type.localeCompare(b.type) || b.amount - a.amount || a.category.localeCompare(b.category)
+    );
+    const totalCount = summaries.reduce((total, summary) => total + summary.count, 0);
+    const totalAmount = summaries.reduce((total, summary) => total + summary.amount, 0);
+    countElement.textContent = totalCount;
+    totalElement.textContent = `$${formatCurrency(totalAmount)}`;
+    body.innerHTML = summaries.length
+        ? summaries.map(summary => {
+            const category = categories.find(item => item.name === summary.category);
+            const icon = getCategoryIconValue(category);
+            const color = category?.color || '#355872';
+            const typeLabel = summary.type === 'income' ? 'Deposit' : 'Withdrawal';
+            return `
+                <tr>
+                  <td><i class="fas ${icon}" style="color: ${color}; margin-right: 0.4rem;" aria-hidden="true"></i>${summary.category}</td>
+                  <td class="${summary.type === 'income' ? 'amount-income' : 'amount-spending'}">${typeLabel}</td>
+                  <td>${summary.count}</td>
+                  <td class="${summary.type === 'income' ? 'amount-income' : 'amount-spending'}">$${formatCurrency(summary.amount)}</td>
+                </tr>
+            `;
+        }).join('')
+        : '<tr><td colspan="4" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">No savings transactions for the selected period</td></tr>';
 }
 
 // Render filter-specific KPIs for analytics
@@ -4497,9 +5171,13 @@ function renderMonthlyTrendChart(monthlyStats, view = { mode: 'monthly' }, filte
         spendingData = Array.from({ length: daysInMonth }, () => 0);
 
         filteredRecordsForDaily.forEach(r => {
-            const d = new Date(r.date);
-            if (d.getFullYear() !== view.year || d.getMonth() !== view.monthIndex) return;
-            const dayIdx = d.getDate() - 1;
+            // Use attribution date for early-received income to avoid double-counting
+            const attributionDate = (r.type === 'income' && !r.isProjected)
+                ? (getIncomeAttributionDate(r) || parseDateLocal(r.date))
+                : parseDateLocal(r.date);
+
+            if (attributionDate.getFullYear() !== view.year || attributionDate.getMonth() !== view.monthIndex) return;
+            const dayIdx = attributionDate.getDate() - 1;
             const amount = parseFloat(r.amount) || 0;
 
             if (r.type === 'income' && !incomeExcludedFromTotals(r)) {
@@ -4698,6 +5376,31 @@ function closeAccountModal() {
     if (accountModal) accountModal.classList.remove('active');
 }
 
+function populateSavingsCategoryDropdown(type, selectedCategory = '') {
+    const select = document.getElementById('tx-category');
+    if (!select) return;
+    const categoryType = type === 'deposit' ? 'income' : 'spending';
+    const availableCategories = categories.filter(category => category.type === categoryType);
+    select.innerHTML = '';
+    const uncategorizedOption = document.createElement('option');
+    uncategorizedOption.value = '';
+    uncategorizedOption.textContent = 'Uncategorized';
+    select.appendChild(uncategorizedOption);
+    availableCategories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.name;
+        option.textContent = category.name;
+        select.appendChild(option);
+    });
+    if (selectedCategory && !availableCategories.some(category => category.name === selectedCategory)) {
+        const previousOption = document.createElement('option');
+        previousOption.value = selectedCategory;
+        previousOption.textContent = `${selectedCategory} (previous category)`;
+        select.appendChild(previousOption);
+    }
+    select.value = selectedCategory || '';
+}
+
 async function handleAccountSubmit(e) {
     e.preventDefault();
 
@@ -4770,6 +5473,8 @@ function openTransactionModal(accountId, type, tx = null) {
     if (typeDisplay) {
         typeDisplay.value = type;
     }
+    const categorySelect = document.getElementById('tx-category');
+    populateSavingsCategoryDropdown(type, tx ? getSavingsTransactionCategory(tx) : '');
     if (tx) {
         transactionForm.elements['tx-id'].value = tx.id;
         transactionForm.elements['tx-item'].value = tx.item || tx.notes || '';
@@ -4777,11 +5482,13 @@ function openTransactionModal(accountId, type, tx = null) {
         transactionForm.elements['tx-date'].value = tx.date;
         transactionForm.elements['tx-person'].value = tx.person || '';
         transactionForm.elements['tx-notes'].value = tx.notes || '';
+        if (categorySelect) categorySelect.value = getSavingsTransactionCategory(tx);
     } else {
         transactionForm.elements['tx-id'].value = '';
         transactionForm.elements['tx-item'].value = '';
         transactionForm.elements['tx-person'].value = '';
         transactionForm.elements['tx-date'].value = formatDateLocal(new Date());
+        if (categorySelect) categorySelect.value = '';
     }
     transactionModal.classList.add('active');
 }
@@ -4805,6 +5512,7 @@ async function handleTransactionSubmit(e) {
     const date = transactionForm.elements['tx-date'].value;
     const item = transactionForm.elements['tx-item'].value.trim();
     const person = transactionForm.elements['tx-person'].value;
+    const category = document.getElementById('tx-category')?.value || '';
     const notes = transactionForm.elements['tx-notes'].value.trim();
 
     if (id) {
@@ -4815,11 +5523,12 @@ async function handleTransactionSubmit(e) {
             tx.date = date;
             tx.item = item;
             tx.person = person;
+            tx.category = category;
             tx.notes = notes;
             await updateRecord(STORE_SAVINGS_TRANSACTIONS, tx);
         }
     } else {
-        const newTx = { accountId, type, amount, date, item, person, notes };
+        const newTx = { accountId, type, amount, date, item, person, category, notes };
         const newId = await add(STORE_SAVINGS_TRANSACTIONS, newTx);
         newTx.id = newId;
         savingsTransactions.push(newTx);
@@ -4853,14 +5562,48 @@ function renderSavings() {
     if (!savingsListEl) return;
     savingsListEl.innerHTML = '';
 
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+    const thisMonthTransactions = savingsTransactions.filter(transaction => {
+        const date = parseDateLocal(transaction.date);
+        return date.getMonth() === curMonth && date.getFullYear() === curYear;
+    });
+    const totalSavings = savingsTransactions.reduce((total, transaction) => {
+        const amount = parseFloat(transaction.amount) || 0;
+        return total + (transaction.type === 'deposit' ? amount : -amount);
+    }, 0);
+    const outlookRangeConfig = SAVINGS_OUTLOOK_RANGES[savingsOutlookRange] || SAVINGS_OUTLOOK_RANGES['all-time'];
+    const outlookStart = outlookRangeConfig.months === null
+        ? null
+        : new Date(curYear, curMonth - outlookRangeConfig.months + 1, 1);
+    const outlookTransactions = savingsTransactions.filter(transaction => {
+        const date = parseDateLocal(transaction.date);
+        return (!outlookStart || date >= outlookStart) && date <= now;
+    });
+    const totalIncome = outlookTransactions
+        .filter(transaction => transaction.type === 'deposit')
+        .reduce((total, transaction) => total + (parseFloat(transaction.amount) || 0), 0);
+    const totalExpenses = outlookTransactions
+        .filter(transaction => transaction.type === 'withdrawal')
+        .reduce((total, transaction) => total + (parseFloat(transaction.amount) || 0), 0);
+    const monthDeposits = thisMonthTransactions
+        .filter(transaction => transaction.type === 'deposit')
+        .reduce((total, transaction) => total + (parseFloat(transaction.amount) || 0), 0);
+    const monthWithdrawals = thisMonthTransactions
+        .filter(transaction => transaction.type === 'withdrawal')
+        .reduce((total, transaction) => total + (parseFloat(transaction.amount) || 0), 0);
+    document.getElementById('savings-outlook-accounts').textContent = savingsAccounts.length;
+    document.getElementById('savings-outlook-balance').textContent = `$${formatCurrency(totalSavings)}`;
+    document.getElementById('savings-outlook-income').textContent = `$${formatCurrency(totalIncome)}`;
+    document.getElementById('savings-outlook-expenses').textContent = `$${formatCurrency(totalExpenses)}`;
+    document.getElementById('savings-outlook-month-deposits').textContent = `+$${formatCurrency(monthDeposits)}`;
+    document.getElementById('savings-outlook-month-withdrawals').textContent = `-$${formatCurrency(monthWithdrawals)}`;
+
     if (savingsAccounts.length === 0) {
         savingsListEl.innerHTML = '<p style="text-align:center; padding: 2rem; color: var(--text-muted);">No savings accounts created</p>';
         return;
     }
-
-    const now = new Date();
-    const curMonth = now.getMonth();
-    const curYear = now.getFullYear();
 
     savingsAccounts.forEach((acc, index) => {
         const txs = savingsTransactions
@@ -5026,25 +5769,26 @@ function renderSavings() {
                     }
                     const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     const isDeposit = t.type === 'deposit';
-                    const icon = isDeposit ? 'fa-arrow-down' : 'fa-arrow-up';
                     const typeClass = isDeposit ? 'income' : 'spending';
                     const amountClass = isDeposit ? 'income' : 'spending';
                     const amountPrefix = isDeposit ? '+' : '-';
                     const notes = t.notes || '-';
                     // Extract category from notes if available
                     const categoryMatch = notes.match(/^(Income|Spending):\s*([^-]+)/);
-                    const category = categoryMatch ? categoryMatch[2].trim() : (isDeposit ? 'Deposit' : 'Withdrawal');
+                    const category = getSavingsTransactionCategory(t) || (isDeposit ? 'Deposit' : 'Withdrawal');
+                    const categoryObject = categories.find(item => item.name === category);
+                    const categoryIcon = getCategoryIconValue(categoryObject);
                     const itemName = t.item || (categoryMatch && notes.includes('-') ? notes.split('-')[1].trim() : notes);
                     
                     return separators + `
                         <div class="transaction-card ${typeClass}" data-savings-tx-id="${t.id}" onclick="openSavingsTransactionDetails(${t.id}, ${acc.id})">
                             <div class="transaction-icon">
-                                <i class="fas ${icon}"></i>
+                                <i class="fas ${categoryIcon}"></i>
                             </div>
                             <div class="transaction-info">
                                 <div class="transaction-name"><span>${itemName}</span></div>
                                 <div class="transaction-category">
-                                    <span class="category-badge badge-${typeClass}">${isDeposit ? 'Income' : 'Withdrawal'}</span>
+                                    <span class="category-badge badge-${typeClass}">${category}</span>
                                     ${t.person ? `<span><i class="fas fa-user"></i> ${t.person}</span>` : ''}
                                 </div>
                             </div>
@@ -5173,7 +5917,7 @@ async function openSavingsTransactionDetails(txId, accId) {
     // Parse notes to extract category and item
     const notes = tx.notes || '-';
     const categoryMatch = notes.match(/^(Income|Spending):\s*([^-]+)/);
-    const category = categoryMatch ? categoryMatch[2].trim() : (isDeposit ? 'Deposit' : 'Withdrawal');
+    const category = getSavingsTransactionCategory(tx) || (isDeposit ? 'Deposit' : 'Withdrawal');
     const itemName = tx.item || (categoryMatch && notes.includes('-') ? notes.split('-')[1].trim() : notes);
 
     // Calculate balance before and after
@@ -6076,6 +6820,10 @@ function openCategoryEditModal(category) {
     if (editCategoryColorInput) {
         editCategoryColorInput.value = category.color || '#355872';
     }
+    const iconGroup = document.getElementById('edit-category-icon-group');
+    if (iconGroup) iconGroup.style.display = '';
+    populateCategoryIconSelect('edit-category-icon', category.icon);
+    updateCategoryIconPreview('edit-category-icon', 'edit-category-icon-preview');
 
     categoryEditModal.classList.add('active');
     editCategoryNameInput.focus();
@@ -6097,6 +6845,8 @@ function closeCategoryEditModal() {
         const typeLabel = typeContainer.querySelector('label');
         if (typeLabel) typeLabel.style.display = 'block';
         editCategoryTypeSelect.style.display = 'block';
+        const iconGroup = document.getElementById('edit-category-icon-group');
+        if (iconGroup) iconGroup.style.display = '';
     }
 }
 
@@ -6117,6 +6867,7 @@ async function handleCategoryEdit(e) {
     const name = editCategoryNameInput.value.trim();
     const type = editCategoryTypeSelect.value;
     const color = document.getElementById('edit-category-color')?.value || '#355872';
+    const icon = getCategoryIconValue(document.getElementById('edit-category-icon')?.value);
 
     if (!name) {
         showToast('Please enter a category name', 'warning');
@@ -6128,7 +6879,7 @@ async function handleCategoryEdit(e) {
         const oldCategory = categories.find(c => c.id === id);
 
         // Update the category
-        await updateRecord(STORE_CATEGORIES, { id, name, type, color });
+        await updateRecord(STORE_CATEGORIES, { ...(oldCategory || {}), id, name, type, color, icon });
 
         // Update all records that reference the old category name
         if (oldCategory && oldCategory.name !== name) {
@@ -6172,6 +6923,13 @@ async function handleCategoryEdit(e) {
                     });
                 }
             }
+
+            const savingsTransactionsToUpdate = savingsTransactions.filter(
+                transaction => getSavingsTransactionCategory(transaction) === oldCategory.name
+            );
+            for (const transaction of savingsTransactionsToUpdate) {
+                await updateRecord(STORE_SAVINGS_TRANSACTIONS, { ...transaction, category: name });
+            }
         }
 
         closeCategoryEditModal();
@@ -6210,6 +6968,8 @@ function openPersonEditModal(person) {
     const typeLabel = typeContainer.querySelector('label');
     if (typeLabel) typeLabel.style.display = 'none';
     editCategoryTypeSelect.style.display = 'none';
+    const iconGroup = document.getElementById('edit-category-icon-group');
+    if (iconGroup) iconGroup.style.display = 'none';
 
     // Update modal title
     const modalTitle = categoryEditModal.querySelector('h2');
@@ -6352,9 +7112,11 @@ function renderSettings() {
 
             const btnBg = 'rgba(0, 0, 0, 0.05)';
 
+            const categoryIcon = getCategoryIconValue(cat);
             div.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1;">
-                    <div style="min-width: 0; flex: 1;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1;">
+                        <i class="fas ${categoryIcon} category-item-icon" style="color: ${catColor};" aria-hidden="true"></i>
+                        <div style="min-width: 0; flex: 1;">
                         <strong style="color: ${titleColor}; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.15rem; font-weight: 700;">${cat.name}</strong>
                         <span class="category-badge" style="background: ${badgeBg}; color: ${badgeColor}; border: ${badgeBorder}; padding: 0.15rem 0.5rem; font-size: 0.72rem; border-radius: var(--radius-sm); text-transform: capitalize; font-weight: 600;">${cat.type}</span>
                     </div>
@@ -6445,14 +7207,18 @@ async function handleAddCategory() {
     const nameInput = document.getElementById('new-category-name');
     const typeSelect = document.getElementById('new-category-type');
     const colorInput = document.getElementById('new-category-color');
+    const iconSelect = document.getElementById('new-category-icon');
     const name = nameInput.value.trim();
     const type = typeSelect.value;
     const color = colorInput ? colorInput.value : '#355872';
+    const icon = getCategoryIconValue(iconSelect?.value);
 
     if (name) {
-        await add(STORE_CATEGORIES, { name, type, color });
+        await add(STORE_CATEGORIES, { name, type, color, icon });
         nameInput.value = '';
         if (colorInput) colorInput.value = '#355872';
+        if (iconSelect) iconSelect.value = 'fa-tag';
+        updateCategoryIconPreview('new-category-icon', 'new-category-icon-preview');
         await refreshData();
     }
 }
@@ -6621,7 +7387,7 @@ async function updateExportStatusUI() {
 
     const lastExportedAt = await getLastExportedAt();
     if (!lastExportedAt || Number.isNaN(lastExportedAt.getTime())) {
-        label.textContent = 'Never exported';
+        label.textContent = 'Never';
         label.className = 'export-status danger';
         return;
     }
@@ -6912,6 +7678,7 @@ function getARGroupRecords(rootId) {
 // Global variable to store current AR being collected
 let currentARCollection = null;
 let currentIncomeCollection = null;
+let currentCarriedDebtRepayment = null;
 
 // Initialize AR collection card event listeners
 
@@ -7898,11 +8665,15 @@ async function checkAndCarryForwardAR() { /* no-op */ }
 
 // Privacy Mode Functions
 function togglePrivacyMode() {
+    const wasPrivacyMode = isPrivacyMode;
     isManualPrivacyMode = isContentBlurred ? false : !isManualPrivacyMode;
     isContentBlurred = false;
     isPrivacyMode = isManualPrivacyMode;
+    areDashboardKpisRevealed = false;
+    if (wasPrivacyMode && !isPrivacyMode) areDashboardKpisBlurred = false;
     document.body.classList.toggle('privacy-mode', isPrivacyMode);
     document.body.classList.remove('auto-blurred');
+    updateDashboardKpiPrivacy();
     localStorage.setItem('floosy_privacy_mode', isPrivacyMode);
     localStorage.setItem('floosy_manual_privacy_mode', isManualPrivacyMode);
     updatePrivacyIcon();
@@ -7912,6 +8683,51 @@ function togglePrivacyMode() {
         document.body.classList.remove('auto-blurred');
         resetInactivityTimer();
     }
+}
+
+function setupDashboardKpiPrivacy() {
+    document.querySelectorAll('[data-privacy-kpi="income"], [data-privacy-kpi="spending"]').forEach(kpi => {
+        const label = kpi.dataset.privacyKpi === 'income' ? 'income' : 'spending';
+        kpi.setAttribute('role', 'button');
+        kpi.setAttribute('tabindex', '0');
+        kpi.setAttribute('aria-label', `Toggle privacy for ${label} total`);
+
+        kpi.addEventListener('click', event => {
+            if (event.detail > 1) return;
+            toggleDashboardKpiPrivacy();
+        });
+        kpi.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            toggleDashboardKpiPrivacy();
+        });
+    });
+    updateDashboardKpiPrivacy();
+}
+
+function markDashboardKpiValuesPrivate() {
+    document.querySelectorAll('[data-privacy-kpi]').forEach(kpi => {
+        kpi.querySelectorAll('.amount-num, .currency-sign, .dollar-icon, .dollar-positive, .dollar-negative, .ap-kpi-amount, .held-kpi-amount')
+            .forEach(value => value.setAttribute('data-privacy-value', ''));
+    });
+}
+
+function toggleDashboardKpiPrivacy() {
+    if (isPrivacyMode) {
+        areDashboardKpisRevealed = !areDashboardKpisRevealed;
+    } else {
+        areDashboardKpisBlurred = !areDashboardKpisBlurred;
+    }
+    updateDashboardKpiPrivacy();
+}
+
+function updateDashboardKpiPrivacy() {
+    document.body.classList.toggle('kpi-privacy-mode', areDashboardKpisBlurred && !isPrivacyMode);
+    document.body.classList.toggle('kpi-privacy-revealed', areDashboardKpisRevealed && isPrivacyMode);
+    document.querySelectorAll('[data-privacy-kpi="income"], [data-privacy-kpi="spending"]').forEach(kpi => {
+        const isBlurred = isPrivacyMode ? !areDashboardKpisRevealed : areDashboardKpisBlurred;
+        kpi.setAttribute('aria-pressed', String(isBlurred));
+    });
 }
 
 function updateSavingsAccountNameMarquees() {
@@ -8329,13 +9145,12 @@ function renderUpcomingWidget() {
     const nextMonthKey = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}`;
 
     // Get a set of templateIds already received this month
-    const receivedThisMonth = new Set();
+    const receivedOccurrences = new Set();
     records.forEach(r => {
         if (r.fromRecurringTemplate && r.type === 'income' && !r.isProjected) {
-            const rDate = parseDateLocal(r.date);
-            if (rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear) {
-                receivedThisMonth.add(parseInt(r.fromRecurringTemplate));
-            }
+            const rDate = parseDateLocal(r.expectedDate || r.date);
+            const occurrenceMonth = `${rDate.getFullYear()}-${String(rDate.getMonth() + 1).padStart(2, '0')}`;
+            receivedOccurrences.add(`${parseInt(r.fromRecurringTemplate)}:${occurrenceMonth}`);
         }
     });
 
@@ -8344,15 +9159,26 @@ function renderUpcomingWidget() {
         const recordDate = new Date(r.date);
         return r.isProjected && recordDate > now && recordDate <= fiveDaysFromNow;
     });
+    const earlyReceivedRecords = records
+        .filter(record => record.type === 'income' && !record.isProjected && record.expectedDate)
+        .filter(record => {
+            const actualDate = parseDateLocal(record.date);
+            const expectedDate = parseDateLocal(record.expectedDate);
+            return actualDate <= now && expectedDate > now && expectedDate <= fiveDaysFromNow;
+        })
+        .map(record => ({
+            ...record,
+            date: record.expectedDate,
+            isEarlyReceipt: true
+        }));
 
     // Generate recurring income occurrences (next 5 days)
     const recurringOccurrences = [];
     recurringIncomeTemplates.forEach(template => {
-        if (receivedThisMonth.has(template.id)) return; // Skip if already received
-
         const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
         // Current month occurrence
-        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
+        if ((!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) &&
+            !receivedOccurrences.has(`${template.id}:${currentMonthKey}`)) {
             const currentMonthDate = new Date(now.getFullYear(), now.getMonth(), template.dayOfMonth);
             if (currentMonthDate > now && currentMonthDate <= fiveDaysFromNow) {
                 recurringOccurrences.push({
@@ -8367,7 +9193,8 @@ function renderUpcomingWidget() {
         }
 
         // Check next month occurrence (if within 5 days)
-        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) {
+        if ((!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) &&
+            !receivedOccurrences.has(`${template.id}:${nextMonthKey}`)) {
             const nextMonthDate = new Date(nextYear, nextMonth, template.dayOfMonth);
             if (nextMonthDate > now && nextMonthDate <= fiveDaysFromNow) {
                 recurringOccurrences.push({
@@ -8383,7 +9210,8 @@ function renderUpcomingWidget() {
     });
 
     // Combine and sort
-    const upcoming = [...upcomingRecords, ...recurringOccurrences].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const upcoming = [...upcomingRecords, ...earlyReceivedRecords, ...recurringOccurrences]
+        .sort((a, b) => parseDateLocal(a.date) - parseDateLocal(b.date));
 
     const listContainer = container.querySelector('.upcoming-list');
     if (!listContainer) return;
@@ -8395,12 +9223,14 @@ function renderUpcomingWidget() {
 
     listContainer.innerHTML = '';
     upcoming.slice(0, 5).forEach(r => {
-        const dateObj = new Date(r.date);
+        const dateObj = parseDateLocal(r.date);
         const isToday = dateObj.toDateString() === now.toDateString();
         const isTomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toDateString() === dateObj.toDateString();
         
         let dateLabel;
-        if (isToday) {
+        if (r.isEarlyReceipt) {
+            dateLabel = 'Received early';
+        } else if (isToday) {
             dateLabel = 'Today';
         } else if (isTomorrow) {
             dateLabel = '1 day left';
@@ -8455,19 +9285,20 @@ function renderUpcomingIncome() {
     if (!container) return;
 
     const now = new Date();
-    const thirtyDaysFromNow = new Date(now);
-    thirtyDaysFromNow.setDate(now.getDate() + 30);
+    const twentyFiveDaysFromNow = new Date(now);
+    twentyFiveDaysFromNow.setDate(now.getDate() + 25);
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     const currentMonthStart = new Date(currentYear, currentMonth, 1);
     const currentMonthEnd = new Date(currentYear, currentMonth + 1, 0);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     // Build a map of templateId -> received record id for THIS month
     // This lets us detect which recurring incomes have already been received
     const receivedThisMonth = {};
     records.forEach(r => {
         if (r.fromRecurringTemplate && r.type === 'income' && !r.isProjected) {
-            const rDate = new Date(r.date);
+            const rDate = parseDateLocal(r.expectedDate || r.date);
             if (rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear) {
                 // Store the record id so we can delete it on undo
                 const numericTemplateId = parseInt(r.fromRecurringTemplate);
@@ -8478,27 +9309,27 @@ function renderUpcomingIncome() {
         }
     });
 
-    // Get regular upcoming income and AR (next 30 days)
+    // Get regular upcoming income and AR for the next 25 days
     const upcomingIncome = records.filter(r => {
         if (r.skipped) return false;
         const recordDate = parseDateLocal(r.date);
-        // Include: future income dates, pending AR, and overdue projected expected income for this month
+        // Include: future income dates, pending AR, and overdue projected expected income
         if (r.type === 'income' && r.isProjected) {
-            if (recordDate > now && recordDate <= thirtyDaysFromNow) {
+            if (recordDate > now && recordDate <= twentyFiveDaysFromNow) {
                 return true;
             }
             if (recordDate.toDateString() === now.toDateString()) {
                 return true;
             }
-            if (recordDate < now && recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+            if (recordDate < now && recordDate >= currentMonthStart) {
                 return true;
             }
             return false;
         }
-        if (r.type === 'income' && !r.isProjected && recordDate > now && recordDate <= thirtyDaysFromNow) {
+        if (r.type === 'income' && !r.isProjected && recordDate > now && recordDate <= twentyFiveDaysFromNow) {
             return true;
         }
-        if (r.type === 'account_receivable' && !r.collected && recordDate <= thirtyDaysFromNow) {
+        if (r.type === 'account_receivable' && !r.collected && recordDate <= twentyFiveDaysFromNow) {
             return true;
         }
         return false;
@@ -8511,6 +9342,11 @@ function renderUpcomingIncome() {
         const alreadyReceived = receivedThisMonth.hasOwnProperty(numericId);
         
         const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+        const nextMonthStart = new Date(currentYear, currentMonth + 1, 1);
+        const nextMonth = nextMonthStart.getMonth();
+        const nextYear = nextMonthStart.getFullYear();
+        const nextMonthKey = `${nextYear}-${String(nextMonth + 1).padStart(2, '0')}`;
+
         // Current month occurrence
         if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(currentMonthKey)) {
             const currentMonthDate = new Date(
@@ -8518,7 +9354,7 @@ function renderUpcomingIncome() {
                 currentMonth,
                 Math.min(template.dayOfMonth, currentMonthEnd.getDate())
             );
-            if (currentMonthDate <= thirtyDaysFromNow) {
+            if (currentMonthDate <= twentyFiveDaysFromNow) {
                 recurringOccurrences.push({
                     id: template.id,
                     date: formatDateLocal(currentMonthDate),
@@ -8535,15 +9371,49 @@ function renderUpcomingIncome() {
             }
         }
 
+        // Next month occurrence (if within 25 days)
+        if (!template.ignoredOccurrences || !template.ignoredOccurrences.includes(nextMonthKey)) {
+            const nextMonthDate = new Date(nextYear, nextMonth, template.dayOfMonth);
+            if (nextMonthDate > now && nextMonthDate <= twentyFiveDaysFromNow) {
+                recurringOccurrences.push({
+                    id: template.id,
+                    date: formatDateLocal(nextMonthDate),
+                    amount: template.amount,
+                    category: template.category,
+                    projectedSource: template.source,
+                    notes: template.notes,
+                    isRecurring: true,
+                    isProjected: true,
+                    templateId: template.id,
+                    dayOfMonth: template.dayOfMonth,
+                    receivedRecordId: null
+                });
+            }
+        }
+
     });
 
-    // Only show income and receivables dated within the current month.
-    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences].filter(item => {
+    // Only show income and receivables expected within the next 25 days.
+    const earlyReceivedIncome = records
+        .filter(record => record.type === 'income' && !record.isProjected && !record.fromRecurringTemplate && record.expectedDate)
+        .map(record => ({
+            ...record,
+            actualReceivedDate: record.date,
+            date: record.expectedDate,
+            receivedRecordId: record.id,
+            isEarlyReceipt: parseDateLocal(record.date) < parseDateLocal(record.expectedDate)
+        }))
+        .filter(record => {
+            const actualDate = parseDateLocal(record.actualReceivedDate);
+            const expectedDate = parseDateLocal(record.expectedDate);
+            return actualDate <= now && expectedDate > now && expectedDate <= twentyFiveDaysFromNow;
+        });
+    const allUpcomingIncome = [...upcomingIncome, ...recurringOccurrences, ...earlyReceivedIncome].filter(item => {
         const date = parseDateLocal(item.date);
-        return date >= currentMonthStart && date <= currentMonthEnd;
+        // Include items from today to 25 days ahead (crosses month boundary)
+        return date >= todayStart && date <= twentyFiveDaysFromNow;
     });
     const pendingUpcoming = allUpcomingIncome.filter(r => !r.receivedRecordId);
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const overdueItems = pendingUpcoming.filter(r => parseDateLocal(r.date) < todayStart);
     const upcomingItems = pendingUpcoming.filter(r => parseDateLocal(r.date) >= todayStart);
     const overdueTotal = overdueItems.reduce((total, r) => total + (parseFloat(r.amount) || 0), 0);
@@ -8551,6 +9421,10 @@ function renderUpcomingIncome() {
     const collectedExpectedIncome = records.reduce((total, record) => {
         if (record.type !== 'income' || record.isProjected || record.fromRecurringTemplate || !record.projectedSource) {
             return total;
+        }
+        if (record.expectedDate) {
+            const expectedDate = parseDateLocal(record.expectedDate);
+            if (expectedDate >= currentMonthStart && expectedDate <= twentyFiveDaysFromNow) return total;
         }
         const date = parseDateLocal(record.date);
         if (date < currentMonthStart || date > todayStart) return total;
@@ -8566,7 +9440,7 @@ function renderUpcomingIncome() {
             <span class="upcoming-income-summary-icon"><i class="fas fa-chart-line"></i></span>
             <div>
                 <span class="upcoming-income-summary-eyebrow">Income outlook</span>
-                <span class="upcoming-income-summary-caption">Pending income and receivables</span>
+                <span class="upcoming-income-summary-caption">Next 25 days (crosses month)</span>
             </div>
         </div>
         <div class="upcoming-income-summary-stats">
@@ -8617,13 +9491,18 @@ function renderUpcomingIncome() {
 
     const upcomingGroups = [
         { key: 'overdue', label: 'Overdue' },
-        { key: 'current-month', label: 'Upcoming This Month' }
+        { key: 'current-month', label: 'Upcoming This Month' },
+        { key: 'next-month', label: `Upcoming ${new Date(currentYear, currentMonth + 1, 1).toLocaleDateString('default', { month: 'long' })}` }
     ];
     const getUpcomingGroup = (item) => {
         const date = parseDateLocal(item.date);
         if (date < todayStart) return 'overdue';
         if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
             return 'current-month';
+        }
+        const nextMonth = new Date(currentYear, currentMonth + 1, 1);
+        if (date.getFullYear() === nextMonth.getFullYear() && date.getMonth() === nextMonth.getMonth()) {
+            return 'next-month';
         }
         return null;
     };
@@ -8722,6 +9601,9 @@ function renderUpcomingIncome() {
         if (isAR) {
             iconClass = 'fa-hand-holding-dollar';
             statusLabel = ' (Receivable)';
+        } else if (r.isEarlyReceipt) {
+            iconClass = 'fa-circle-check';
+            statusLabel = ' (Received early)';
         } else if (isRecurring) {
             iconClass = isReceivedThisMonth ? 'fa-check-circle' : 'fa-calendar-check';
             statusLabel = ' (Recurring)';
@@ -8878,7 +9760,7 @@ function renderUpcomingIncome() {
         collectedSection.className = 'collected-upcoming-section';
         collectedSection.innerHTML = `
             <div class="collected-section-header">
-                <h4><i class="fas fa-circle-check"></i> Collected This Month (Waiting for Next Month)</h4>
+                <h4><i class="fas fa-circle-check"></i> Received for This Month</h4>
                 <span class="collected-count-badge">${collectedUpcoming.length}</span>
             </div>
             <div class="collected-upcoming-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
@@ -9205,12 +10087,14 @@ function showUpcomingIncomeDetails(id, isRecurring = false) {
 
     const isAR = !isRecurring && record?.type === 'account_receivable';
     const isProjected = !isRecurring && record?.isProjected;
+    const hasSeparateExpectedDate = !isRecurring && record?.type === 'income' &&
+        record.expectedDate && record.expectedDate !== record.date;
 
     // Create floating popup
     let popup = document.getElementById('upcoming-income-details-popup');
     if (popup) popup.remove();
 
-    const title = isAR ? 'AR' : (isRecurring ? 'Recurring Income' : (isProjected ? 'Expected Income' : 'Upcoming Income'));
+    const title = isAR ? 'AR' : (isRecurring ? 'Recurring Income' : (isProjected ? 'Expected Income' : (hasSeparateExpectedDate ? 'Income Received Early' : 'Upcoming Income')));
     const recurringInfo = isRecurring ? `
                 <div class="detail-row">
                     <span class="detail-label">Recurring</span>
@@ -9234,10 +10118,21 @@ function showUpcomingIncomeDetails(id, isRecurring = false) {
                     <span class="detail-label">Source</span>
                     <span class="detail-value">${source || category}</span>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Date</span>
-                    <span class="detail-value">${dateStr}</span>
-                </div>
+                ${hasSeparateExpectedDate ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Received</span>
+                        <span class="detail-value">${dateStr}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Expected for</span>
+                        <span class="detail-value">${parseDateLocal(record.expectedDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
+                ` : `
+                    <div class="detail-row">
+                        <span class="detail-label">Date</span>
+                        <span class="detail-value">${dateStr}</span>
+                    </div>
+                `}
                 <div class="detail-row">
                     <span class="detail-label">Amount</span>
                     <span class="detail-value income-amount">+$${formatCurrency(parseFloat(amount) || 0)}</span>
@@ -9361,8 +10256,9 @@ async function processIncomeCollection() {
         return;
     }
 
-    const { id, isRecurring, source, amount, category, notes, templateId } = currentIncomeCollection;
+    const { id, isRecurring, source, amount, category, notes, templateId, occurrenceDate } = currentIncomeCollection;
     const todayDate = formatDateLocal(new Date());
+    const expectedDate = occurrenceDate || todayDate;
 
     try {
         if (isRecurring) {
@@ -9371,6 +10267,7 @@ async function processIncomeCollection() {
                 formatType: 'single',
                 type: 'income',
                 date: todayDate,
+                expectedDate,
                 timestamp: Date.now(),
                 item: '',
                 category: category,
@@ -9396,9 +10293,11 @@ async function processIncomeCollection() {
             const record = records.find(r => r.id === id);
             if (record) {
                 const originalAmount = parseFloat(record.amount) || 0;
+                const scheduledDate = occurrenceDate || record.expectedDate || record.date;
                 record.amount = receivedAmount;
                 record.isProjected = false;
                 record.date = todayDate;
+                record.expectedDate = scheduledDate;
                 record.timestamp = Date.now();
                 
                 // Add note if amount changed

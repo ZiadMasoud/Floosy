@@ -22,13 +22,18 @@ Floosy is a personal finance tracker for managing income, expenses, savings, and
  
 **Tracking**
 - Dashboard with income, spending, and balance for the current month.
-- Transaction management with categories and per-person tracking.
+- Prior-month shortfalls carry forward as a separate debt balance, with partial repayments recorded against available cash.
+- Debt repayments can be undone to restore both cash and the outstanding debt.
+- Income received before its expected date remains one transaction, shown in both the received and expected months without double-counting.
+- Transaction management with categories, category icons, and per-person tracking.
 - Multiple savings accounts with deposits, withdrawals, account-level indicators, and paginated history.
+- Savings outlook with account and balance totals, selectable 3-month, 6-month, 1-year, 5-year, and all-time income/expense ranges, month deposits and withdrawals, and per-transaction categories.
 **Planning**
-- Planner for monthly, weekly, and one-time income and fixed expenses, kept separate from actual transactions.
-- Manually logged item prices with a price-history chart.
+- Planner for monthly, weekly, and one-time income and fixed expenses, kept separate from actual transactions, with a three-event preview that can expand.
+- Category-based income and spending outlooks with selectable 6-month, 12-month, 5-year, and all-time ranges, range-specific averages and charts, outlier-resistant statistics, and current/previous-month figures, plus manually logged item prices with a price-history chart.
 **Analysis**
 - Interactive charts for spending by category, income versus spending over time, and spending by person.
+- A separate savings-category report for categorized savings deposits and withdrawals, kept out of regular transaction analytics.
 - Monthly summary export as PDF.
 **Data control**
 - JSON export and import for backup and transfer.
@@ -85,7 +90,7 @@ Planner events and item prices are stored separately from actual transactions. T
 | Storage | IndexedDB |
 | Charts | Chart.js 4.6.1 (bundled in `vendor/`) |
 | Notifications | Toastify (bundled in `vendor/`) |
-| Icons | Font Awesome 6.0.0 (bundled in `vendor/`) |
+| Icons | Font Awesome 6.0.0 (bundled in `vendor/`), including category icon choices |
 | PDF export | jsPDF 2.5.1 (loaded from a CDN) |
 | Offline and install | Web App Manifest and service worker |
  

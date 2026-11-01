@@ -18,6 +18,24 @@
     0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
+.modal-content > h2 {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #fff;
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-content > .modal-actions,
+.modal-content form > .modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  background: #f7f8f0;
+  border-top: 1px solid var(--border-color);
+}
+
 html {
   background: linear-gradient(135deg, #0B2849 0%, #0a1f3a 100%);
   min-height: 100%;
@@ -370,25 +388,12 @@ body.privacy-mode #hero-privacy-toggle {
   position: relative;
 }
 
-body.privacy-mode #total-income,
-body.privacy-mode #total-spending,
-body.privacy-mode #total-balance,
-body.privacy-mode #total-ar,
-body.privacy-mode #total-ap,
-body.privacy-mode #total-held,
-body.privacy-mode #hero-spending,
-body.privacy-mode #hero-saved,
-body.privacy-mode #hero-income,
-body.privacy-mode #hero-this-month-val,
-body.privacy-mode #hero-ar-display,
-body.privacy-mode #hero-ap-display,
-body.privacy-mode #hero-held-display,
 body.privacy-mode .amount-income,
 body.privacy-mode .amount-spending,
 body.privacy-mode .amount-account_receivable,
 body.privacy-mode .amount-account_payable,
 body.privacy-mode .amount-provisional,
-body.privacy-mode [class*="amount-"],
+body.privacy-mode [class*="amount-"]:not([data-privacy-value]),
 body.privacy-mode .transaction-amount .amount,
 body.privacy-mode #records-table td:nth-child(5),
 body.privacy-mode #records-table td:nth-child(6),
@@ -397,8 +402,8 @@ body.privacy-mode .savings-records-table td:nth-child(3),
 body.privacy-mode #stats-table td:nth-child(2),
 body.privacy-mode #stats-table td:nth-child(3),
 body.privacy-mode #stats-table td:nth-child(4),
-body.privacy-mode .kpi-card p,
-body.privacy-mode .kpi-details p,
+body.privacy-mode .kpi-card p:not([data-privacy-value]),
+body.privacy-mode .kpi-details p:not([data-privacy-value]),
 body.privacy-mode .insight-total-pair strong,
 body.privacy-mode .insight-rank-values,
 body.privacy-mode .savings-kpis p,
@@ -406,6 +411,7 @@ body.privacy-mode .chart-container canvas,
 body.privacy-mode .planner-kpi strong,
 body.privacy-mode .planner-event-amount,
 body.privacy-mode .planner-item-latest strong,
+body.privacy-mode .planner-category-outlook .planner-outlook-stat strong,
 body.privacy-mode .planner-price-change,
 body.privacy-mode .planner-price-row > strong,
 body.privacy-mode .planner-price-chart-wrap canvas,
@@ -440,6 +446,29 @@ body.privacy-mode #record-details-content [style*="text-align: right"] {
   text-shadow: 0 0 10px rgba(30, 41, 59, 0.8) !important;
   pointer-events: none !important;
   user-select: none !important;
+}
+
+body.kpi-privacy-mode [data-privacy-value],
+body.privacy-mode:not(.kpi-privacy-revealed) [data-privacy-value] {
+  filter: blur(10px) !important;
+  color: transparent !important;
+  text-shadow: 0 0 10px rgba(30, 41, 59, 0.8) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+body.kpi-privacy-mode .carry-over-section,
+body.kpi-privacy-mode .upcoming-widget {
+  filter: blur(6px);
+  user-select: none;
+}
+
+body.privacy-mode.kpi-privacy-revealed [data-privacy-value] {
+  filter: none !important;
+  color: inherit !important;
+  text-shadow: none !important;
+  pointer-events: auto !important;
+  user-select: auto !important;
 }
 
 body.privacy-mode .dashboard-records-list .transaction-name {
@@ -1079,7 +1108,8 @@ body.privacy-mode .dashboard-records-list .transaction-name {
 
 /* Add Transaction modal layout (better sticky header/footer UX) */
 #record-modal .modal-content,
-#upcoming-income-modal .modal-content {
+#upcoming-income-modal .modal-content,
+#transaction-modal .modal-content {
   display: flex;
   flex-direction: column;
   max-height: 90vh;
@@ -1088,18 +1118,21 @@ body.privacy-mode .dashboard-records-list .transaction-name {
 }
 
 #record-modal .modal-content h2,
-#upcoming-income-modal .modal-content h2 {
+#upcoming-income-modal .modal-content h2,
+#transaction-modal .modal-content h2 {
   position: sticky;
   top: 0;
   z-index: 3;
-  background: #f7f8f0;
+  background: #fff;
+  color: var(--primary-color);
   padding: 1.25rem 1.5rem 1rem;
   margin: 0;
   border-bottom: 1px solid var(--border-color);
 }
 
 #record-modal #record-form,
-#upcoming-income-modal #upcoming-income-form {
+#upcoming-income-modal #upcoming-income-form,
+#transaction-modal #transaction-form {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1110,7 +1143,8 @@ body.privacy-mode .dashboard-records-list .transaction-name {
 
 /* Scrollable form body; footer stays pinned */
 #record-modal #record-form .record-form-body,
-#upcoming-income-modal #upcoming-income-form .record-form-body {
+#upcoming-income-modal #upcoming-income-form .record-form-body,
+#transaction-modal #transaction-form .transaction-form-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -1119,7 +1153,8 @@ body.privacy-mode .dashboard-records-list .transaction-name {
 }
 
 #record-modal .modal-actions,
-#upcoming-income-modal .modal-actions {
+#upcoming-income-modal .modal-actions,
+#transaction-modal .modal-actions {
   flex: 0 0 auto;
   z-index: 3;
   background: #f7f8f0;
@@ -1132,7 +1167,8 @@ body.privacy-mode .dashboard-records-list .transaction-name {
 
 /* Keep action buttons aligned nicely (and override global mobile full-width button rules) */
 #record-modal .modal-actions .btn,
-#upcoming-income-modal .modal-actions .btn {
+#upcoming-income-modal .modal-actions .btn,
+#transaction-modal .modal-actions .btn {
   flex: 1 1 0;
   width: auto !important;
   margin: 0 !important;
@@ -1155,17 +1191,20 @@ body.privacy-mode .dashboard-records-list .transaction-name {
 @media (max-width: 768px) {
 
   #record-modal #record-form .record-form-body,
-  #upcoming-income-modal #upcoming-income-form .record-form-body {
+  #upcoming-income-modal #upcoming-income-form .record-form-body,
+  #transaction-modal #transaction-form .transaction-form-body {
     padding: 1rem 1rem 1rem;
   }
 
   #record-modal .modal-content h2,
-  #upcoming-income-modal .modal-content h2 {
+  #upcoming-income-modal .modal-content h2,
+  #transaction-modal .modal-content h2 {
     padding: 1.1rem 1rem 0.9rem;
   }
 
   #record-modal .modal-actions,
-  #upcoming-income-modal .modal-actions {
+  #upcoming-income-modal .modal-actions,
+  #transaction-modal .modal-actions {
     padding: 0.75rem 1rem 1rem;
   }
 }
@@ -1392,6 +1431,33 @@ header.dashboard-header-hide {
   gap: 0.5rem;
 }
 
+.hero-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.hero-header-actions .hero-export-btn,
+.hero-header-actions .hero-eye-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  flex: 0 0 2.25rem;
+  background: transparent;
+}
+
+.hero-header-actions .hero-export-btn:hover,
+.hero-header-actions .hero-eye-icon:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .hero-header-center {
   flex: 1;
   display: flex;
@@ -1536,6 +1602,20 @@ header.dashboard-header-hide {
   transition: all 0.2s ease;
 }
 
+.hero-balance-row {
+  display: flex;
+  width: 100%;
+  min-height: 2.4rem;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-balance-row .hero-this-month {
+  margin: 0 auto;
+}
+
 .hero-this-month:hover {
   background: rgba(255, 255, 255, 0.3);
 }
@@ -1546,6 +1626,10 @@ header.dashboard-header-hide {
 
 .hero-this-month .trend-up {
   color: #a8f0c0;
+}
+
+.hero-balance-label {
+  white-space: nowrap;
 }
 
 .hero-ar {
@@ -1743,6 +1827,22 @@ header.dashboard-header-hide {
   box-shadow: var(--shadow);
   border: 1px solid var(--border-color);
   transition: transform 0.2s;
+}
+
+.carried-debt-kpi .kpi-icon {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.kpi-card[data-privacy-kpi],
+.hero-metric-box[data-privacy-kpi] {
+  cursor: pointer;
+}
+
+.kpi-card[data-privacy-kpi]:focus-visible,
+.hero-metric-box[data-privacy-kpi]:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 3px;
 }
 
 .kpi-card:hover {
@@ -2775,6 +2875,7 @@ tr:last-child td {
   border-top: 1px solid var(--border-color);
   background: #f7f8f0;
   border-radius: 0 0 var(--radius) var(--radius);
+  flex: 0 0 auto;
 }
 
 .detail-row {
@@ -2957,6 +3058,125 @@ tr:last-child td {
 
 .savings-kpis .kpi-card {
   padding: 1rem;
+}
+
+.savings-outlook {
+  margin-bottom: 1.25rem;
+}
+
+.savings-outlook .budget-outlook-stats {
+  display: grid;
+  grid-template-columns: minmax(105px, 0.7fr) minmax(240px, 1.5fr);
+  gap: 0.65rem;
+  align-items: stretch;
+}
+
+.savings-outlook .budget-outlook-stat {
+  justify-content: center;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(122, 170, 206, 0.22);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.72);
+  text-align: left;
+}
+
+.savings-outlook-flow {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(122, 170, 206, 0.22);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.savings-outlook-range {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.savings-outlook-range select {
+  width: auto;
+  min-width: 7.5rem;
+  min-height: 34px;
+  padding: 0.3rem 1.8rem 0.3rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-main);
+  font: inherit;
+}
+
+.savings-outlook-flow-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.savings-outlook .budget-outlook-stat.savings-outlook-income {
+  border-color: rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.07);
+}
+
+.savings-outlook .savings-outlook-income strong {
+  color: var(--success);
+}
+
+.savings-outlook .budget-outlook-stat.savings-outlook-expenses {
+  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.065);
+}
+
+.savings-outlook .savings-outlook-expenses strong {
+  color: var(--danger);
+}
+
+.savings-outlook .savings-month-in .budget-outlook-kpi-icon,
+.savings-outlook .savings-month-in strong {
+  color: var(--success);
+}
+
+.savings-outlook .savings-month-in .budget-outlook-kpi-icon {
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.savings-category-analytics .card-header {
+  margin-bottom: 1rem;
+}
+
+.savings-category-analytics .card-header h3 {
+  margin-bottom: 0.25rem;
+}
+
+.savings-category-analytics .card-header p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.savings-category-analytics tfoot {
+  font-weight: 700;
+  border-top: 2px solid var(--border-color);
+}
+
+.category-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  color: var(--primary-color);
+  font-size: 1.1rem;
+}
+
+.category-item-icon {
+  flex: 0 0 1.25rem;
+  text-align: center;
 }
 
 /* Account Mini Dashboard - New Layout */
@@ -4121,8 +4341,9 @@ tr:last-child td {
 
   .modal-content {
     width: 100%;
-    max-height: 90vh;
-    min-height: 300px;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    min-height: 0;
     padding: 1.5rem;
     border-radius: var(--radius);
     position: relative;
@@ -4570,6 +4791,49 @@ tr:last-child td {
   opacity: 0.72;
 }
 
+.transaction-card.carried-debt {
+  background: #fff7ed !important;
+  border-color: #f59e0b !important;
+}
+
+.transaction-card.carried-debt .transaction-icon {
+  background: #ffedd5;
+  color: #b45309;
+}
+
+.transaction-card.carried-debt-repaid {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  opacity: 0.72;
+}
+
+.transaction-card.carried-debt-repaid .transaction-icon {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.transaction-card.debt-repayment {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+.transaction-card.debt-repayment .transaction-icon {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.debt-repay-btn {
+  min-width: 76px;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+
+.early-receipt-badge {
+  color: #047857;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .transaction-card.savings .transaction-icon {
   background: rgba(156, 213, 255, 0.4);
   color: var(--primary-color);
@@ -4803,6 +5067,33 @@ tr:last-child td {
   transform: scale(1.05);
 }
 
+.shortfall-transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0 0.5rem;
+  padding: 0.65rem;
+  border: 1px solid #d5d9de;
+  border-radius: var(--radius-sm);
+  background: #eef0f2;
+}
+
+.shortfall-transactions .week-separator-header {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: #d5d9de;
+}
+
+.shortfall-transactions .week-name {
+  color: var(--primary-color);
+}
+
+.shortfall-transaction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 /* Empty State */
 .empty-state {
   text-align: center;
@@ -4940,6 +5231,18 @@ tr:last-child td {
     width: 30px;
     height: 30px;
     border-radius: 8px;
+  }
+
+  .transaction-actions .debt-repay-btn {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: 58px;
+    min-height: 32px;
+    height: 32px;
+    margin: 0 !important;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.75rem;
+    line-height: 1;
   }
 }
 
@@ -5175,7 +5478,82 @@ tr:last-child td {
   white-space: nowrap;
 }
 
-.budget-limits-card .card-header {
+@media (max-width: 480px) {
+  .hero-balance-label {
+    display: none;
+  }
+
+  .hero-balance-row:not(.has-debt) .hero-balance-label {
+    display: inline;
+  }
+
+  .transaction-card {
+    gap: 0.35rem;
+    padding: 0.65rem;
+  }
+
+  .transaction-icon {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+  }
+
+  .transaction-amount {
+    min-width: 62px;
+  }
+
+  .transaction-actions {
+    gap: 0.2rem;
+    margin-left: 0;
+  }
+
+  .transaction-actions .btn-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+  }
+
+  .transaction-actions .debt-repay-btn {
+    min-width: 52px;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.7rem;
+  }
+
+  .shortfall-transactions {
+    padding: 0.5rem;
+  }
+
+  .shortfall-transactions .transaction-card {
+    padding: 0.55rem;
+  }
+
+  .modal-content:not(.confirm-modal-content) > h2 {
+    margin: 0 0 1rem;
+    padding: 1rem 1.25rem 0.85rem;
+    font-size: 1.2rem;
+    text-align: left;
+  }
+
+  .modal-content:not(.confirm-modal-content) > .modal-actions,
+  .modal-content:not(.confirm-modal-content) form > .modal-actions {
+    display: flex;
+    flex-direction: row;
+    gap: 0.65rem;
+    padding: 0.75rem 0 0.25rem;
+    margin-top: 0;
+  }
+
+  .modal-content:not(.confirm-modal-content) .modal-actions .btn {
+    flex: 1 1 0;
+    width: auto !important;
+    min-width: 0;
+    height: 44px;
+    margin: 0 !important;
+    justify-content: center;
+  }
+}
+
+.card-header {
   flex-wrap: nowrap;
 }
 
@@ -5744,6 +6122,10 @@ tr:last-child td {
     width: 100%;
   }
 
+  .savings-outlook .budget-outlook-stats {
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.5fr);
+  }
+
   .budget-outlook-stat {
     align-items: flex-start;
     flex: 1 1 0;
@@ -5789,6 +6171,18 @@ tr:last-child td {
   .budget-outlook-stats {
     justify-content: space-between;
     gap: 0.5rem;
+  }
+
+  .savings-outlook .budget-outlook-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .savings-outlook .budget-outlook-stat {
+    align-items: flex-start;
+  }
+
+  .savings-outlook-flow {
+    padding: 0.5rem;
   }
 
   .budget-outlook-stat {
@@ -7016,8 +7410,9 @@ tr:last-child td {
   transform: translate(-50%, -50%);
   width: 100%;
   max-width: 400px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: min(90vh, calc(100dvh - 2rem));
+  min-height: 0;
+  overflow: hidden;
   overflow-x: hidden;
   background: var(--card-bg);
   border-radius: var(--radius);
@@ -7050,8 +7445,9 @@ tr:last-child td {
   align-items: center;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(53, 88, 114, 0.05) 0%, rgba(122, 170, 206, 0.05) 100%);
+  background: #fff;
   border-radius: var(--radius) var(--radius) 0 0;
+  flex: 0 0 auto;
 }
 
 .ar-collection-header h3 {
@@ -7076,6 +7472,11 @@ tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ar-collection-info {
@@ -7184,7 +7585,7 @@ tr:last-child td {
   gap: 0.75rem;
   padding: 1rem 1.5rem 1.5rem;
   border-top: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(53, 88, 114, 0.02) 0%, rgba(122, 170, 206, 0.02) 100%);
+  background: #f7f8f0;
   border-radius: 0 0 var(--radius) var(--radius);
 }
 
@@ -7214,8 +7615,9 @@ tr:last-child td {
 @media (max-width: 480px) {
   .ar-collection-card {
     max-width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
   }
 
   .ar-collection-header {
@@ -7910,6 +8312,23 @@ body.modal-open {
   font-weight: 600;
 }
 
+.planner-form .form-group[hidden] {
+  display: none !important;
+}
+
+.planner-item-category {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(11, 40, 73, 0.08);
+  color: var(--primary-color);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
 .planner-field-hint {
   color: var(--text-muted);
   font-size: 0.7rem;
@@ -7945,6 +8364,16 @@ body.modal-open {
   grid-template-columns: minmax(90px, 135px) minmax(0, 1fr);
   gap: 1rem;
   padding: 0 0 1.15rem 1.55rem;
+}
+
+.planner-day[hidden],
+.planner-event-row[hidden] {
+  display: none !important;
+}
+
+.planner-timeline-toggle {
+  width: 100%;
+  margin-top: 0.75rem;
 }
 
 .planner-day:last-child {
@@ -8187,6 +8616,11 @@ body.modal-open {
   font-size: 0.72rem;
 }
 
+.planner-item-name > div > .planner-item-category {
+  color: var(--primary-color);
+  font-size: 0.7rem;
+}
+
 .planner-item-latest {
   display: flex;
   align-items: flex-end;
@@ -8210,6 +8644,75 @@ body.modal-open {
   font-size: 1.25rem;
 }
 
+.planner-category-outlook {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0 1rem 0.9rem;
+}
+
+.planner-outlook-range {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.planner-outlook-range select {
+  width: auto;
+  min-width: 8.5rem;
+  min-height: 38px;
+  padding: 0.4rem 2rem 0.4rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-main);
+  font: inherit;
+}
+
+.planner-outlook-stat {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(122, 170, 206, 0.2);
+  border-radius: var(--radius-sm);
+  background: rgba(53, 88, 114, 0.045);
+}
+
+.planner-outlook-stat span {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-outlook-stat strong {
+  color: var(--primary-color);
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.planner-outlook-stat.total,
+.planner-outlook-stat.current {
+  border-color: rgba(16, 185, 129, 0.22);
+  background: rgba(16, 185, 129, 0.055);
+}
+
+.planner-outlook-stat.maximum strong {
+  color: var(--success);
+}
+
+.planner-outlook-stat.minimum strong {
+  color: var(--danger);
+}
+
 .planner-price-change {
   text-align: right;
 }
@@ -8220,6 +8723,14 @@ body.modal-open {
 
 .planner-price-change.down {
   color: var(--success);
+}
+
+.planner-price-change.income {
+  color: var(--success);
+}
+
+.planner-price-change.spending {
+  color: var(--danger);
 }
 
 .planner-item-details {
@@ -8260,6 +8771,10 @@ body.modal-open {
   padding: 0.45rem 0;
   border-bottom: 1px solid rgba(122, 170, 206, 0.18);
   font-size: 0.76rem;
+}
+
+.planner-price-row.category-month {
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
 .planner-price-row > span:first-child {
@@ -8497,6 +9012,17 @@ body.modal-open {
   .planner-item-heading {
     align-items: flex-start;
     padding: 0.85rem 0.85rem 0.65rem;
+  }
+
+  .planner-category-outlook {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    padding-right: 0.85rem;
+    padding-left: 0.85rem;
+  }
+
+  .planner-outlook-stat {
+    padding: 0.55rem;
   }
 
   .planner-item-name {

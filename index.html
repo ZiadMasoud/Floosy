@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Floosy</title>
   <link rel="icon" type="image/png" href="images/favicon.png" />
-  <link rel="stylesheet" href="css/style.css?v=10" />
+  <link rel="stylesheet" href="css/style.css?v=26" />
   <!-- <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> -->
   <script src="vendor/chart.js"></script>
   <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" /> -->
@@ -108,32 +108,45 @@
                 <i class="fas fa-chevron-down" style="font-size: 0.75rem;"></i>
               </div>
             </div>
-            <button id="hero-privacy-toggle" title="Toggle Privacy Mode" class="hero-eye-icon">
-              <i class="fas fa-eye"></i>
-              <svg class="privacy-countdown-ring" viewBox="0 0 100 100" aria-hidden="true">
-                <circle class="privacy-countdown-track" cx="50" cy="50" r="43"></circle>
-                <circle class="privacy-countdown-progress" cx="50" cy="50" r="43"></circle>
-              </svg>
-            </button>
+            <div class="hero-header-actions">
+              <button type="button" class="hero-export-btn hero-analytics-btn" id="hero-analytics-btn"
+                title="Open Analytics" aria-label="Open Analytics">
+                <i class="fas fa-chart-line"></i>
+              </button>
+              <button id="hero-privacy-toggle" title="Toggle Privacy Mode" class="hero-eye-icon">
+                <i class="fas fa-eye"></i>
+                <svg class="privacy-countdown-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <circle class="privacy-countdown-track" cx="50" cy="50" r="43"></circle>
+                  <circle class="privacy-countdown-progress" cx="50" cy="50" r="43"></circle>
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div class="hero-metrics">
-            <div class="hero-metric-box">
+            <div class="hero-metric-box" data-privacy-kpi="spending">
               <div class="hero-metric-label">Spent</div>
-              <div class="hero-metric-value" id="hero-spending"><span class="dollar-icon spending-icon">$</span><span
-                  class="amount-num">0</span></div>
+              <div class="hero-metric-value" id="hero-spending"><span class="dollar-icon spending-icon" data-privacy-value>$</span><span
+                  class="amount-num" data-privacy-value>0</span></div>
             </div>
-            <div class="hero-metric-box">
+            <div class="hero-metric-box" data-privacy-kpi="income">
               <div class="hero-metric-label">Income</div>
-              <div class="hero-metric-value" id="hero-income"><span class="dollar-icon income-icon">$</span><span
-                  class="amount-num">0</span></div>
+              <div class="hero-metric-value" id="hero-income"><span class="dollar-icon income-icon" data-privacy-value>$</span><span
+                  class="amount-num" data-privacy-value>0</span></div>
             </div>
           </div>
 
-          <div class="hero-this-month">
-            CURRENT BALANCE <span id="hero-this-month-val"><span class="currency-sign">+$</span><span
-                class="amount-num">0</span></span>
-            <i class="fas fa-arrow-trend-down trend-down" id="hero-trend-icon"></i>
+          <div class="hero-balance-row">
+            <div class="hero-this-month" data-privacy-kpi="balance">
+              <span class="hero-balance-label">CURRENT BALANCE</span>
+              <span id="hero-this-month-val"><span class="currency-sign" data-privacy-value>+$</span><span
+                  class="amount-num" data-privacy-value>0</span>
+              </span>
+              <span id="hero-debt-breakdown" style="display: none;" class="hero-debt-breakdown">
+                (Debt: <span class="dollar-negative">-$</span><span class="amount-num" data-privacy-value>0</span>)
+              </span>
+              <i class="fas fa-arrow-trend-down trend-down" id="hero-trend-icon"></i>
+            </div>
           </div>
 
           <!-- Monthly Balance Carry-Over Control -->
@@ -147,17 +160,17 @@
           </div>
 
           <div class="hero-extra-stats">
-            <div class="hero-ar" id="hero-ar-display" style="display: none;">
-              AR: <span class="dollar-icon ar-icon">-$</span><span class="amount-num">0</span>
+            <div class="hero-ar" id="hero-ar-display" data-privacy-kpi="ar" style="display: none;">
+              AR: <span class="dollar-icon ar-icon" data-privacy-value>-$</span><span class="amount-num" data-privacy-value>0</span>
             </div>
-            <div class="hero-ar" id="hero-ap-display" style="display: none;">
-              AP: <span class="dollar-icon ap-icon">$</span><span class="amount-num">0</span>
+            <div class="hero-ar" id="hero-ap-display" data-privacy-kpi="ap" style="display: none;">
+              AP: <span class="dollar-icon ap-icon" data-privacy-value>$</span><span class="amount-num" data-privacy-value>0</span>
             </div>
-            <div class="hero-ar" id="hero-held-display" style="display: none;">
-              Held: <span class="dollar-icon held-icon">$</span><span class="amount-num">0</span>
+            <div class="hero-ar" id="hero-held-display" data-privacy-kpi="held" style="display: none;">
+              Held: <span class="dollar-icon held-icon" data-privacy-value>$</span><span class="amount-num" data-privacy-value>0</span>
             </div>
-            <div class="hero-ar" id="hero-saved">
-              Saved: <span class="dollar-icon savings-icon">$</span><span class="amount-num">0</span>
+            <div class="hero-ar" id="hero-saved" data-privacy-kpi="saved">
+              Saved: <span class="dollar-icon savings-icon" data-privacy-value>$</span><span class="amount-num" data-privacy-value>0</span>
             </div>
           </div>
 
@@ -178,46 +191,53 @@
         </div>
 
         <div class="kpi-container">
-          <div class="kpi-card income">
+          <div class="kpi-card income" data-privacy-kpi="income">
             <div class="kpi-icon"><i class="fas fa-arrow-up"></i></div>
             <div class="kpi-details">
               <h3>Total Income</h3>
-              <p id="total-income">$0</p>
+              <p id="total-income" data-privacy-value>$0</p>
             </div>
           </div>
-          <div class="kpi-card spending">
+          <div class="kpi-card spending" data-privacy-kpi="spending">
             <div class="kpi-icon"><i class="fas fa-arrow-down"></i></div>
             <div class="kpi-details">
               <h3>Total Spending</h3>
-              <p id="total-spending">$0</p>
+              <p id="total-spending" data-privacy-value>$0</p>
             </div>
           </div>
-          <div class="kpi-card balance">
+          <div class="kpi-card balance" data-privacy-kpi="balance">
             <div class="kpi-icon"><i class="fas fa-balance-scale"></i></div>
             <div class="kpi-details">
               <h3>Balance</h3>
-              <p id="total-balance">$0</p>
+              <p id="total-balance" data-privacy-value>$0</p>
             </div>
           </div>
-          <div class="kpi-card accounts-receivable">
+          <div class="kpi-card accounts-receivable" data-privacy-kpi="ar">
             <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="kpi-details">
               <h3>AR</h3>
-              <p id="total-ar">$0</p>
+              <p id="total-ar" data-privacy-value>$0</p>
             </div>
           </div>
-          <div class="kpi-card account-payable">
+          <div class="kpi-card account-payable" data-privacy-kpi="ap">
             <div class="kpi-icon"><i class="fas fa-file-invoice-dollar"></i></div>
             <div class="kpi-details">
               <h3>AP</h3>
-              <p id="total-ap">$0</p>
+              <p id="total-ap" data-privacy-value>$0</p>
             </div>
           </div>
-          <div class="kpi-card provisional-held">
+          <div class="kpi-card provisional-held" data-privacy-kpi="held">
             <div class="kpi-icon"><i class="fas fa-hourglass-half"></i></div>
             <div class="kpi-details">
               <h3>Held</h3>
-              <p id="total-held">$0</p>
+              <p id="total-held" data-privacy-value>$0</p>
+            </div>
+          </div>
+          <div class="kpi-card carried-debt-kpi" data-privacy-kpi="debt">
+            <div class="kpi-icon"><i class="fas fa-credit-card"></i></div>
+            <div class="kpi-details">
+              <h3>Prior Debt</h3>
+              <p id="total-carried-debt" data-privacy-value>$0</p>
             </div>
           </div>
         </div>
@@ -404,7 +424,7 @@
             <div class="planner-section-heading">
               <div>
                 <h3 id="planner-items-title">Item price tracker</h3>
-                <p>Log prices when you buy something and see how its price changes over time.</p>
+                <p>Track recorded income or spending totals by category over time, or log item prices manually.</p>
               </div>
               <button class="btn btn-primary" id="planner-add-item-toggle" type="button">
                 <i class="fas fa-plus"></i> Add item
@@ -416,10 +436,24 @@
               <input type="hidden" name="id" />
               <div class="planner-form-grid planner-item-form-grid">
                 <label class="form-group">
-                  <span>Item name</span>
-                  <input name="name" type="text" maxlength="80" required placeholder="e.g. Coffee, Laundry detergent" />
+                  <span>Item name <small>(optional with a category)</small></span>
+                  <input name="name" type="text" maxlength="80" placeholder="e.g. Coffee, Rent income" />
                 </label>
                 <label class="form-group">
+                  <span>Type</span>
+                  <select name="type" required>
+                    <option value="spending">Spending</option>
+                    <option value="income">Income</option>
+                  </select>
+                </label>
+                <label class="form-group">
+                  <span>Category</span>
+                  <select name="category">
+                    <option value="">Select category (optional)</option>
+                  </select>
+                  <small class="planner-field-hint">Select a category to automatically total recorded transactions over time.</small>
+                </label>
+                <label class="form-group" data-frequency-field>
                   <span>Usual purchase frequency</span>
                   <select name="frequency" required>
                     <option value="weekly">Weekly</option>
@@ -513,6 +547,35 @@
           <h3 style="padding: 0 0.5rem;">Insights</h3>
           <div class="kpi-container" id="filter-kpi-container">
             <!-- Filter-specific KPIs will be injected here -->
+          </div>
+        </div>
+
+        <div class="card savings-category-analytics" aria-labelledby="savings-category-analytics-title">
+          <div class="card-header">
+            <div>
+              <h3 id="savings-category-analytics-title">Savings Categories</h3>
+              <p>Deposits and withdrawals from your savings accounts only.</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Type</th>
+                  <th>Transactions</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="savings-category-analytics-body"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="2">Totals</td>
+                  <td id="savings-category-analytics-count">0</td>
+                  <td id="savings-category-analytics-total">$0</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         </div>
 
@@ -775,6 +838,11 @@
                     <label>Color</label>
                     <input type="color" id="new-category-color" value="#355872" style="width: 100%; height: 42px; padding: 0.25rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer;" />
                   </div>
+                  <div class="form-group">
+                    <label for="new-category-icon">Icon</label>
+                    <select id="new-category-icon"></select>
+                    <span class="category-icon-preview" id="new-category-icon-preview" aria-hidden="true"></span>
+                  </div>
                   <div class="form-group" style="display: flex; align-items: flex-end">
                     <button class="btn btn-primary" id="add-category-btn" style="width: 100%">
                       Add Category
@@ -960,6 +1028,62 @@
           <i class="fas fa-plus"></i>
           <span class="fab-label">New Account</span>
         </button>
+        <div class="card budget-outlook savings-outlook" aria-labelledby="savings-outlook-title">
+          <div class="budget-outlook-top">
+            <div class="budget-outlook-heading">
+              <span class="budget-outlook-icon"><i class="fas fa-piggy-bank"></i></span>
+              <div>
+                <strong id="savings-outlook-title">Savings outlook</strong>
+                <span>Account balances and savings activity by range</span>
+              </div>
+            </div>
+            <div class="budget-outlook-stats">
+              <div class="budget-outlook-stat">
+                <span>Total savings</span>
+                <strong id="savings-outlook-balance">$0</strong>
+              </div>
+              <div class="savings-outlook-flow">
+                <label class="savings-outlook-range" for="savings-outlook-range">
+                  <span>Outlook range</span>
+                  <select id="savings-outlook-range">
+                    <option value="3-months">3 months</option>
+                    <option value="6-months">6 months</option>
+                    <option value="1-year">1 year</option>
+                    <option value="5-years">5 years</option>
+                    <option value="all-time">All time</option>
+                  </select>
+                </label>
+                <div class="savings-outlook-flow-stats">
+                  <div class="budget-outlook-stat savings-outlook-income">
+                    <span>Total income</span>
+                    <strong id="savings-outlook-income">$0</strong>
+                  </div>
+                  <div class="budget-outlook-stat savings-outlook-expenses">
+                    <span>Total expenses</span>
+                    <strong id="savings-outlook-expenses">$0</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="budget-outlook-kpis">
+            <div class="budget-outlook-kpi budget">
+              <span class="budget-outlook-kpi-icon"><i class="fas fa-piggy-bank"></i></span>
+              <span class="budget-outlook-kpi-label">Accounts</span>
+              <strong id="savings-outlook-accounts">0</strong>
+            </div>
+            <div class="budget-outlook-kpi savings-month-in">
+              <span class="budget-outlook-kpi-icon"><i class="fas fa-arrow-down"></i></span>
+              <span class="budget-outlook-kpi-label">Added this month</span>
+              <strong id="savings-outlook-month-deposits">$0</strong>
+            </div>
+            <div class="budget-outlook-kpi danger">
+              <span class="budget-outlook-kpi-icon"><i class="fas fa-arrow-up"></i></span>
+              <span class="budget-outlook-kpi-label">Out this month</span>
+              <strong id="savings-outlook-month-withdrawals">$0</strong>
+            </div>
+          </div>
+        </div>
         <div id="savings-list" class="savings-list">
           <!-- Account cards will be injected here -->
         </div>
@@ -1007,35 +1131,43 @@
           <input type="hidden" id="tx-id" name="tx-id" />
           <input type="hidden" id="tx-account-id" name="tx-account-id" />
           <input type="hidden" id="tx-type" name="tx-type" />
-          <div class="form-group">
-            <label>Item / Description</label>
-            <input type="text" id="tx-item" name="tx-item" required placeholder="e.g. Emergency fund deposit" />
-          </div>
-          <div class="form-group">
-            <label>Type</label>
-            <select id="tx-type-display" name="tx-type-display">
-              <option value="deposit">Income</option>
-              <option value="withdrawal">Withdrawal</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Date</label>
-            <input type="date" id="tx-date" name="tx-date" required />
-          </div>
-          <div class="form-group">
-            <label>Amount</label>
-            <input type="number" step="0.01" id="tx-amount" name="tx-amount" required placeholder="0.00" />
-          </div>
-          <div class="form-group">
-            <label>Person</label>
-            <select id="tx-person" name="tx-person">
-              <option value="">Select Person (Optional)</option>
-              <!-- Options will be loaded dynamically -->
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Notes</label>
-            <textarea id="tx-notes" name="tx-notes" rows="2" placeholder="Optional notes"></textarea>
+          <div class="transaction-form-body">
+            <div class="form-group">
+              <label>Item / Description</label>
+              <input type="text" id="tx-item" name="tx-item" required placeholder="e.g. Emergency fund deposit" />
+            </div>
+            <div class="form-group">
+              <label>Type</label>
+              <select id="tx-type-display" name="tx-type-display">
+                <option value="deposit">Income</option>
+                <option value="withdrawal">Withdrawal</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="tx-category">Category (Optional)</label>
+              <select id="tx-category" name="tx-category">
+                <option value="">Uncategorized</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="tx-date" name="tx-date" required />
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" step="0.01" id="tx-amount" name="tx-amount" required placeholder="0.00" />
+            </div>
+            <div class="form-group">
+              <label>Person</label>
+              <select id="tx-person" name="tx-person">
+                <option value="">Select Person (Optional)</option>
+                <!-- Options will be loaded dynamically -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Notes</label>
+              <textarea id="tx-notes" name="tx-notes" rows="2" placeholder="Optional notes"></textarea>
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="cancel-transaction-modal">
@@ -1224,6 +1356,11 @@
           <div class="form-group">
             <label>Color</label>
             <input type="color" id="edit-category-color" value="#355872" style="width: 100%; height: 42px; padding: 0.25rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); cursor: pointer;" />
+          </div>
+          <div class="form-group" id="edit-category-icon-group">
+            <label for="edit-category-icon">Icon</label>
+            <select id="edit-category-icon"></select>
+            <span class="category-icon-preview" id="edit-category-icon-preview" aria-hidden="true"></span>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-secondary" id="cancel-category-edit-modal">
@@ -1618,11 +1755,50 @@
     </div>
   </div>
 
+  <div id="debt-repayment-overlay" class="ar-collection-overlay"></div>
+  <div id="debt-repayment-card" class="ar-collection-card debt-repayment-card">
+    <div class="ar-collection-header">
+      <h3><i class="fas fa-credit-card"></i> Repay Prior Debt</h3>
+      <button class="btn-icon" id="close-debt-repayment-card" aria-label="Close repayment">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="ar-collection-body">
+      <div class="ar-collection-info">
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Outstanding debt:</span>
+          <span class="ar-info-value" id="debt-repayment-outstanding">$0.00</span>
+        </div>
+        <div class="ar-collection-total">
+          <span class="ar-info-label">Available balance:</span>
+          <span class="ar-info-value" id="debt-repayment-available">$0.00</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="debt-repayment-amount">Amount to repay</label>
+        <input type="number" id="debt-repayment-amount" step="0.01" min="0.01"
+          placeholder="Enter repayment amount..." />
+      </div>
+      <div class="ar-collection-quick-actions">
+        <button type="button" class="btn btn-outline btn-sm" id="debt-repay-available-btn">
+          <i class="fas fa-check-double"></i> Repay available amount
+        </button>
+      </div>
+      <p class="debt-repayment-hint">Repayment is limited to your current available balance.</p>
+    </div>
+    <div class="ar-collection-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-debt-repayment">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirm-debt-repayment">
+        <i class="fas fa-check"></i> Record Repayment
+      </button>
+    </div>
+  </div>
+
   <!-- <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script> -->
   <script type="text/javascript" src="vendor/toastify-js.js"></script>
   <script src="js/db.js?v=3"></script>
-  <script src="js/app.js?v=11"></script>
-  <script src="js/planner.js?v=3"></script>
+  <script src="js/app.js?v=26"></script>
+  <script src="js/planner.js?v=11"></script>
   <script src="js/monthly-summary.js?v=2"></script>
 
   <script>
