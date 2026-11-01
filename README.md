@@ -22,7 +22,7 @@ Floosy is a personal finance tracker for managing income, expenses, savings, and
  
 **Tracking**
 - Dashboard with income, spending, and balance for the current month.
-- Prior-month shortfalls carry forward as a separate debt balance, with partial repayments recorded against available cash.
+- Prior-month shortfalls carry forward as a separate debt balance, with partial repayments recorded against available cash and counted in the month's spending total.
 - Debt repayments can be undone to restore both cash and the outstanding debt.
 - Income received before its expected date remains one transaction, shown in both the received and expected months without double-counting.
 - Transaction management with categories, category icons, and per-person tracking.

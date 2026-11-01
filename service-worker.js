@@ -1,4 +1,4 @@
-const CACHE = 'floosy-v27';
+const CACHE = 'floosy-v29';
 
 const APP_SHELL = [
   './',
@@ -6,7 +6,7 @@ const APP_SHELL = [
   './manifest.json',
   './css/style.css?v=26',
   './js/db.js?v=3',
-  './js/app.js?v=26',
+  './js/app.js?v=28',
   './js/planner.js?v=11',
   './js/monthly-summary.js?v=2',
   './images/favicon.png',

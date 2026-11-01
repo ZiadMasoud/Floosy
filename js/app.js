@@ -2888,7 +2888,7 @@ async function renderDashboard() {
         let typeMatch = true;
         if (filterType !== 'all') {
             if (filterType === 'savings') typeMatch = isSavings;
-            else if (filterType === 'spending') typeMatch = r.type === 'spending' && !isSavings;
+            else if (filterType === 'spending') typeMatch = (r.type === 'spending' || r.type === 'debt_repayment') && !isSavings;
             else if (filterType === 'income') typeMatch = r.type === 'income' && !isSavings; // Exclude savings transfers from income filter
             else if (filterType === 'account_receivable') typeMatch = r.type === 'account_receivable';
             else if (filterType === 'account_payable') typeMatch = r.type === 'account_payable';
@@ -2903,7 +2903,7 @@ async function renderDashboard() {
             if (filterCategoryValue === 'all-income') {
                 categoryMatch = r.type === 'income'; // Include savings income
             } else if (filterCategoryValue === 'all-spending') {
-                categoryMatch = (r.type === 'spending' || r.type === 'account_receivable' || r.type === 'account_payable' || r.type === 'provisional') && !isSavings;
+                categoryMatch = (r.type === 'spending' || r.type === 'debt_repayment' || r.type === 'account_receivable' || r.type === 'account_payable' || r.type === 'provisional') && !isSavings;
             } else {
                 categoryMatch = catToMatch === filterCategoryValue;
             }
@@ -2987,6 +2987,9 @@ async function renderDashboard() {
             }
             dashboardBalanceIncome += amount;
         } else if (r.type === 'spending') {
+            spending += amount;
+            dashboardBalanceSpending += amount;
+        } else if (r.type === 'debt_repayment') {
             spending += amount;
             dashboardBalanceSpending += amount;
         }
@@ -3200,7 +3203,7 @@ function renderDashboardRecords(recordsToRender) {
         } else if (filterType === 'savings') {
             typeMatch = isSavings;
         } else if (filterType === 'spending') {
-            typeMatch = (r.type === 'spending' || r.type === 'provisional') && !isSavings;
+            typeMatch = (r.type === 'spending' || r.type === 'debt_repayment' || r.type === 'provisional') && !isSavings;
         } else if (filterType === 'income') {
             typeMatch = r.type === 'income' && !isSavings; // Exclude savings transactions from income filter
         } else if (filterType === 'account_receivable') {
@@ -3323,7 +3326,7 @@ function renderDashboardRecords(recordsToRender) {
     // Calculate week stats
     const weekStats = {};
     filteredRecords.forEach(r => {
-        if (r.isCarriedDebt || r.type === 'debt_repayment') return;
+        if (r.isCarriedDebt) return;
         // Skip projected/expected income - they don't affect actual totals
         if (r.isProjected) return;
         const originDebt = findCarriedDebtForOrigin(r.id);
@@ -3358,7 +3361,7 @@ function renderDashboardRecords(recordsToRender) {
             const amount = parseFloat(r.amount) || 0;
             if (r.type === 'income') {
                 weekStats[weekKey].income += amount;
-            } else if (r.type === 'spending') {
+            } else if (r.type === 'spending' || r.type === 'debt_repayment') {
                 weekStats[weekKey].spending += amount;
             }
             // account_receivable excluded - affects balance only, not income/spending
